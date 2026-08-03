@@ -117,7 +117,8 @@
   <body class="min-h-screen bg-slate-50 text-slate-800">
     <div class="relative min-h-screen overflow-hidden">
       <div class="pointer-events-none absolute inset-0">
-        <div class="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top_right,rgba(251,191,188,0.24),transparent_34%),radial-gradient(circle_at_top_left,rgba(253,230,138,0.16),transparent_24%)]"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,243,255,0.9),transparent_32%),radial-gradient(circle_at_top_left,rgba(250,245,255,0.75),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(245,243,255,0.6),transparent_24%)]"></div>
+        <div class="absolute inset-x-0 top-0 h-64 bg-violet-50/30"></div>
         <div class="soft-grid absolute inset-x-0 top-0 h-72 opacity-50"></div>
       </div>
 
@@ -148,9 +149,9 @@
                 <div class="min-w-0">
                   <p
                     id="modalSubtitle"
-                    class="text-xs font-semibold uppercase tracking-[0.24em] text-rose-500"
+                    class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600"
                   ></p>
-                  <h3 id="modalTitle" class="mt-2 text-2xl font-semibold tracking-tight text-slate-900"></h3>
+                  <h3 id="modalTitle" class="mt-2 text-2xl font-semibold tracking-tight text-violet-950"></h3>
                 </div>
               </div>
               <button
@@ -167,23 +168,23 @@
               <p id="modalDescription" class="text-sm leading-7 text-slate-600"></p>
             </div>
 
-            <div class="mt-6 rounded-[1.75rem] bg-slate-900 p-4 text-white shadow-glow">
+            <div class="mt-6 rounded-[1.75rem] border border-violet-100 bg-white p-4 shadow-glow">
               <div class="flex items-center justify-between gap-3">
                 <div>
-                  <p class="text-xs uppercase tracking-[0.24em] text-rose-200">里民支持度</p>
-                  <p id="modalAgreeCount" class="mt-2 text-3xl font-semibold tracking-tight">0</p>
+                  <p class="text-xs uppercase tracking-[0.24em] text-violet-600">里民支持度</p>
+                  <p id="modalAgreeCount" class="mt-2 text-3xl font-semibold tracking-tight text-violet-950">0</p>
                 </div>
                 <div id="modalSupportAnchor" class="relative">
                   <button
                     id="modalSupportButton"
                     type="button"
-                    class="rounded-full bg-gradient-to-r from-rose-400 to-amber-200 px-5 py-3 text-sm font-semibold text-slate-900 shadow-lg shadow-rose-200/30 transition duration-200 hover:-translate-y-0.5"
+                    class="rounded-full border border-violet-200 bg-white px-5 py-3 text-sm font-semibold text-violet-950 shadow-sm transition duration-200 hover:-translate-y-0.5"
                   >
                     點擊支持
                   </button>
                 </div>
               </div>
-              <p id="modalSupportHint" class="mt-3 text-xs text-slate-300">
+              <p id="modalSupportHint" class="mt-3 text-xs text-slate-500">
                 每位里民的認同，都是推動正砂改變的重要力量。
               </p>
             </div>
@@ -191,20 +192,27 @@
         </div>
       </div>
 
-      <header class="fixed inset-x-0 top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
+      <header class="fixed inset-x-0 top-0 z-40 border-b border-violet-100/80 bg-white/80 backdrop-blur-md">
         <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div class="min-w-0">
-            <p class="truncate text-base font-semibold tracking-tight text-slate-900">
-              <span data-candidate-name>曾思容</span>
-            </p>
-            <p class="truncate text-[11px] font-medium tracking-[0.18em] text-slate-400">
-              正砂里長候選人
-            </p>
+          <div class="flex min-w-0 items-center gap-2.5">
+            <img
+              src="/candidate.png"
+              alt="曾思容候選人頭像"
+              class="h-6 w-6 rounded-full object-cover ring-1 ring-violet-200/80"
+            />
+            <div class="min-w-0">
+              <p class="truncate text-base font-semibold tracking-tight text-violet-950">
+                <span data-candidate-name>曾思容</span>
+              </p>
+              <p class="truncate text-[11px] font-medium tracking-[0.18em] text-violet-600">
+                正砂里長候選人
+              </p>
+            </div>
           </div>
 
-          <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 shadow-sm">
+          <div class="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/90 px-3 py-1.5 shadow-sm">
             <span class="status-breathe inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-            <span id="modeBadge" class="text-[11px] font-medium tracking-[0.16em] text-slate-500">
+            <span id="modeBadge" class="text-[11px] font-medium tracking-[0.16em] text-violet-600">
               初始化中
             </span>
           </div>
@@ -218,11 +226,11 @@
             data-tab-panel="platforms"
             class="space-y-5"
           >
-            <div class="rounded-[2rem] border border-slate-200/70 bg-white p-5 shadow-shell sm:p-6">
+            <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-rose-500">核心政見</p>
-                  <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                  <p class="text-sm font-semibold text-violet-600">核心政見</p>
+                  <h2 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">
                     以專業執行力，回應每一件真正重要的小事
                   </h2>
                   <p class="mt-2 text-sm leading-7 text-slate-500">
@@ -231,7 +239,7 @@
                 </div>
                 <div
                   id="platformStatus"
-                  class="rounded-full border border-rose-100 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-600"
+                  class="rounded-full border border-violet-100 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-600"
                 >
                   正在載入核心政見資料...
                 </div>
@@ -246,49 +254,53 @@
             data-tab-panel="intro"
             class="hidden space-y-5"
           >
-            <div class="rounded-[2rem] border border-slate-200/70 bg-white p-5 shadow-shell sm:p-6">
+            <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
               <div
-                class="overflow-hidden rounded-[1.75rem] border border-rose-100 bg-gradient-to-br from-white via-rose-50 to-amber-50"
+                class="overflow-hidden rounded-[1.75rem] border border-violet-100 bg-gradient-to-br from-white via-violet-50/60 to-rose-50/70"
               >
                 <div class="grid gap-6 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-rose-500">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-600">
                       Candidate Story
                     </p>
-                    <h2 class="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
+                    <h2 class="mt-3 text-3xl font-semibold tracking-tight text-violet-950">
                       <span data-candidate-name>曾思容</span>
                     </h2>
                     <p class="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
                       作為一位母親，也是一位多年在正砂生活的鄰居，我相信真正有感的里政，不是口號，而是願意走進每一條巷弄，聽見每一個家庭的聲音，並把事情一件件做到位。
                     </p>
                     <div class="mt-6 flex flex-wrap gap-2 text-xs font-medium text-slate-600">
-                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-rose-100">在地深耕</span>
-                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-rose-100">公共關懷</span>
-                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-rose-100">務實治理</span>
+                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-violet-100">在地深耕</span>
+                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-violet-100">公共關懷</span>
+                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-violet-100">務實治理</span>
                     </div>
                   </div>
 
                   <div class="flex justify-center lg:justify-end">
-                    <div class="relative h-64 w-64 rounded-full bg-white/70 p-3 shadow-float ring-1 ring-white/70">
-                      <div class="absolute inset-4 rounded-full border border-rose-100"></div>
+                    <div class="rounded-full bg-gradient-to-br from-rose-300 via-violet-200 to-amber-200 p-[2px] shadow-float">
+                      <div class="rounded-full bg-white/90 p-[6px]">
+                        <div class="relative h-64 w-64 rounded-full bg-gradient-to-br from-violet-50 to-rose-50 p-3 ring-1 ring-violet-100/70">
+                          <div class="absolute inset-4 rounded-full border border-violet-200/70"></div>
                       <img
-                        src="https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=elegant%20editorial%20portrait%20illustration%20of%20a%20warm%20trustworthy%20taiwanese%20female%20community%20leader%2C%20soft%20rose%20gold%20and%20slate%20palette%2C%20clean%20background%2C%20refined%20campaign%20app%20placeholder%2C%20high-end%20minimal%20style&image_size=square_hd"
+                        src="/candidate.png"
                         alt="候選人照片示意"
                         class="h-full w-full rounded-full object-cover"
                       />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div class="mt-6 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                <article class="rounded-[1.75rem] border border-slate-200 bg-slate-50/80 p-5">
+                <article class="rounded-[1.75rem] border border-violet-100 bg-slate-50/80 p-5">
                   <div class="flex items-center gap-3">
                     <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
                       <i data-lucide="quote" class="h-5 w-5"></i>
                     </div>
                     <div>
-                      <p class="text-sm font-semibold text-slate-900">參選心聲</p>
+                      <p class="text-sm font-semibold text-violet-950">參選心聲</p>
                       <p class="text-xs text-slate-500">用細節建立信任，用行動累積改變</p>
                     </div>
                   </div>
@@ -298,8 +310,8 @@
                 </article>
 
                 <div class="grid gap-4">
-                  <article class="rounded-[1.75rem] border border-slate-200 bg-white p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.26em] text-rose-500">
+                  <article class="rounded-[1.75rem] border border-violet-100 bg-white p-5">
+                    <p class="text-xs font-semibold uppercase tracking-[0.26em] text-violet-600">
                       個人簡歷
                     </p>
                     <ul class="mt-4 space-y-3 text-sm leading-7 text-slate-600">
@@ -309,8 +321,8 @@
                     </ul>
                   </article>
 
-                  <article class="rounded-[1.75rem] border border-slate-200 bg-white p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.26em] text-rose-500">
+                  <article class="rounded-[1.75rem] border border-violet-100 bg-white p-5">
+                    <p class="text-xs font-semibold uppercase tracking-[0.26em] text-violet-600">
                       學經歷
                     </p>
                     <ul class="mt-4 space-y-3 text-sm leading-7 text-slate-600">
@@ -329,22 +341,22 @@
             data-tab-panel="wish"
             class="hidden space-y-5"
           >
-            <div class="rounded-[2rem] border border-slate-200/70 bg-white p-5 shadow-shell sm:p-6">
+            <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-rose-500">里民許願池</p>
-                  <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                  <p class="text-sm font-semibold text-violet-600">里民許願池</p>
+                  <h2 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">
                     您的每一則意見，我們都會認真接住
                   </h2>
                 </div>
-                <div class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-500">
+                <div class="rounded-full border border-violet-100 bg-violet-50/60 px-4 py-2 text-sm font-medium text-violet-600">
                   LIFF / 測試模式
                 </div>
               </div>
 
               <div class="mt-6 grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
                 <div class="space-y-4">
-                  <div class="rounded-[1.75rem] border border-slate-200 bg-slate-50/85 p-5">
+                  <div class="rounded-[1.75rem] border border-violet-100 bg-slate-50/85 p-5">
                     <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
                       使用者識別
                     </p>
@@ -361,7 +373,7 @@
 
                   <div
                     id="wishStatusMessage"
-                    class="rounded-[1.5rem] border border-rose-100 bg-rose-50 px-4 py-4 text-sm leading-7 text-rose-600"
+                    class="rounded-[1.5rem] border border-violet-100 bg-violet-50 px-4 py-4 text-sm leading-7 text-violet-600"
                   >
                     正在準備表單與 LIFF 環境...
                   </div>
@@ -398,7 +410,7 @@
                   </div>
                 </div>
 
-                <div class="rounded-[1.75rem] border border-slate-200 bg-slate-50/70 p-5">
+                <div class="rounded-[1.75rem] border border-violet-100 bg-slate-50/70 p-5">
                   <form id="feedbackForm" class="space-y-4">
                     <input id="line_user_id" name="line_user_id" type="hidden" />
 
@@ -469,7 +481,7 @@
                     <button
                       id="submitButton"
                       type="submit"
-                      class="w-full rounded-full bg-slate-900 px-5 py-3.5 text-sm font-semibold text-white shadow-float transition hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      class="w-full rounded-full bg-gradient-to-r from-rose-400 to-pink-500 px-5 py-3.5 text-sm font-semibold text-white shadow-float transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-rose-200/70 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       送出里民建議
                     </button>
@@ -484,8 +496,8 @@
             data-tab-panel="schedule"
             class="hidden space-y-5"
           >
-            <div class="rounded-[2rem] border border-slate-200/70 bg-white p-5 shadow-shell sm:p-6">
-              <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-900 px-6 py-8 text-white">
+            <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
+              <div class="overflow-hidden rounded-[1.75rem] border border-violet-100 bg-slate-900 px-6 py-8 text-white">
                 <p class="text-xs font-semibold uppercase tracking-[0.28em] text-rose-200">
                   Campaign Schedule
                 </p>
@@ -501,7 +513,7 @@
 
       <nav class="pointer-events-none fixed inset-x-0 bottom-5 z-40 px-4 sm:px-6">
         <div
-          class="pointer-events-auto mx-auto max-w-xl rounded-full border border-white/80 bg-white/92 p-2 shadow-xl shadow-slate-900/10 backdrop-blur"
+          class="pointer-events-auto mx-auto max-w-xl rounded-full border-t border-violet-50 bg-white/95 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-md"
         >
           <div class="grid grid-cols-4 gap-1">
             <button
@@ -511,7 +523,7 @@
             >
               <span
                 data-tab-indicator="platforms"
-                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-gradient-to-r from-rose-400 to-amber-200 opacity-0 transition"
+                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 opacity-0 transition"
               ></span>
               <i data-lucide="sparkles" class="h-[18px] w-[18px]"></i>
               <span class="mt-1 text-[11px] font-medium">核心政見</span>
@@ -523,7 +535,7 @@
             >
               <span
                 data-tab-indicator="intro"
-                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-gradient-to-r from-rose-400 to-amber-200 opacity-0 transition"
+                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 opacity-0 transition"
               ></span>
               <i data-lucide="user" class="h-[18px] w-[18px]"></i>
               <span class="mt-1 text-[11px] font-medium">候選人介紹</span>
@@ -535,7 +547,7 @@
             >
               <span
                 data-tab-indicator="wish"
-                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-gradient-to-r from-rose-400 to-amber-200 opacity-0 transition"
+                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 opacity-0 transition"
               ></span>
               <i data-lucide="message-square-heart" class="h-[18px] w-[18px]"></i>
               <span class="mt-1 text-[11px] font-medium">里民許願池</span>
@@ -547,7 +559,7 @@
             >
               <span
                 data-tab-indicator="schedule"
-                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-gradient-to-r from-rose-400 to-amber-200 opacity-0 transition"
+                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 opacity-0 transition"
               ></span>
               <i data-lucide="calendar-days" class="h-[18px] w-[18px]"></i>
               <span class="mt-1 text-[11px] font-medium">競選行程</span>
@@ -561,84 +573,14 @@
       const TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule'];
       const AGREE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
       const DEFAULT_CANDIDATE_NAME = '曾思容';
-      const PLATFORM_THEME_MAP = {
-        blue: {
-          card: 'border-sky-100 bg-sky-50/55',
-          subtitle: 'text-sky-700',
-          modalIconWrap: 'bg-sky-50 text-sky-700',
-          supportButton: 'from-sky-300 to-slate-100',
-          watermark: 'text-sky-700 opacity-[0.08]',
-        },
-        indigo: {
-          card: 'border-indigo-100 bg-indigo-50/55',
-          subtitle: 'text-indigo-700',
-          modalIconWrap: 'bg-indigo-50 text-indigo-700',
-          supportButton: 'from-indigo-300 to-slate-100',
-          watermark: 'text-indigo-700 opacity-[0.08]',
-        },
-        rose: {
-          card: 'border-rose-100 bg-rose-50/55',
-          subtitle: 'text-rose-600',
-          modalIconWrap: 'bg-rose-50 text-rose-700',
-          supportButton: 'from-rose-400 to-amber-200',
-          watermark: 'text-rose-700 opacity-[0.08]',
-        },
-        pink: {
-          card: 'border-pink-100 bg-pink-50/60',
-          subtitle: 'text-pink-600',
-          modalIconWrap: 'bg-pink-50 text-pink-700',
-          supportButton: 'from-pink-300 to-amber-100',
-          watermark: 'text-pink-700 opacity-[0.08]',
-        },
-        amber: {
-          card: 'border-amber-100 bg-amber-50/60',
-          subtitle: 'text-amber-700',
-          modalIconWrap: 'bg-amber-50 text-amber-700',
-          supportButton: 'from-amber-300 to-rose-200',
-          watermark: 'text-amber-700 opacity-[0.08]',
-        },
-        emerald: {
-          card: 'border-emerald-100 bg-emerald-50/60',
-          subtitle: 'text-emerald-700',
-          modalIconWrap: 'bg-emerald-50 text-emerald-700',
-          supportButton: 'from-emerald-300 to-slate-100',
-          watermark: 'text-emerald-700 opacity-[0.08]',
-        },
-        teal: {
-          card: 'border-teal-100 bg-teal-50/60',
-          subtitle: 'text-teal-700',
-          modalIconWrap: 'bg-teal-50 text-teal-700',
-          supportButton: 'from-teal-300 to-slate-100',
-          watermark: 'text-teal-700 opacity-[0.08]',
-        },
-        cyan: {
-          card: 'border-cyan-100 bg-cyan-50/60',
-          subtitle: 'text-cyan-700',
-          modalIconWrap: 'bg-cyan-50 text-cyan-700',
-          supportButton: 'from-cyan-300 to-slate-100',
-          watermark: 'text-cyan-700 opacity-[0.08]',
-        },
-        violet: {
-          card: 'border-violet-100 bg-violet-50/60',
-          subtitle: 'text-violet-700',
-          modalIconWrap: 'bg-violet-50 text-violet-700',
-          supportButton: 'from-violet-300 to-rose-100',
-          watermark: 'text-violet-700 opacity-[0.08]',
-        },
-        orange: {
-          card: 'border-orange-100 bg-orange-50/60',
-          subtitle: 'text-orange-700',
-          modalIconWrap: 'bg-orange-50 text-orange-700',
-          supportButton: 'from-orange-300 to-amber-100',
-          watermark: 'text-orange-700 opacity-[0.08]',
-        },
-        default: {
-          card: 'border-slate-200 bg-white',
-          subtitle: 'text-slate-600',
-          modalIconWrap: 'bg-slate-100 text-slate-700',
-          supportButton: 'from-rose-300 to-amber-100',
-          watermark: 'text-slate-700 opacity-[0.08]',
-        },
+      const BRAND_PLATFORM_THEME = {
+        card: 'border-violet-100/80',
+        subtitle: 'text-violet-600',
+        subtitleBg: 'bg-violet-50',
+        modalIconWrap: 'bg-violet-50 text-violet-700',
+        supportButton:
+          'border border-violet-200 bg-white text-violet-950 shadow-sm hover:border-violet-300',
+        watermark: 'text-violet-500 opacity-[0.08]',
       };
 
       const PLATFORM_ICON_MAP = {
@@ -799,7 +741,7 @@
         elements.tabButtons.forEach((button) => {
           const isActive = button.dataset.tabButton === nextTab;
           button.className = isActive
-            ? 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full bg-slate-50 px-2 py-2 text-slate-900 transition'
+            ? 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full bg-violet-50/80 px-2 py-2 text-violet-950 transition'
             : 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full px-2 py-2 text-slate-400 transition';
         });
 
@@ -921,7 +863,7 @@
 
         elements.platformList.innerHTML = state.platforms
           .map((platform) => {
-            const theme = getPlatformTheme(platform);
+            const theme = getPlatformTheme();
             const iconName = getPlatformIconName(platform);
             const agreeCount = Number(platform.agree_count) || 0;
 
@@ -939,10 +881,10 @@
                   <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
                     ${agreeCount}
                   </span>
-                  <p class="mt-4 text-[11px] font-semibold uppercase tracking-[0.24em] ${theme.subtitle}">
-                  ${escapeHtml(platform.subtitle || '核心政見')}
-                  </p>
-                  <h3 class="mt-2 text-base font-semibold leading-7 text-slate-900">
+                  <span class="mt-4 inline-flex rounded-full ${theme.subtitleBg} px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${theme.subtitle}">
+                    ${escapeHtml(platform.subtitle || '核心政見')}
+                  </span>
+                  <h3 class="mt-2 text-base font-semibold leading-7 text-violet-950">
                     ${escapeHtml(platform.title || '未命名政見')}
                   </h3>
                   <p class="mt-4 text-xs font-medium text-slate-400">
@@ -974,7 +916,7 @@
         }
 
         state.activePlatformId = Number(platform.id);
-        const theme = getPlatformTheme(platform);
+        const theme = getPlatformTheme();
         const iconName = getPlatformIconName(platform);
         const cooldown = getAgreeCooldownInfo(platform.id);
         const isSupporting = state.supportingIds.has(platform.id);
@@ -985,13 +927,13 @@
         elements.modalAgreeCount.textContent = String(Number(platform.agree_count) || 0);
         elements.modalIconWrap.className = `flex h-14 w-14 items-center justify-center rounded-2xl ring-1 ring-white/80 ${theme.modalIconWrap}`;
         elements.modalIconWrap.innerHTML = `<i data-lucide="${iconName}" class="h-7 w-7"></i>`;
-        elements.modalSupportButton.className = `rounded-full bg-gradient-to-r ${theme.supportButton} px-5 py-3 text-sm font-semibold text-slate-900 shadow-lg transition duration-200 hover:-translate-y-0.5`;
+        elements.modalSupportButton.className = `rounded-full px-5 py-3 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400 ${theme.supportButton}`;
         elements.modalSupportButton.disabled = isSupporting || cooldown.active;
         elements.modalSupportButton.innerHTML = isSupporting
           ? '送出中...'
           : cooldown.active
             ? '已支持，稍後可再投'
-            : '<span class="inline-flex items-center gap-2"><i data-lucide="heart" class="h-4 w-4"></i><span>點擊支持</span></span>';
+            : '<span class="inline-flex items-center gap-2"><i data-lucide="heart" class="h-4 w-4 text-rose-500"></i><span>點擊支持</span></span>';
         elements.modalSupportHint.textContent = cooldown.active
           ? `您剛剛已支持過這項政見，約 ${cooldown.minutesLeft} 分鐘後可再次點擊。`
           : '每位里民的認同，都是推動正砂改變的重要力量。';
@@ -1201,8 +1143,8 @@
         });
       }
 
-      function getPlatformTheme(platform) {
-        return PLATFORM_THEME_MAP[platform.theme_color] || PLATFORM_THEME_MAP.default;
+      function getPlatformTheme() {
+        return BRAND_PLATFORM_THEME;
       }
 
       function getPlatformIconName(platform) {
