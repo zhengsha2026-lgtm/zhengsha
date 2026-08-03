@@ -90,9 +90,25 @@
         animation: toast-in 220ms ease-out;
       }
 
+      @keyframes status-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.28);
+        }
+        50% {
+          transform: scale(1.08);
+          box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+        }
+      }
+
       .soft-grid {
         background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.16) 1px, transparent 0);
         background-size: 26px 26px;
+      }
+
+      .status-breathe {
+        animation: status-breathe 1.8s ease-in-out infinite;
       }
     </style>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -101,9 +117,8 @@
   <body class="min-h-screen bg-slate-50 text-slate-800">
     <div class="relative min-h-screen overflow-hidden">
       <div class="pointer-events-none absolute inset-0">
-        <div class="absolute inset-x-0 top-0 h-80 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700"></div>
-        <div class="absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(circle_at_top_right,rgba(251,191,188,0.32),transparent_36%),radial-gradient(circle_at_top_left,rgba(253,230,138,0.18),transparent_28%)]"></div>
-        <div class="soft-grid absolute inset-x-0 top-0 h-[32rem] opacity-60"></div>
+        <div class="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top_right,rgba(251,191,188,0.24),transparent_34%),radial-gradient(circle_at_top_left,rgba(253,230,138,0.16),transparent_24%)]"></div>
+        <div class="soft-grid absolute inset-x-0 top-0 h-72 opacity-50"></div>
       </div>
 
       <div id="toast" class="pointer-events-none fixed inset-x-0 top-4 z-50 hidden px-4">
@@ -176,35 +191,28 @@
         </div>
       </div>
 
-      <main class="relative mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-32 pt-5 sm:px-6 lg:px-8">
-        <header class="rounded-[2rem] border border-white/12 bg-white/8 p-5 text-white shadow-float backdrop-blur sm:p-7">
-          <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div class="max-w-2xl">
-              <p class="text-xs font-semibold uppercase tracking-[0.34em] text-rose-100/80">
-                幸福正砂
-              </p>
-              <h1 class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-                <span data-candidate-name>曾思容</span>｜讓信任感成為里政的日常
-              </h1>
-              <p class="mt-4 max-w-xl text-sm leading-7 text-slate-200 sm:text-base">
-                以專業、溫度與持續行動，回應里民最在意的居住安全、生活便利與家庭照顧，打造更安心也更有尊嚴的正砂。
-              </p>
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="rounded-[1.5rem] border border-white/12 bg-white/8 px-4 py-3 backdrop-blur">
-                <p class="text-[11px] font-medium uppercase tracking-[0.22em] text-slate-300">目前身份</p>
-                <p id="identityMiniLabel" class="mt-2 text-base font-semibold text-white">載入中</p>
-              </div>
-              <div class="rounded-[1.5rem] border border-white/12 bg-white/8 px-4 py-3 backdrop-blur">
-                <p class="text-[11px] font-medium uppercase tracking-[0.22em] text-slate-300">應用狀態</p>
-                <p id="modeBadge" class="mt-2 text-base font-semibold text-white">初始化中</p>
-              </div>
-            </div>
+      <header class="fixed inset-x-0 top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
+        <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div class="min-w-0">
+            <p class="truncate text-base font-semibold tracking-tight text-slate-900">
+              <span data-candidate-name>曾思容</span>
+            </p>
+            <p class="truncate text-[11px] font-medium tracking-[0.18em] text-slate-400">
+              正砂里長候選人
+            </p>
           </div>
-        </header>
 
-        <section class="mt-6 space-y-6">
+          <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 shadow-sm">
+            <span class="status-breathe inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+            <span id="modeBadge" class="text-[11px] font-medium tracking-[0.16em] text-slate-500">
+              初始化中
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main class="relative mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-32 pt-20 sm:px-6 lg:px-8">
+        <section class="space-y-6">
           <section
             id="platformsPanel"
             data-tab-panel="platforms"
@@ -556,80 +564,80 @@
       const PLATFORM_THEME_MAP = {
         blue: {
           card: 'border-sky-100 bg-sky-50/55',
-          iconWrap: 'bg-sky-50 text-sky-700',
           subtitle: 'text-sky-700',
           modalIconWrap: 'bg-sky-50 text-sky-700',
           supportButton: 'from-sky-300 to-slate-100',
+          watermark: 'text-sky-700 opacity-[0.08]',
         },
         indigo: {
           card: 'border-indigo-100 bg-indigo-50/55',
-          iconWrap: 'bg-indigo-50 text-indigo-700',
           subtitle: 'text-indigo-700',
           modalIconWrap: 'bg-indigo-50 text-indigo-700',
           supportButton: 'from-indigo-300 to-slate-100',
+          watermark: 'text-indigo-700 opacity-[0.08]',
         },
         rose: {
           card: 'border-rose-100 bg-rose-50/55',
-          iconWrap: 'bg-rose-50 text-rose-700',
           subtitle: 'text-rose-600',
           modalIconWrap: 'bg-rose-50 text-rose-700',
           supportButton: 'from-rose-400 to-amber-200',
+          watermark: 'text-rose-700 opacity-[0.08]',
         },
         pink: {
           card: 'border-pink-100 bg-pink-50/60',
-          iconWrap: 'bg-pink-50 text-pink-700',
           subtitle: 'text-pink-600',
           modalIconWrap: 'bg-pink-50 text-pink-700',
           supportButton: 'from-pink-300 to-amber-100',
+          watermark: 'text-pink-700 opacity-[0.08]',
         },
         amber: {
           card: 'border-amber-100 bg-amber-50/60',
-          iconWrap: 'bg-amber-50 text-amber-700',
           subtitle: 'text-amber-700',
           modalIconWrap: 'bg-amber-50 text-amber-700',
           supportButton: 'from-amber-300 to-rose-200',
+          watermark: 'text-amber-700 opacity-[0.08]',
         },
         emerald: {
           card: 'border-emerald-100 bg-emerald-50/60',
-          iconWrap: 'bg-emerald-50 text-emerald-700',
           subtitle: 'text-emerald-700',
           modalIconWrap: 'bg-emerald-50 text-emerald-700',
           supportButton: 'from-emerald-300 to-slate-100',
+          watermark: 'text-emerald-700 opacity-[0.08]',
         },
         teal: {
           card: 'border-teal-100 bg-teal-50/60',
-          iconWrap: 'bg-teal-50 text-teal-700',
           subtitle: 'text-teal-700',
           modalIconWrap: 'bg-teal-50 text-teal-700',
           supportButton: 'from-teal-300 to-slate-100',
+          watermark: 'text-teal-700 opacity-[0.08]',
         },
         cyan: {
           card: 'border-cyan-100 bg-cyan-50/60',
-          iconWrap: 'bg-cyan-50 text-cyan-700',
           subtitle: 'text-cyan-700',
           modalIconWrap: 'bg-cyan-50 text-cyan-700',
           supportButton: 'from-cyan-300 to-slate-100',
+          watermark: 'text-cyan-700 opacity-[0.08]',
         },
         violet: {
           card: 'border-violet-100 bg-violet-50/60',
-          iconWrap: 'bg-violet-50 text-violet-700',
           subtitle: 'text-violet-700',
           modalIconWrap: 'bg-violet-50 text-violet-700',
           supportButton: 'from-violet-300 to-rose-100',
+          watermark: 'text-violet-700 opacity-[0.08]',
         },
         orange: {
           card: 'border-orange-100 bg-orange-50/60',
-          iconWrap: 'bg-orange-50 text-orange-700',
           subtitle: 'text-orange-700',
           modalIconWrap: 'bg-orange-50 text-orange-700',
           supportButton: 'from-orange-300 to-amber-100',
+          watermark: 'text-orange-700 opacity-[0.08]',
         },
         default: {
           card: 'border-slate-200 bg-white',
-          iconWrap: 'bg-slate-100 text-slate-700',
           subtitle: 'text-slate-600',
           modalIconWrap: 'bg-slate-100 text-slate-700',
           supportButton: 'from-rose-300 to-amber-100',
+          watermark: 'text-slate-700 opacity-[0.08]',
         },
       };
 
@@ -661,7 +669,6 @@
         toast: document.getElementById('toast'),
         toastMessage: document.getElementById('toastMessage'),
         modeBadge: document.getElementById('modeBadge'),
-        identityMiniLabel: document.getElementById('identityMiniLabel'),
         candidateNameNodes: Array.from(document.querySelectorAll('[data-candidate-name]')),
         platformStatus: document.getElementById('platformStatus'),
         platformList: document.getElementById('platformList'),
@@ -851,7 +858,6 @@
           }
 
           elements.modeBadge.textContent = 'LIFF 模式';
-          elements.identityMiniLabel.textContent = 'LIFF 身分';
           setWishStatus('已成功取得 LINE Profile，表單可直接送出。', 'success');
         } catch (error) {
           console.error('LIFF initialization failed:', error);
@@ -863,7 +869,6 @@
         state.mode = 'test';
         elements.testModePanel.classList.remove('hidden');
         elements.modeBadge.textContent = '測試模式';
-        elements.identityMiniLabel.textContent = '測試模式';
 
         if (!elements.mockLineId.value.trim()) {
           elements.mockLineId.value = generateMockLineId();
@@ -924,22 +929,26 @@
               <button
                 type="button"
                 data-platform-open="${platform.id}"
-                class="group rounded-[1.5rem] border ${theme.card} bg-white p-4 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-float"
+                class="group relative overflow-hidden rounded-[1.5rem] border ${theme.card} bg-white p-4 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-float"
               >
-                <div class="flex items-start justify-between gap-3">
-                  <div class="flex h-11 w-11 items-center justify-center rounded-2xl ${theme.iconWrap}">
-                    <i data-lucide="${iconName}" class="h-5 w-5"></i>
-                  </div>
-                  <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+                <i
+                  data-lucide="${iconName}"
+                  class="pointer-events-none absolute -bottom-2 -right-2 h-24 w-24 rotate-12 ${theme.watermark}"
+                ></i>
+                <div class="relative z-10 max-w-[calc(100%-2.5rem)]">
+                  <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
                     ${agreeCount}
                   </span>
-                </div>
-                <p class="mt-4 text-[11px] font-semibold uppercase tracking-[0.24em] ${theme.subtitle}">
+                  <p class="mt-4 text-[11px] font-semibold uppercase tracking-[0.24em] ${theme.subtitle}">
                   ${escapeHtml(platform.subtitle || '核心政見')}
-                </p>
-                <h3 class="mt-2 text-base font-semibold leading-7 text-slate-900">
-                  ${escapeHtml(platform.title || '未命名政見')}
-                </h3>
+                  </p>
+                  <h3 class="mt-2 text-base font-semibold leading-7 text-slate-900">
+                    ${escapeHtml(platform.title || '未命名政見')}
+                  </h3>
+                  <p class="mt-4 text-xs font-medium text-slate-400">
+                    點擊查看政見詳情
+                  </p>
+                </div>
               </button>
             `;
           })
