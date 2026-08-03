@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>里民許願池表單</title>
+    <title>幸福正砂 曾思容</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -11,200 +11,530 @@
           extend: {
             colors: {
               brand: {
-                50: '#f0f9ff',
-                100: '#e0f2fe',
-                500: '#0ea5e9',
-                600: '#0284c7',
-                700: '#0369a1',
+                50: '#fff7ed',
+                100: '#ffedd5',
+                500: '#f97316',
+                600: '#ea580c',
+                700: '#c2410c',
               },
-              accent: {
-                50: '#fdf4ff',
-                100: '#fae8ff',
-                500: '#d946ef',
+              warm: {
+                50: '#fdf2f8',
+                100: '#fce7f3',
+                500: '#ec4899',
               },
             },
             boxShadow: {
-              soft: '0 24px 60px -24px rgba(15, 23, 42, 0.28)',
+              soft: '0 24px 60px -24px rgba(15, 23, 42, 0.24)',
+              glow: '0 20px 45px -28px rgba(249, 115, 22, 0.55)',
             },
           },
         },
       };
     </script>
+    <style>
+      @keyframes float-reaction {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, 0) scale(0.6);
+        }
+        20% {
+          opacity: 1;
+          transform: translate(-50%, -10px) scale(1);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -54px) scale(1.45);
+        }
+      }
+
+      @keyframes toast-in {
+        from {
+          opacity: 0;
+          transform: translateY(-12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .reaction-bubble {
+        animation: float-reaction 900ms ease-out forwards;
+      }
+
+      .toast-enter {
+        animation: toast-in 220ms ease-out;
+      }
+    </style>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   </head>
   <body class="min-h-screen bg-slate-100 font-sans text-slate-900">
     <div class="relative overflow-hidden">
-      <div class="absolute inset-x-0 top-0 h-72 bg-gradient-to-br from-sky-500 via-cyan-400 to-indigo-500"></div>
-      <div class="absolute left-1/2 top-10 h-48 w-48 -translate-x-1/2 rounded-full bg-white/20 blur-3xl"></div>
+      <div class="absolute inset-x-0 top-0 h-72 bg-gradient-to-br from-orange-400 via-rose-400 to-pink-500"></div>
+      <div class="absolute left-1/2 top-8 h-52 w-52 -translate-x-1/2 rounded-full bg-white/20 blur-3xl"></div>
 
-      <main class="relative mx-auto flex min-h-screen max-w-lg flex-col px-4 py-6 sm:px-6">
-        <section class="rounded-[28px] bg-white/95 p-6 shadow-soft ring-1 ring-white/70 backdrop-blur">
+      <div id="toast" class="pointer-events-none fixed inset-x-0 top-4 z-50 hidden px-4">
+        <div
+          id="toastMessage"
+          class="toast-enter mx-auto max-w-sm rounded-2xl bg-slate-900/92 px-4 py-3 text-center text-sm font-medium text-white shadow-xl shadow-slate-900/25"
+        ></div>
+      </div>
+
+      <main class="relative mx-auto flex min-h-screen max-w-lg flex-col px-4 pb-28 pt-5 sm:px-6">
+        <header class="rounded-[30px] bg-white/92 p-5 shadow-soft ring-1 ring-white/70 backdrop-blur">
           <div class="flex items-start justify-between gap-4">
             <div>
-              <p class="text-sm font-medium text-sky-700">里長服務平台</p>
-              <h1 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                里民許願池表單
+              <p class="text-xs font-semibold uppercase tracking-[0.28em] text-orange-500">
+                幸福正砂
+              </p>
+              <h1 class="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+                <span data-candidate-name>曾思容</span>｜正砂里長候選人
               </h1>
               <p class="mt-2 text-sm leading-relaxed text-slate-600">
-                歡迎留下您的建議、需求與需要協助的地方，我們會盡快了解並回應。
+                用更溫暖的傾聽、務實的行動與透明的治理，讓每一位里民都感受到安心與照顧。
               </p>
             </div>
             <span
               id="modeBadge"
-              class="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-100"
+              class="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700 ring-1 ring-orange-100"
             >
               初始化中
             </span>
           </div>
 
-          <div class="mt-5 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
-            <div class="flex items-center justify-between gap-3">
+          <div
+            class="mt-5 rounded-[28px] bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 p-5 text-white shadow-glow"
+          >
+            <div class="flex items-center justify-between gap-4">
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                  使用者識別
+                <p class="text-xs font-semibold uppercase tracking-[0.26em] text-orange-200">
+                  核心政見首頁
                 </p>
-                <p id="profileName" class="mt-1 text-base font-semibold text-slate-900">
-                  尚未取得 LINE 身分
-                </p>
+                <p class="mt-2 text-xl font-semibold">從生活小事開始，陪正砂一起變得更好。</p>
               </div>
-              <div class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
-                LINE / 測試模式
+              <div class="rounded-3xl bg-white/10 px-4 py-3 text-center ring-1 ring-white/15">
+                <p class="text-[11px] font-medium text-slate-200">目前身份</p>
+                <p id="identityMiniLabel" class="mt-1 text-sm font-semibold text-white">載入中</p>
               </div>
             </div>
-            <p id="profileHint" class="mt-3 break-all text-xs leading-relaxed text-slate-500">
-              目前尚未建立身分資訊，系統將嘗試自動初始化。
-            </p>
+          </div>
+        </header>
+
+        <section class="mt-5 space-y-5">
+          <div
+            id="platformsPanel"
+            data-tab-panel="platforms"
+            class="space-y-4"
+          >
+            <div class="rounded-[28px] bg-white/94 p-5 shadow-soft ring-1 ring-white/70">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm font-semibold text-orange-600">核心政見</p>
+                  <h2 class="mt-1 text-xl font-semibold text-slate-900">
+                    8 大行動承諾，從交通到照顧一次到位
+                  </h2>
+                </div>
+                <div class="rounded-2xl bg-orange-50 px-3 py-2 text-right text-xs font-medium text-orange-700">
+                  點卡片展開內容
+                </div>
+              </div>
+
+              <div
+                id="platformStatus"
+                class="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-700"
+              >
+                正在載入核心政見資料...
+              </div>
+
+              <div id="platformList" class="mt-4 space-y-3"></div>
+            </div>
           </div>
 
           <div
-            id="statusMessage"
-            class="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm leading-relaxed text-sky-700"
+            id="introPanel"
+            data-tab-panel="intro"
+            class="hidden space-y-4"
           >
-            正在準備表單與 LIFF 環境...
+            <section class="rounded-[28px] bg-white/94 p-5 shadow-soft ring-1 ring-white/70">
+              <div class="grid gap-5">
+                <div class="rounded-[28px] bg-gradient-to-br from-rose-100 via-orange-50 to-amber-100 p-6">
+                  <div class="flex items-center gap-4">
+                    <div
+                      class="flex h-24 w-24 shrink-0 items-center justify-center rounded-[28px] bg-gradient-to-br from-orange-400 via-rose-400 to-pink-500 text-3xl font-bold text-white shadow-lg"
+                    >
+                      曾
+                    </div>
+                    <div>
+                      <p class="text-sm font-semibold text-rose-600">候選人介紹</p>
+                      <h2 class="mt-1 text-2xl font-bold text-slate-900">
+                        <span data-candidate-name>曾思容</span>
+                      </h2>
+                      <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                        作為一位母親，也是一位長年生活在正砂的鄰居，我更懂得每一條巷弄、每一份不便與每一個家庭的期待。
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="rounded-[24px] bg-slate-50 p-5 ring-1 ring-slate-200">
+                  <p class="text-sm font-semibold text-slate-900">參選心聲</p>
+                  <p class="mt-3 text-sm leading-7 text-slate-600">
+                    我希望把里政做得更貼近生活，讓長輩出門更安心、家長育兒更有支持、青年返家更有盼望。正砂不只是一個住的地方，更是我們一起生活、一起守護的家。
+                  </p>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <div class="rounded-[24px] bg-white p-5 ring-1 ring-slate-200">
+                    <p class="text-sm font-semibold text-slate-900">個人簡歷</p>
+                    <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                      <li>在地居民，多年社區公共事務參與經驗</li>
+                      <li>長期投入親子、長者與社區關懷服務</li>
+                      <li>擅長整合民意、資源協調與跨單位溝通</li>
+                    </ul>
+                  </div>
+
+                  <div class="rounded-[24px] bg-white p-5 ring-1 ring-slate-200">
+                    <p class="text-sm font-semibold text-slate-900">學經歷</p>
+                    <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                      <li>地方志工與社區服務組織參與者</li>
+                      <li>熟悉里民需求蒐集、活動規劃與服務整合</li>
+                      <li>關注社區安全、環境品質與家庭支持政策</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
 
           <div
-            id="testModePanel"
-            class="mt-4 hidden rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+            id="wishPanel"
+            data-tab-panel="wish"
+            class="hidden space-y-4"
           >
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <p class="font-semibold">測試模式已啟用</p>
-                <p class="mt-1 leading-relaxed text-amber-800">
-                  目前不是 LIFF 已登入環境，您仍可在一般瀏覽器測試送出流程。
+            <section class="rounded-[28px] bg-white/94 p-5 shadow-soft ring-1 ring-white/70">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm font-semibold text-orange-600">里民許願池</p>
+                  <h2 class="mt-1 text-xl font-semibold text-slate-900">留下您的建議，我們會用心接住</h2>
+                </div>
+                <div class="rounded-2xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+                  LIFF / 測試模式
+                </div>
+              </div>
+
+              <div class="mt-5 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      使用者識別
+                    </p>
+                    <p id="profileName" class="mt-1 text-base font-semibold text-slate-900">
+                      尚未取得 LINE 身分
+                    </p>
+                  </div>
+                </div>
+                <p id="profileHint" class="mt-3 break-all whitespace-pre-line text-xs leading-relaxed text-slate-500">
+                  目前尚未建立身分資訊，系統將嘗試自動初始化。
                 </p>
               </div>
-              <button
-                id="generateMockIdButton"
-                type="button"
-                class="rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white transition-all duration-200 hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
-              >
-                重新產生 ID
-              </button>
-            </div>
 
-            <label class="mt-4 block text-xs font-semibold text-amber-900" for="mockLineId">
-              測試用 LINE User ID
-            </label>
-            <input
-              id="mockLineId"
-              type="text"
-              class="mt-2 w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-200 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-              placeholder="可手動輸入，或點上方按鈕自動產生"
-            />
+              <div
+                id="wishStatusMessage"
+                class="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm leading-relaxed text-orange-700"
+              >
+                正在準備表單與 LIFF 環境...
+              </div>
+
+              <div
+                id="testModePanel"
+                class="mt-4 hidden rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+              >
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="font-semibold">測試模式已啟用</p>
+                    <p class="mt-1 leading-relaxed text-amber-800">
+                      目前不是 LIFF 已登入環境，您仍可在一般瀏覽器測試送出流程。
+                    </p>
+                  </div>
+                  <button
+                    id="generateMockIdButton"
+                    type="button"
+                    class="rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white transition-all duration-200 hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                  >
+                    重新產生 ID
+                  </button>
+                </div>
+
+                <label class="mt-4 block text-xs font-semibold text-amber-900" for="mockLineId">
+                  測試用 LINE User ID
+                </label>
+                <input
+                  id="mockLineId"
+                  type="text"
+                  class="mt-2 w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-200 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  placeholder="可手動輸入，或點上方按鈕自動產生"
+                />
+              </div>
+
+              <form id="feedbackForm" class="mt-6 space-y-4">
+                <input id="line_user_id" name="line_user_id" type="hidden" />
+
+                <div>
+                  <label for="user_name" class="mb-2 block text-sm font-semibold text-slate-700">
+                    里民姓名
+                  </label>
+                  <input
+                    id="user_name"
+                    name="user_name"
+                    type="text"
+                    required
+                    maxlength="100"
+                    class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-200 placeholder:text-slate-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                    placeholder="請輸入您的姓名或暱稱"
+                  />
+                </div>
+
+                <div>
+                  <label for="phone" class="mb-2 block text-sm font-semibold text-slate-700">
+                    聯絡電話
+                  </label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    required
+                    maxlength="30"
+                    class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-200 placeholder:text-slate-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                    placeholder="例如 0912-345-678"
+                  />
+                </div>
+
+                <div>
+                  <label for="category" class="mb-2 block text-sm font-semibold text-slate-700">
+                    反映類別
+                  </label>
+                  <select
+                    id="category"
+                    name="category"
+                    required
+                    class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-200 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                  >
+                    <option value="">請選擇類別</option>
+                    <option value="環境">環境維護</option>
+                    <option value="治安">治安安全</option>
+                    <option value="銀髮">銀髮關懷</option>
+                    <option value="親子">親子友善</option>
+                    <option value="其他">其他</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label for="content" class="mb-2 block text-sm font-semibold text-slate-700">
+                    具體建議內容
+                  </label>
+                  <textarea
+                    id="content"
+                    name="content"
+                    required
+                    rows="6"
+                    maxlength="2000"
+                    class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 shadow-sm transition-all duration-200 placeholder:text-slate-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                    placeholder="請描述您希望改善的內容、遇到的問題，或想提出的建議。"
+                  ></textarea>
+                </div>
+
+                <button
+                  id="submitButton"
+                  type="submit"
+                  class="w-full rounded-2xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  送出里民建議
+                </button>
+              </form>
+            </section>
           </div>
 
-          <form id="feedbackForm" class="mt-6 space-y-4">
-            <input id="line_user_id" name="line_user_id" type="hidden" />
-
-            <div>
-              <label for="user_name" class="mb-2 block text-sm font-semibold text-slate-700">
-                里民姓名
-              </label>
-              <input
-                id="user_name"
-                name="user_name"
-                type="text"
-                required
-                maxlength="100"
-                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-200 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
-                placeholder="請輸入您的姓名或暱稱"
-              />
-            </div>
-
-            <div>
-              <label for="phone" class="mb-2 block text-sm font-semibold text-slate-700">
-                聯絡電話
-              </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                required
-                maxlength="30"
-                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-200 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
-                placeholder="例如 0912-345-678"
-              />
-            </div>
-
-            <div>
-              <label for="category" class="mb-2 block text-sm font-semibold text-slate-700">
-                反映類別
-              </label>
-              <select
-                id="category"
-                name="category"
-                required
-                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-200 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
-              >
-                <option value="">請選擇類別</option>
-                <option value="環境">環境維護</option>
-                <option value="治安">治安安全</option>
-                <option value="銀髮">銀髮關懷</option>
-                <option value="親子">親子友善</option>
-                <option value="其他">其他</option>
-              </select>
-            </div>
-
-            <div>
-              <label for="content" class="mb-2 block text-sm font-semibold text-slate-700">
-                具體建議內容
-              </label>
-              <textarea
-                id="content"
-                name="content"
-                required
-                rows="6"
-                maxlength="2000"
-                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 shadow-sm transition-all duration-200 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
-                placeholder="請描述您希望改善的內容、遇到的問題，或想提出的建議。"
-              ></textarea>
-            </div>
-
-            <button
-              id="submitButton"
-              type="submit"
-              class="w-full rounded-2xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/20 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              送出里民建議
-            </button>
-          </form>
-
-          <p class="mt-4 text-center text-xs leading-relaxed text-slate-500">
-            在 LINE 內開啟可自動帶入身分；一般瀏覽器則可使用測試模式驗證送出流程。
-          </p>
+          <div
+            id="schedulePanel"
+            data-tab-panel="schedule"
+            class="hidden space-y-4"
+          >
+            <section class="rounded-[28px] bg-white/94 p-5 shadow-soft ring-1 ring-white/70">
+              <div class="rounded-[28px] bg-gradient-to-br from-sky-50 via-white to-violet-50 p-6 ring-1 ring-sky-100">
+                <p class="text-sm font-semibold text-sky-600">競選行程</p>
+                <h2 class="mt-2 text-xl font-semibold text-slate-900">行程規劃中，敬請期待！</h2>
+                <p class="mt-3 text-sm leading-7 text-slate-600">
+                  我們正在整理拜訪行程、社區座談與服務據點安排，後續會在這裡第一時間公開，方便里民掌握最新消息。
+                </p>
+              </div>
+            </section>
+          </div>
         </section>
       </main>
+
+      <nav class="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 sm:px-6">
+        <div class="mx-auto max-w-lg rounded-[28px] bg-slate-900/94 p-2 text-white shadow-2xl shadow-slate-900/30 backdrop-blur">
+          <div class="grid grid-cols-4 gap-1">
+            <button
+              type="button"
+              data-tab-button="platforms"
+              class="rounded-2xl px-2 py-3 text-center text-[11px] font-medium text-slate-300 transition-all duration-200"
+            >
+              <div class="text-base">⭐</div>
+              <div class="mt-1">核心政見</div>
+            </button>
+            <button
+              type="button"
+              data-tab-button="intro"
+              class="rounded-2xl px-2 py-3 text-center text-[11px] font-medium text-slate-300 transition-all duration-200"
+            >
+              <div class="text-base">🌷</div>
+              <div class="mt-1">候選人介紹</div>
+            </button>
+            <button
+              type="button"
+              data-tab-button="wish"
+              class="rounded-2xl px-2 py-3 text-center text-[11px] font-medium text-slate-300 transition-all duration-200"
+            >
+              <div class="text-base">💌</div>
+              <div class="mt-1">里民許願池</div>
+            </button>
+            <button
+              type="button"
+              data-tab-button="schedule"
+              class="rounded-2xl px-2 py-3 text-center text-[11px] font-medium text-slate-300 transition-all duration-200"
+            >
+              <div class="text-base">📅</div>
+              <div class="mt-1">競選行程</div>
+            </button>
+          </div>
+        </div>
+      </nav>
     </div>
 
     <script>
+      const TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule'];
+      const AGREE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+      const DEFAULT_CANDIDATE_NAME = '曾思容';
+      const PLATFORM_THEME_MAP = {
+        blue: {
+          card: 'border-sky-200 bg-sky-50/70',
+          iconWrap: 'bg-sky-100 text-sky-700',
+          accentText: 'text-sky-700',
+          badge: 'bg-sky-100 text-sky-700',
+          button: 'bg-sky-600 hover:bg-sky-700 text-white',
+          buttonMuted: 'bg-sky-100 text-sky-700',
+        },
+        pink: {
+          card: 'border-pink-200 bg-pink-50/70',
+          iconWrap: 'bg-pink-100 text-pink-700',
+          accentText: 'text-pink-700',
+          badge: 'bg-pink-100 text-pink-700',
+          button: 'bg-pink-600 hover:bg-pink-700 text-white',
+          buttonMuted: 'bg-pink-100 text-pink-700',
+        },
+        emerald: {
+          card: 'border-emerald-200 bg-emerald-50/70',
+          iconWrap: 'bg-emerald-100 text-emerald-700',
+          accentText: 'text-emerald-700',
+          badge: 'bg-emerald-100 text-emerald-700',
+          button: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+          buttonMuted: 'bg-emerald-100 text-emerald-700',
+        },
+        amber: {
+          card: 'border-amber-200 bg-amber-50/70',
+          iconWrap: 'bg-amber-100 text-amber-700',
+          accentText: 'text-amber-700',
+          badge: 'bg-amber-100 text-amber-700',
+          button: 'bg-amber-500 hover:bg-amber-600 text-white',
+          buttonMuted: 'bg-amber-100 text-amber-700',
+        },
+        indigo: {
+          card: 'border-indigo-200 bg-indigo-50/70',
+          iconWrap: 'bg-indigo-100 text-indigo-700',
+          accentText: 'text-indigo-700',
+          badge: 'bg-indigo-100 text-indigo-700',
+          button: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+          buttonMuted: 'bg-indigo-100 text-indigo-700',
+        },
+        violet: {
+          card: 'border-violet-200 bg-violet-50/70',
+          iconWrap: 'bg-violet-100 text-violet-700',
+          accentText: 'text-violet-700',
+          badge: 'bg-violet-100 text-violet-700',
+          button: 'bg-violet-600 hover:bg-violet-700 text-white',
+          buttonMuted: 'bg-violet-100 text-violet-700',
+        },
+        rose: {
+          card: 'border-rose-200 bg-rose-50/70',
+          iconWrap: 'bg-rose-100 text-rose-700',
+          accentText: 'text-rose-700',
+          badge: 'bg-rose-100 text-rose-700',
+          button: 'bg-rose-600 hover:bg-rose-700 text-white',
+          buttonMuted: 'bg-rose-100 text-rose-700',
+        },
+        sky: {
+          card: 'border-cyan-200 bg-cyan-50/70',
+          iconWrap: 'bg-cyan-100 text-cyan-700',
+          accentText: 'text-cyan-700',
+          badge: 'bg-cyan-100 text-cyan-700',
+          button: 'bg-cyan-600 hover:bg-cyan-700 text-white',
+          buttonMuted: 'bg-cyan-100 text-cyan-700',
+        },
+        cyan: {
+          card: 'border-cyan-200 bg-cyan-50/70',
+          iconWrap: 'bg-cyan-100 text-cyan-700',
+          accentText: 'text-cyan-700',
+          badge: 'bg-cyan-100 text-cyan-700',
+          button: 'bg-cyan-600 hover:bg-cyan-700 text-white',
+          buttonMuted: 'bg-cyan-100 text-cyan-700',
+        },
+        teal: {
+          card: 'border-teal-200 bg-teal-50/70',
+          iconWrap: 'bg-teal-100 text-teal-700',
+          accentText: 'text-teal-700',
+          badge: 'bg-teal-100 text-teal-700',
+          button: 'bg-teal-600 hover:bg-teal-700 text-white',
+          buttonMuted: 'bg-teal-100 text-teal-700',
+        },
+        orange: {
+          card: 'border-orange-200 bg-orange-50/70',
+          iconWrap: 'bg-orange-100 text-orange-700',
+          accentText: 'text-orange-700',
+          badge: 'bg-orange-100 text-orange-700',
+          button: 'bg-orange-500 hover:bg-orange-600 text-white',
+          buttonMuted: 'bg-orange-100 text-orange-700',
+        },
+        default: {
+          card: 'border-slate-200 bg-slate-50/90',
+          iconWrap: 'bg-slate-100 text-slate-700',
+          accentText: 'text-slate-700',
+          badge: 'bg-slate-100 text-slate-700',
+          button: 'bg-slate-800 hover:bg-slate-900 text-white',
+          buttonMuted: 'bg-slate-100 text-slate-700',
+        },
+      };
+
       const state = {
+        activeTab: 'platforms',
+        candidateName: DEFAULT_CANDIDATE_NAME,
+        liffId: '',
         mode: 'loading',
-        candidateName: 'ＯＯ',
-        liffFormUrl: '',
+        platforms: [],
+        supportingIds: new Set(),
+        expandedPlatformIds: new Set(),
       };
 
       const elements = {
+        panels: Array.from(document.querySelectorAll('[data-tab-panel]')),
+        tabButtons: Array.from(document.querySelectorAll('[data-tab-button]')),
+        toast: document.getElementById('toast'),
+        toastMessage: document.getElementById('toastMessage'),
+        modeBadge: document.getElementById('modeBadge'),
+        identityMiniLabel: document.getElementById('identityMiniLabel'),
+        candidateNameNodes: Array.from(document.querySelectorAll('[data-candidate-name]')),
+        platformStatus: document.getElementById('platformStatus'),
+        platformList: document.getElementById('platformList'),
         feedbackForm: document.getElementById('feedbackForm'),
         lineUserId: document.getElementById('line_user_id'),
         userName: document.getElementById('user_name'),
@@ -212,8 +542,7 @@
         category: document.getElementById('category'),
         content: document.getElementById('content'),
         submitButton: document.getElementById('submitButton'),
-        statusMessage: document.getElementById('statusMessage'),
-        modeBadge: document.getElementById('modeBadge'),
+        wishStatusMessage: document.getElementById('wishStatusMessage'),
         testModePanel: document.getElementById('testModePanel'),
         mockLineId: document.getElementById('mockLineId'),
         generateMockIdButton: document.getElementById('generateMockIdButton'),
@@ -221,25 +550,42 @@
         profileHint: document.getElementById('profileHint'),
       };
 
+      let toastTimer = null;
+
       document.addEventListener('DOMContentLoaded', bootstrap);
 
       async function bootstrap() {
         bindEvents();
-        setStatus('正在初始化 LIFF 與表單...', 'info');
+        switchTab(getInitialTab(), { updateHistory: false });
+        setWishStatus('正在初始化 LIFF 與許願池表單...', 'info');
+        setPlatformStatus('正在載入核心政見資料...', 'info');
 
         try {
           const config = await fetchRuntimeConfig();
-          state.candidateName = config.candidateName || state.candidateName;
-          state.liffFormUrl = window.location.href;
-
+          state.liffId = config.liffId || '';
+          if (config.candidateName && config.candidateName !== 'ＯＯ') {
+            state.candidateName = config.candidateName;
+          }
+          syncCandidateName();
           await initializeIdentity(config);
         } catch (error) {
-          console.error('Bootstrap failed:', error);
+          console.error('Bootstrap config failed:', error);
+          syncCandidateName();
           enableTestMode('載入前端設定失敗，已切換為測試模式。');
         }
+
+        await loadPlatforms();
       }
 
       function bindEvents() {
+        elements.tabButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            switchTab(button.dataset.tabButton);
+          });
+        });
+
+        elements.platformList.addEventListener('click', handlePlatformListClick);
+
         elements.generateMockIdButton.addEventListener('click', () => {
           const mockId = generateMockLineId();
           elements.mockLineId.value = mockId;
@@ -248,7 +594,7 @@
             displayName: elements.userName.value.trim() || '測試里民',
             hint: '您目前使用測試模式，可直接送出表單驗證流程。',
           });
-          setStatus('已重新產生測試用 LINE User ID。', 'warning');
+          setWishStatus('已重新產生測試用 LINE User ID。', 'warning');
         });
 
         elements.mockLineId.addEventListener('input', (event) => {
@@ -265,6 +611,33 @@
         });
 
         elements.feedbackForm.addEventListener('submit', handleSubmit);
+      }
+
+      function getInitialTab() {
+        const tab = new URL(window.location.href).searchParams.get('tab');
+        return TAB_KEYS.includes(tab) ? tab : 'platforms';
+      }
+
+      function switchTab(tab, options = {}) {
+        const nextTab = TAB_KEYS.includes(tab) ? tab : 'platforms';
+        state.activeTab = nextTab;
+
+        elements.panels.forEach((panel) => {
+          panel.classList.toggle('hidden', panel.dataset.tabPanel !== nextTab);
+        });
+
+        elements.tabButtons.forEach((button) => {
+          const isActive = button.dataset.tabButton === nextTab;
+          button.className = isActive
+            ? 'rounded-2xl bg-white px-2 py-3 text-center text-[11px] font-semibold text-slate-900 shadow-md transition-all duration-200'
+            : 'rounded-2xl px-2 py-3 text-center text-[11px] font-medium text-slate-300 transition-all duration-200';
+        });
+
+        if (options.updateHistory !== false) {
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', nextTab);
+          window.history.replaceState({}, '', url);
+        }
       }
 
       async function fetchRuntimeConfig() {
@@ -295,21 +668,24 @@
           }
 
           const profile = await liff.getProfile();
+          state.mode = 'liff';
+
           updateIdentity({
             lineUserId: profile.userId,
             displayName: profile.displayName || 'LINE 使用者',
             hint: `已透過 LINE ${liff.isInClient() ? '應用內' : '外部瀏覽器'}身分取得使用者資料。`,
           });
 
-          elements.modeBadge.textContent = 'LIFF 模式';
-          elements.modeBadge.className =
-            'rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100';
-
           if (!elements.userName.value.trim()) {
             elements.userName.value = profile.displayName || '';
           }
 
-          setStatus('已成功取得 LINE Profile，表單可直接送出。', 'success');
+          elements.modeBadge.textContent = 'LIFF 模式';
+          elements.modeBadge.className =
+            'rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100';
+          elements.identityMiniLabel.textContent = 'LIFF 身分';
+
+          setWishStatus('已成功取得 LINE Profile，表單可直接送出。', 'success');
         } catch (error) {
           console.error('LIFF initialization failed:', error);
           enableTestMode('LIFF 初始化失敗，已切換為測試模式。');
@@ -322,6 +698,7 @@
         elements.modeBadge.textContent = '測試模式';
         elements.modeBadge.className =
           'rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-100';
+        elements.identityMiniLabel.textContent = '測試模式';
 
         if (!elements.mockLineId.value.trim()) {
           elements.mockLineId.value = generateMockLineId();
@@ -333,7 +710,7 @@
           hint: '目前以測試模式運作，可手動修改或重新產生 LINE User ID。',
         });
 
-        setStatus(message, 'warning');
+        setWishStatus(message, 'warning');
       }
 
       function updateIdentity({ lineUserId, displayName, hint }) {
@@ -342,11 +719,217 @@
         elements.profileHint.textContent = `LINE User ID：${lineUserId}\n${hint}`;
       }
 
-      function generateMockLineId() {
-        const randomChunk = crypto.getRandomValues(new Uint32Array(2))
-          .join('')
-          .slice(0, 20);
-        return `U_TEST_${Date.now()}_${randomChunk}`;
+      async function loadPlatforms() {
+        try {
+          const response = await fetch('/api/platforms');
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || '政見資料載入失敗');
+          }
+
+          state.platforms = Array.isArray(result.data) ? result.data : [];
+          setPlatformStatus(`已載入 ${state.platforms.length} 項核心政見。`, 'success');
+          renderPlatforms();
+        } catch (error) {
+          console.error('Load platforms failed:', error);
+          state.platforms = [];
+          setPlatformStatus(error.message || '政見資料載入失敗，請稍後再試。', 'error');
+          renderPlatforms();
+        }
+      }
+
+      function renderPlatforms() {
+        if (!state.platforms.length) {
+          elements.platformList.innerHTML = `
+            <div class="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm leading-7 text-slate-500">
+              目前尚未載入到政見資料，請確認 Supabase 的 <code class="rounded bg-slate-200 px-1 py-0.5 text-xs">campaign_platforms</code> 表內容與 API 設定。
+            </div>
+          `;
+          return;
+        }
+
+        elements.platformList.innerHTML = state.platforms
+          .map((platform) => {
+            const theme = PLATFORM_THEME_MAP[platform.theme_color] || PLATFORM_THEME_MAP.default;
+            const isExpanded = state.expandedPlatformIds.has(platform.id);
+            const cooldown = getAgreeCooldownInfo(platform.id);
+            const isSupporting = state.supportingIds.has(platform.id);
+            const buttonDisabled = cooldown.active || isSupporting;
+            const buttonClasses = buttonDisabled ? theme.buttonMuted : theme.button;
+            const buttonLabel = cooldown.active ? '已支持，稍後可再投' : '點擊支持 ❤️';
+            const agreeCount = Number(platform.agree_count) || 0;
+
+            return `
+              <article class="overflow-hidden rounded-[26px] border ${theme.card} p-4 shadow-sm transition-all duration-300">
+                <button
+                  type="button"
+                  data-platform-toggle="${platform.id}"
+                  class="flex w-full items-start gap-4 text-left"
+                >
+                  <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl ${theme.iconWrap}">
+                    ${escapeHtml(platform.icon || '✨')}
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <p class="text-xs font-semibold uppercase tracking-[0.24em] ${theme.accentText}">
+                          ${escapeHtml(platform.subtitle || '核心政見')}
+                        </p>
+                        <h3 class="mt-1 text-lg font-semibold leading-7 text-slate-900">
+                          ${escapeHtml(platform.title || '未命名政見')}
+                        </h3>
+                      </div>
+                      <span class="rounded-full px-2.5 py-1 text-xs font-semibold ${theme.badge}">
+                        ${isExpanded ? '收合' : '展開'}
+                      </span>
+                    </div>
+
+                    <div class="grid transition-all duration-300 ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}">
+                      <div class="overflow-hidden">
+                        <p class="mt-4 text-sm leading-7 text-slate-600">
+                          ${escapeHtml(platform.description || '')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                <div class="mt-4 flex items-center justify-between gap-3">
+                  <p class="text-xs text-slate-500">
+                    目前認同票數 <span class="font-semibold text-slate-900">${agreeCount}</span>
+                  </p>
+
+                  <div class="relative" data-support-anchor="${platform.id}">
+                    <button
+                      type="button"
+                      data-platform-agree="${platform.id}"
+                      class="rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${buttonClasses} ${buttonDisabled ? 'cursor-not-allowed' : 'hover:-translate-y-0.5'}"
+                      ${buttonDisabled ? 'disabled' : ''}
+                    >
+                      ${isSupporting ? '送出中...' : buttonLabel} · ${agreeCount}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            `;
+          })
+          .join('');
+      }
+
+      async function handlePlatformListClick(event) {
+        const toggleButton = event.target.closest('[data-platform-toggle]');
+        if (toggleButton) {
+          const platformId = Number(toggleButton.dataset.platformToggle);
+          togglePlatform(platformId);
+          return;
+        }
+
+        const agreeButton = event.target.closest('[data-platform-agree]');
+        if (agreeButton) {
+          const platformId = Number(agreeButton.dataset.platformAgree);
+          await supportPlatform(platformId);
+        }
+      }
+
+      function togglePlatform(platformId) {
+        if (state.expandedPlatformIds.has(platformId)) {
+          state.expandedPlatformIds.delete(platformId);
+        } else {
+          state.expandedPlatformIds.add(platformId);
+        }
+
+        renderPlatforms();
+      }
+
+      async function supportPlatform(platformId) {
+        const cooldown = getAgreeCooldownInfo(platformId);
+        if (cooldown.active) {
+          showToast(`您剛剛已支持過這項政見，${cooldown.minutesLeft} 分鐘後可再試。`);
+          return;
+        }
+
+        if (state.supportingIds.has(platformId)) {
+          return;
+        }
+
+        state.supportingIds.add(platformId);
+        renderPlatforms();
+        let isSuccess = false;
+
+        try {
+          const response = await fetch(`/api/platforms/${platformId}/agree`, {
+            method: 'POST',
+          });
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || '支持票數更新失敗');
+          }
+
+          const nextCount = result.data && Number(result.data.agree_count);
+          state.platforms = state.platforms.map((platform) =>
+            platform.id === platformId
+              ? { ...platform, agree_count: Number.isFinite(nextCount) ? nextCount : (Number(platform.agree_count) || 0) + 1 }
+              : platform
+          );
+
+          localStorage.setItem(getAgreeStorageKey(platformId), String(Date.now()));
+          isSuccess = true;
+          showToast('感謝您的支持，我們收到這份認同了。');
+        } catch (error) {
+          console.error('Support platform failed:', error);
+          showToast(error.message || '支持送出失敗，請稍後再試。');
+        } finally {
+          state.supportingIds.delete(platformId);
+          renderPlatforms();
+          if (isSuccess) {
+            animateSupport(platformId);
+          }
+        }
+      }
+
+      function animateSupport(platformId) {
+        const anchor = document.querySelector(`[data-support-anchor="${platformId}"]`);
+        if (!anchor) {
+          return;
+        }
+
+        const bubble = document.createElement('span');
+        bubble.className =
+          'reaction-bubble pointer-events-none absolute left-1/2 top-0 z-10 text-2xl';
+        bubble.textContent = Math.random() > 0.5 ? '❤️' : '👍';
+        anchor.appendChild(bubble);
+
+        window.setTimeout(() => {
+          bubble.remove();
+        }, 900);
+      }
+
+      function getAgreeStorageKey(platformId) {
+        return `campaign_platform_agree_${platformId}`;
+      }
+
+      function getAgreeCooldownInfo(platformId) {
+        const rawValue = localStorage.getItem(getAgreeStorageKey(platformId));
+        if (!rawValue) {
+          return { active: false, minutesLeft: 0 };
+        }
+
+        const storedAt = Number(rawValue);
+        if (!Number.isFinite(storedAt)) {
+          localStorage.removeItem(getAgreeStorageKey(platformId));
+          return { active: false, minutesLeft: 0 };
+        }
+
+        const elapsed = Date.now() - storedAt;
+        if (elapsed >= AGREE_COOLDOWN_MS) {
+          localStorage.removeItem(getAgreeStorageKey(platformId));
+          return { active: false, minutesLeft: 0 };
+        }
+
+        const minutesLeft = Math.max(1, Math.ceil((AGREE_COOLDOWN_MS - elapsed) / 60000));
+        return { active: true, minutesLeft };
       }
 
       async function handleSubmit(event) {
@@ -365,7 +948,7 @@
         };
 
         toggleSubmitting(true);
-        setStatus('資料送出中，請稍候...', 'info');
+        setWishStatus('資料送出中，請稍候...', 'info');
 
         try {
           const response = await fetch('/api/feedback', {
@@ -377,18 +960,17 @@
           });
 
           const result = await response.json();
-
-          if (!response.ok) {
+          if (!response.ok || !result.success) {
             throw new Error(result.message || '資料送出失敗');
           }
 
           elements.category.value = '';
           elements.content.value = '';
-
-          setStatus(result.message || '感謝您的建議，我們已收到。', 'success');
+          setWishStatus(result.message || '感謝您的建議，我們已收到。', 'success');
+          showToast('許願池表單已成功送出。');
         } catch (error) {
           console.error('Submit failed:', error);
-          setStatus(error.message || '送出失敗，請稍後再試。', 'error');
+          setWishStatus(error.message || '送出失敗，請稍後再試。', 'error');
         } finally {
           toggleSubmitting(false);
         }
@@ -399,16 +981,66 @@
         elements.submitButton.textContent = isSubmitting ? '送出中...' : '送出里民建議';
       }
 
-      function setStatus(message, tone) {
+      function setPlatformStatus(message, tone) {
         const toneClassMap = {
-          info: 'border-sky-100 bg-sky-50 text-sky-700',
+          info: 'border-orange-100 bg-orange-50 text-orange-700',
+          success: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+          error: 'border-rose-100 bg-rose-50 text-rose-700',
+        };
+
+        elements.platformStatus.textContent = message;
+        elements.platformStatus.className = `mt-4 rounded-2xl border px-4 py-3 text-sm ${toneClassMap[tone] || toneClassMap.info}`;
+      }
+
+      function setWishStatus(message, tone) {
+        const toneClassMap = {
+          info: 'border-orange-100 bg-orange-50 text-orange-700',
           success: 'border-emerald-100 bg-emerald-50 text-emerald-700',
           warning: 'border-amber-200 bg-amber-50 text-amber-800',
           error: 'border-rose-100 bg-rose-50 text-rose-700',
         };
 
-        elements.statusMessage.textContent = message;
-        elements.statusMessage.className = `mt-4 rounded-2xl border px-4 py-3 text-sm leading-relaxed ${toneClassMap[tone] || toneClassMap.info}`;
+        elements.wishStatusMessage.textContent = message;
+        elements.wishStatusMessage.className = `mt-4 rounded-2xl border px-4 py-3 text-sm leading-relaxed ${toneClassMap[tone] || toneClassMap.info}`;
+      }
+
+      function showToast(message) {
+        elements.toastMessage.textContent = message;
+        elements.toast.classList.remove('hidden');
+
+        if (toastTimer) {
+          window.clearTimeout(toastTimer);
+        }
+
+        toastTimer = window.setTimeout(() => {
+          elements.toast.classList.add('hidden');
+        }, 2200);
+      }
+
+      function syncCandidateName() {
+        elements.candidateNameNodes.forEach((node) => {
+          node.textContent = state.candidateName;
+        });
+      }
+
+      function generateMockLineId() {
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+          const randomChunk = window.crypto.getRandomValues(new Uint32Array(2))
+            .join('')
+            .slice(0, 20);
+          return `U_TEST_${Date.now()}_${randomChunk}`;
+        }
+
+        return `U_TEST_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
       }
     </script>
   </body>

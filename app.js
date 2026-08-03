@@ -59,14 +59,7 @@ if (!isRunningOnVercel) {
 }
 
 app.get('/', (req, res) => {
-  res.json({
-    message: 'LINE webhook server is running.',
-    lineConfigured: hasLineCredentials,
-    supabaseConfigured: hasSupabaseCredentials,
-    liffConfigured: Boolean(LIFF_ID),
-    liffFormUrl: LIFF_FORM_URL,
-    runtime: process.env.VERCEL ? 'vercel' : 'local',
-  });
+  res.redirect('/liff.html');
 });
 
 app.get('/api/client-config', (req, res) => {
@@ -82,6 +75,83 @@ app.get('/api/config', (req, res) => {
     liffId: LIFF_ID,
     candidateName: CANDIDATE_NAME,
   });
+});
+
+app.get('/api/platforms', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase 尚未完成設定，請先檢查環境變數。',
+    });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('campaign_platforms')
+      .select('id, sort_order, subtitle, title, description, icon, theme_color, agree_count')
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.error('Fetch campaign_platforms failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '政見資料讀取失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: data || [],
+    });
+  } catch (error) {
+    console.error('Platforms API failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
+    });
+  }
+});
+
+app.post('/api/platforms/:id/agree', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase 尚未完成設定，請先檢查環境變數。',
+    });
+  }
+
+  const platformId = Number.parseInt(req.params.id, 10);
+
+  if (!Number.isInteger(platformId) || platformId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: '政見編號不正確。',
+    });
+  }
+
+  try {
+    const result = await incrementPlatformAgreeCount(platformId);
+
+    return res.json({
+      success: true,
+      message: '感謝您的支持，我們已收到這份認同。',
+      data: result,
+    });
+  } catch (error) {
+    const statusCode = error.code === 'NOT_FOUND' ? 404 : 500;
+
+    if (statusCode === 500) {
+      console.error('Platform agree API failed:', error);
+    }
+
+    return res.status(statusCode).json({
+      success: false,
+      message:
+        error.code === 'NOT_FOUND'
+          ? '找不到指定的政見資料。'
+          : '支持票數更新失敗，請稍後再試。',
+    });
+  }
 });
 
 app.post('/api/feedback', async (req, res) => {
@@ -238,6 +308,48 @@ async function verifySupabaseConnection() {
   } catch (error) {
     console.error('Supabase connection test failed:', error.message);
   }
+}
+
+async function incrementPlatformAgreeCount(platformId) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data: currentRow, error: fetchError } = await supabase
+      .from('campaign_platforms')
+      .select('id, agree_count')
+      .eq('id', platformId)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        const notFoundError = new Error('Platform not found');
+        notFoundError.code = 'NOT_FOUND';
+        throw notFoundError;
+      }
+
+      throw fetchError;
+    }
+
+    const currentCount = Number(currentRow.agree_count) || 0;
+    const nextCount = currentCount + 1;
+    const { data: updatedRow, error: updateError } = await supabase
+      .from('campaign_platforms')
+      .update({ agree_count: nextCount })
+      .eq('id', platformId)
+      .eq('agree_count', currentCount)
+      .select('id, agree_count')
+      .single();
+
+    if (!updateError && updatedRow) {
+      return updatedRow;
+    }
+
+    if (updateError && updateError.code === 'PGRST116') {
+      continue;
+    }
+
+    throw updateError;
+  }
+
+  throw new Error('Failed to update agree count after retries');
 }
 
 app.locals.runtimeConfig = {

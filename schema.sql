@@ -17,3 +17,35 @@ create index if not exists idx_user_feedback_status
 
 create index if not exists idx_user_feedback_created_at
   on public.user_feedback (created_at desc);
+
+create table if not exists public.campaign_platforms (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  sort_order integer not null,
+  subtitle text not null,
+  title text not null,
+  description text not null,
+  icon text not null,
+  theme_color text not null check (
+    theme_color in (
+      'blue',
+      'pink',
+      'emerald',
+      'amber',
+      'indigo',
+      'violet',
+      'rose',
+      'sky',
+      'cyan',
+      'teal',
+      'orange'
+    )
+  ),
+  agree_count integer not null default 0
+);
+
+create unique index if not exists idx_campaign_platforms_sort_order
+  on public.campaign_platforms (sort_order);
+
+create index if not exists idx_campaign_platforms_agree_count
+  on public.campaign_platforms (agree_count desc);
