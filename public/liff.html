@@ -228,9 +228,9 @@
         setStatus('正在初始化 LIFF 與表單...', 'info');
 
         try {
-          const config = await fetchClientConfig();
+          const config = await fetchRuntimeConfig();
           state.candidateName = config.candidateName || state.candidateName;
-          state.liffFormUrl = config.liffFormUrl || window.location.href;
+          state.liffFormUrl = window.location.href;
 
           await initializeIdentity(config);
         } catch (error) {
@@ -267,10 +267,10 @@
         elements.feedbackForm.addEventListener('submit', handleSubmit);
       }
 
-      async function fetchClientConfig() {
-        const response = await fetch('/api/client-config');
+      async function fetchRuntimeConfig() {
+        const response = await fetch('/api/config');
         if (!response.ok) {
-          throw new Error('Failed to load client config');
+          throw new Error('Failed to load runtime config');
         }
         return response.json();
       }

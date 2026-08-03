@@ -77,6 +77,13 @@ app.get('/api/client-config', (req, res) => {
   });
 });
 
+app.get('/api/config', (req, res) => {
+  res.json({
+    liffId: LIFF_ID,
+    candidateName: CANDIDATE_NAME,
+  });
+});
+
 app.post('/api/feedback', async (req, res) => {
   if (!supabase) {
     return res.status(500).json({
