@@ -6,6 +6,7 @@ const line = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
+const isRunningOnVercel = Boolean(process.env.VERCEL);
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -51,7 +52,11 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
 });
 
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(PUBLIC_DIR));
+
+// Vercel serves /public from its CDN. Keep express.static only for local dev.
+if (!isRunningOnVercel) {
+  app.use(express.static(PUBLIC_DIR));
+}
 
 app.get('/', (req, res) => {
   res.json({
@@ -228,8 +233,7 @@ async function verifySupabaseConnection() {
   }
 }
 
-module.exports = {
-  app,
+app.locals.runtimeConfig = {
   PORT,
   LIFF_FORM_URL,
   LIFF_ID,
@@ -237,3 +241,5 @@ module.exports = {
   hasSupabaseCredentials,
   verifySupabaseConnection,
 };
+
+module.exports = app;

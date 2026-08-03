@@ -1,12 +1,12 @@
+const app = require('./app');
 const {
-  app,
   PORT,
   LIFF_FORM_URL,
   LIFF_ID,
   hasLineCredentials,
   hasSupabaseCredentials,
   verifySupabaseConnection,
-} = require('./app');
+} = app.locals.runtimeConfig;
 
 const isRunningOnVercel = Boolean(process.env.VERCEL);
 

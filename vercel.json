@@ -1,21 +1,22 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "version": 2,
-  "routes": [
+  "functions": {
+    "api/index.js": {
+      "runtime": "nodejs22.x"
+    }
+  },
+  "rewrites": [
     {
-      "handle": "filesystem"
+      "source": "/",
+      "destination": "/api/index"
     },
     {
-      "src": "^/$",
-      "dest": "/api/index.js"
+      "source": "/webhook",
+      "destination": "/api/index"
     },
     {
-      "src": "^/webhook$",
-      "dest": "/api/index.js"
-    },
-    {
-      "src": "^/api/(.*)$",
-      "dest": "/api/index.js"
+      "source": "/api/:path*",
+      "destination": "/api/index"
     }
   ]
 }
