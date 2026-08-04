@@ -1044,20 +1044,22 @@
               <button
                 type="button"
                 data-platform-open="${platform.id}"
-                class="group relative cursor-pointer overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/45 p-4 text-left shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:shadow-float active:scale-[0.97]"
+                class="group relative cursor-pointer overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/45 px-3 py-4 text-left shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:shadow-float active:scale-[0.97]"
               >
                 <i
                   data-lucide="${iconName}"
-                  class="pointer-events-none absolute -bottom-2 -right-2 h-24 w-24 rotate-12 ${theme.watermark}"
+                  class="pointer-events-none absolute -right-4 top-6 h-28 w-28 rotate-12 ${theme.watermark}"
                 ></i>
                 <div class="relative z-10 max-w-[calc(100%-2.5rem)] pr-7">
-                  <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
-                    ${agreeCount}
-                  </span>
-                  <span class="mt-4 inline-flex rounded-full ${theme.subtitleBg} px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${theme.subtitle}">
-                    ${escapeHtml(platform.subtitle || '核心政見')}
-                  </span>
-                  <h3 class="mt-2 text-base font-semibold leading-7 text-violet-950">
+                  <div class="mb-2 flex w-full items-center justify-between gap-2">
+                    <span class="whitespace-nowrap rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-600">
+                      ${escapeHtml(platform.subtitle || '核心政見')}
+                    </span>
+                    <span class="text-xs font-medium text-slate-400">
+                      ❤️ ${agreeCount}
+                    </span>
+                  </div>
+                  <h3 class="mt-2 text-sm font-bold leading-snug tracking-wide text-slate-800">
                     ${escapeHtml(platform.title || '未命名政見')}
                   </h3>
                 </div>
