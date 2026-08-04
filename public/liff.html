@@ -258,15 +258,43 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <button
-              id="fontSizeToggleButton"
-              type="button"
-              class="cursor-pointer rounded-full border border-violet-100 bg-white px-3 text-[11px] font-bold text-violet-600 shadow-sm transition-all active:scale-95"
-              aria-label="切換字體大小"
-              title="切換字體大小"
+            <div
+              id="fontSizeSegmentedControl"
+              class="relative flex h-8 w-[108px] cursor-pointer select-none items-center rounded-full border border-slate-200/40 bg-slate-100 p-0.5 shadow-inner"
+              aria-label="字體大小切換"
             >
-              字: 標準
-            </button>
+              <span
+                id="fontSizeSlider"
+                class="absolute left-0.5 top-0.5 z-0 h-7 w-[32px] rounded-full bg-white shadow-sm transition-all duration-300 ease-out"
+              ></span>
+              <button
+                type="button"
+                data-font-size-option="normal"
+                class="relative z-10 flex h-7 w-[32px] items-center justify-center text-[11px] font-bold text-violet-950 transition-colors duration-300"
+                aria-label="切換為標準字體"
+                title="切換為標準字體"
+              >
+                標
+              </button>
+              <button
+                type="button"
+                data-font-size-option="large"
+                class="relative z-10 flex h-7 w-[32px] items-center justify-center text-[11px] font-bold text-slate-500 transition-colors duration-300"
+                aria-label="切換為大字模式"
+                title="切換為大字模式"
+              >
+                大
+              </button>
+              <button
+                type="button"
+                data-font-size-option="xlarge"
+                class="relative z-10 flex h-7 w-[32px] items-center justify-center text-[11px] font-bold text-slate-500 transition-colors duration-300"
+                aria-label="切換為特大字模式"
+                title="切換為特大字模式"
+              >
+                特
+              </button>
+            </div>
             <div class="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/90 px-3 py-1.5 shadow-sm">
               <span class="status-breathe inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
               <span id="modeBadge" class="text-[11px] font-medium tracking-[0.16em] text-violet-600">
@@ -774,7 +802,9 @@
         tabIndicators: Array.from(document.querySelectorAll('[data-tab-indicator]')),
         toast: document.getElementById('toast'),
         toastMessage: document.getElementById('toastMessage'),
-        fontSizeToggleButton: document.getElementById('fontSizeToggleButton'),
+        fontSizeSegmentedControl: document.getElementById('fontSizeSegmentedControl'),
+        fontSizeSlider: document.getElementById('fontSizeSlider'),
+        fontSizeOptions: Array.from(document.querySelectorAll('[data-font-size-option]')),
         modeBadge: document.getElementById('modeBadge'),
         candidateNameNodes: Array.from(document.querySelectorAll('[data-candidate-name]')),
         platformStatus: document.getElementById('platformStatus'),
@@ -845,7 +875,7 @@
           });
         });
 
-        elements.fontSizeToggleButton.addEventListener('click', cycleFontSizeMode);
+        elements.fontSizeSegmentedControl.addEventListener('click', handleFontSizeControlClick);
 
         elements.platformList.addEventListener('click', handlePlatformListClick);
         elements.closeModalButton.addEventListener('click', closePlatformModal);
@@ -926,11 +956,22 @@
         return normalizedMode;
       }
 
-      function cycleFontSizeMode() {
+      function handleFontSizeControlClick(event) {
+        const optionButton = event.target.closest('[data-font-size-option]');
+
+        if (optionButton) {
+          setFontSizeMode(optionButton.dataset.fontSizeOption);
+          return;
+        }
+
         const currentIndex = FONT_SIZE_ORDER.indexOf(state.fontSizeMode);
         const nextMode = FONT_SIZE_ORDER[(currentIndex + 1) % FONT_SIZE_ORDER.length];
-        applyFontSizeMode(nextMode);
-        showToast(getFontSizeToastMessage(nextMode));
+        setFontSizeMode(nextMode);
+      }
+
+      function setFontSizeMode(mode) {
+        const normalizedMode = applyFontSizeMode(mode);
+        showToast(getFontSizeToastMessage(normalizedMode));
       }
 
       function getFontSizeToastMessage(mode) {
@@ -939,43 +980,44 @@
         }
 
         if (mode === 'xlarge') {
-          return '已啟用特大字敬老模式 👵，看政見更輕鬆！';
+          return '已啟用特大字敬老模式 👵';
         }
 
         return '已恢復標準字體大小';
       }
 
       function syncFontSizeButton() {
-        if (!elements.fontSizeToggleButton) {
+        if (!elements.fontSizeSegmentedControl || !elements.fontSizeSlider) {
           return;
         }
 
         const buttonStateMap = {
           normal: {
-            text: '字: 標準',
-            nextLabel: '目前為標準字體，點擊切換為大字',
-            className:
-              'cursor-pointer rounded-full border border-violet-100 bg-white px-3 h-8 flex items-center justify-center gap-1 text-[11px] font-bold text-violet-600 shadow-sm transition-all active:scale-95',
+            sliderOffset: 0,
+            label: '目前為標準字體',
           },
           large: {
-            text: '字: 大字',
-            nextLabel: '目前為大字模式，點擊切換為特大字',
-            className:
-              'cursor-pointer rounded-full border border-violet-200 bg-violet-50 px-3 h-8 flex items-center justify-center gap-1 text-[11px] font-bold text-violet-700 shadow-sm transition-all active:scale-95',
+            sliderOffset: 36,
+            label: '目前為大字模式',
           },
           xlarge: {
-            text: '字: 特大',
-            nextLabel: '目前為特大字模式，點擊恢復標準字體',
-            className:
-              'cursor-pointer rounded-full border border-violet-300 bg-violet-100 px-3 h-8 flex items-center justify-center gap-1 text-[11px] font-extrabold text-violet-800 shadow-sm transition-all active:scale-95',
+            sliderOffset: 72,
+            label: '目前為特大字模式',
           },
         };
 
         const buttonState = buttonStateMap[state.fontSizeMode] || buttonStateMap.normal;
-        elements.fontSizeToggleButton.textContent = buttonState.text;
-        elements.fontSizeToggleButton.className = buttonState.className;
-        elements.fontSizeToggleButton.setAttribute('aria-label', buttonState.nextLabel);
-        elements.fontSizeToggleButton.setAttribute('title', buttonState.nextLabel);
+        elements.fontSizeSlider.style.transform = `translateX(${buttonState.sliderOffset}px)`;
+        elements.fontSizeSegmentedControl.setAttribute('aria-label', buttonState.label);
+        elements.fontSizeSegmentedControl.setAttribute('title', buttonState.label);
+
+        elements.fontSizeOptions.forEach((button) => {
+          const isActive = button.dataset.fontSizeOption === state.fontSizeMode;
+          button.className = isActive
+            ? 'relative z-10 flex h-7 w-[32px] items-center justify-center text-[11px] font-bold text-violet-950 transition-colors duration-300'
+            : 'relative z-10 flex h-7 w-[32px] items-center justify-center text-[11px] font-bold text-slate-500 transition-colors duration-300';
+          button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
       }
 
       function getInitialTab() {
