@@ -261,11 +261,11 @@
             <button
               id="fontSizeToggleButton"
               type="button"
-              class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-violet-100 bg-white text-[13px] font-bold text-violet-600 shadow-sm transition-transform active:scale-90"
+              class="cursor-pointer rounded-full border border-violet-100 bg-white px-3 text-[11px] font-bold text-violet-600 shadow-sm transition-all active:scale-95"
               aria-label="切換字體大小"
               title="切換字體大小"
             >
-              字
+              字: 標準
             </button>
             <div class="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/90 px-3 py-1.5 shadow-sm">
               <span class="status-breathe inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
@@ -946,18 +946,36 @@
       }
 
       function syncFontSizeButton() {
-        const labelMap = {
-          normal: '目前為標準字體，點擊切換為大字',
-          large: '目前為大字模式，點擊切換為特大字',
-          xlarge: '目前為特大字模式，點擊恢復標準字體',
-        };
-
         if (!elements.fontSizeToggleButton) {
           return;
         }
 
-        elements.fontSizeToggleButton.setAttribute('aria-label', labelMap[state.fontSizeMode]);
-        elements.fontSizeToggleButton.setAttribute('title', labelMap[state.fontSizeMode]);
+        const buttonStateMap = {
+          normal: {
+            text: '字: 標準',
+            nextLabel: '目前為標準字體，點擊切換為大字',
+            className:
+              'cursor-pointer rounded-full border border-violet-100 bg-white px-3 h-8 flex items-center justify-center gap-1 text-[11px] font-bold text-violet-600 shadow-sm transition-all active:scale-95',
+          },
+          large: {
+            text: '字: 大字',
+            nextLabel: '目前為大字模式，點擊切換為特大字',
+            className:
+              'cursor-pointer rounded-full border border-violet-200 bg-violet-50 px-3 h-8 flex items-center justify-center gap-1 text-[11px] font-bold text-violet-700 shadow-sm transition-all active:scale-95',
+          },
+          xlarge: {
+            text: '字: 特大',
+            nextLabel: '目前為特大字模式，點擊恢復標準字體',
+            className:
+              'cursor-pointer rounded-full border border-violet-300 bg-violet-100 px-3 h-8 flex items-center justify-center gap-1 text-[11px] font-extrabold text-violet-800 shadow-sm transition-all active:scale-95',
+          },
+        };
+
+        const buttonState = buttonStateMap[state.fontSizeMode] || buttonStateMap.normal;
+        elements.fontSizeToggleButton.textContent = buttonState.text;
+        elements.fontSizeToggleButton.className = buttonState.className;
+        elements.fontSizeToggleButton.setAttribute('aria-label', buttonState.nextLabel);
+        elements.fontSizeToggleButton.setAttribute('title', buttonState.nextLabel);
       }
 
       function getInitialTab() {
