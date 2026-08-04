@@ -102,6 +102,18 @@
         }
       }
 
+      @keyframes arrow-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4);
+        }
+        50% {
+          transform: scale(1.08);
+          box-shadow: 0 0 0 10px rgba(244, 63, 94, 0);
+        }
+      }
+
       .soft-grid {
         background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.16) 1px, transparent 0);
         background-size: 26px 26px;
@@ -109,6 +121,10 @@
 
       .status-breathe {
         animation: status-breathe 1.8s ease-in-out infinite;
+      }
+
+      .arrow-pulse-btn {
+        animation: arrow-breathe 2.5s infinite ease-in-out;
       }
     </style>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -1045,8 +1061,8 @@
                     ${escapeHtml(platform.title || '未命名政見')}
                   </h3>
                 </div>
-                <span class="absolute bottom-4 right-4 flex h-7 w-7 items-center justify-center rounded-full border border-violet-100/50 bg-violet-50/80 text-violet-600 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:bg-violet-500 group-hover:text-white">
-                  <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i>
+                <span class="arrow-pulse-btn absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-rose-400 to-pink-500 text-white shadow-md transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 active:scale-95">
+                  <i data-lucide="arrow-up-right" class="h-3.5 w-3.5 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-active:-translate-y-0.5 group-active:translate-x-0.5"></i>
                 </span>
               </button>
             `;
