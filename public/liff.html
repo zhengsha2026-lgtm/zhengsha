@@ -573,6 +573,7 @@
       const TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule'];
       const AGREE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
       const DEFAULT_CANDIDATE_NAME = '曾思容';
+      const RESIDENT_PHONE_STORAGE_KEY = 'zhengsha_resident_phone';
       const BRAND_PLATFORM_THEME = {
         card: 'border-violet-100/80',
         subtitle: 'text-violet-600',
@@ -756,6 +757,10 @@
           window.history.replaceState({}, '', url);
         }
 
+        if (nextTab === 'wish') {
+          hydrateStoredPhone();
+        }
+
         renderIcons();
       }
 
@@ -829,6 +834,17 @@
         elements.lineUserId.value = lineUserId;
         elements.profileName.textContent = displayName;
         elements.profileHint.textContent = `LINE User ID：${lineUserId}\n${hint}`;
+      }
+
+      function hydrateStoredPhone() {
+        const storedPhone = localStorage.getItem(RESIDENT_PHONE_STORAGE_KEY);
+        if (!storedPhone) {
+          return;
+        }
+
+        if (!elements.phone.value.trim()) {
+          elements.phone.value = storedPhone;
+        }
       }
 
       async function loadPlatforms() {
@@ -1084,6 +1100,7 @@
             throw new Error(result.message || '資料送出失敗');
           }
 
+          localStorage.setItem(RESIDENT_PHONE_STORAGE_KEY, payload.phone);
           elements.category.value = '';
           elements.content.value = '';
           setWishStatus(result.message || '感謝您的建議，我們已收到。', 'success');
@@ -1170,6 +1187,8 @@
           .replaceAll('"', '&quot;')
           .replaceAll("'", '&#39;');
       }
+
+      hydrateStoredPhone();
     </script>
   </body>
 </html>
