@@ -1061,15 +1061,21 @@
                     <span class="whitespace-nowrap rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-600">
                       ${escapeHtml(platform.subtitle || '核心政見')}
                     </span>
-                    <span class="text-xs font-medium text-slate-400">
-                      ❤️ ${agreeCount}
+                    <span class="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-slate-400">
+                      <i
+                        data-lucide="heart"
+                        fill="currentColor"
+                        stroke-width="0"
+                        class="h-3 w-3 text-rose-500"
+                      ></i>
+                      <span>${agreeCount}</span>
                     </span>
                   </div>
                   <h3 class="mt-2 text-sm font-bold leading-snug tracking-wide text-slate-800">
                     ${escapeHtml(platform.title || '未命名政見')}
                   </h3>
                 </div>
-                <span class="arrow-pulse-btn absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-rose-400 to-pink-500 text-white shadow-md transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 active:scale-95">
+                <span class="arrow-pulse-btn absolute bottom-4 right-4 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-gradient-to-r from-rose-400 to-pink-500 text-white shadow-md transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 active:scale-95">
                   <i data-lucide="arrow-up-right" class="h-3.5 w-3.5 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-active:-translate-y-0.5 group-active:translate-x-0.5"></i>
                 </span>
               </button>
