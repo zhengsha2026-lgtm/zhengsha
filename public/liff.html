@@ -35,6 +35,22 @@
         },
       };
     </script>
+    <script>
+      (() => {
+        const fontSizeMap = {
+          normal: '100%',
+          large: '115%',
+          xlarge: '125%',
+        };
+
+        try {
+          const storedMode = localStorage.getItem('zhengsha_font_size');
+          document.documentElement.style.fontSize = fontSizeMap[storedMode] || fontSizeMap.normal;
+        } catch (error) {
+          document.documentElement.style.fontSize = fontSizeMap.normal;
+        }
+      })();
+    </script>
     <style>
       :root {
         color-scheme: light;
@@ -69,11 +85,22 @@
       @keyframes toast-in {
         from {
           opacity: 0;
-          transform: translateY(-10px);
+          transform: translateY(12px);
         }
         to {
           opacity: 1;
           transform: translateY(0);
+        }
+      }
+
+      @keyframes toast-out {
+        from {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(10px);
         }
       }
 
@@ -88,6 +115,10 @@
 
       .toast-enter {
         animation: toast-in 220ms ease-out;
+      }
+
+      .toast-leave {
+        animation: toast-out 180ms ease-in forwards;
       }
 
       @keyframes status-breathe {
@@ -138,10 +169,10 @@
         <div class="soft-grid absolute inset-x-0 top-0 h-72 opacity-50"></div>
       </div>
 
-      <div id="toast" class="pointer-events-none fixed inset-x-0 top-4 z-50 hidden px-4">
+      <div id="toast" class="pointer-events-none fixed inset-x-0 bottom-24 z-50 hidden px-4 sm:bottom-8">
         <div
           id="toastMessage"
-          class="toast-enter mx-auto max-w-sm rounded-full bg-slate-900/95 px-4 py-3 text-center text-sm font-medium text-white shadow-xl shadow-slate-900/20"
+          class="mx-auto w-fit max-w-sm rounded-full bg-slate-900/90 px-4 py-2.5 text-center text-xs font-medium text-white shadow-lg backdrop-blur-sm"
         ></div>
       </div>
 
@@ -226,11 +257,22 @@
             </div>
           </div>
 
-          <div class="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/90 px-3 py-1.5 shadow-sm">
-            <span class="status-breathe inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-            <span id="modeBadge" class="text-[11px] font-medium tracking-[0.16em] text-violet-600">
-              初始化中
-            </span>
+          <div class="flex items-center gap-2">
+            <button
+              id="fontSizeToggleButton"
+              type="button"
+              class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-violet-100 bg-white text-[13px] font-bold text-violet-600 shadow-sm transition-transform active:scale-90"
+              aria-label="切換字體大小"
+              title="切換字體大小"
+            >
+              字
+            </button>
+            <div class="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/90 px-3 py-1.5 shadow-sm">
+              <span class="status-breathe inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              <span id="modeBadge" class="text-[11px] font-medium tracking-[0.16em] text-violet-600">
+                初始化中
+              </span>
+            </div>
           </div>
         </div>
       </header>
@@ -687,6 +729,13 @@
       const AGREE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
       const DEFAULT_CANDIDATE_NAME = '曾思容';
       const RESIDENT_PHONE_STORAGE_KEY = 'zhengsha_resident_phone';
+      const FONT_SIZE_STORAGE_KEY = 'zhengsha_font_size';
+      const FONT_SIZE_SCALE_MAP = {
+        normal: '100%',
+        large: '115%',
+        xlarge: '125%',
+      };
+      const FONT_SIZE_ORDER = ['normal', 'large', 'xlarge'];
       const BRAND_PLATFORM_THEME = {
         card: 'border-violet-100/80',
         subtitle: 'text-violet-600',
@@ -716,6 +765,7 @@
         platforms: [],
         supportingIds: new Set(),
         activePlatformId: null,
+        fontSizeMode: 'normal',
       };
 
       const elements = {
@@ -724,6 +774,7 @@
         tabIndicators: Array.from(document.querySelectorAll('[data-tab-indicator]')),
         toast: document.getElementById('toast'),
         toastMessage: document.getElementById('toastMessage'),
+        fontSizeToggleButton: document.getElementById('fontSizeToggleButton'),
         modeBadge: document.getElementById('modeBadge'),
         candidateNameNodes: Array.from(document.querySelectorAll('[data-candidate-name]')),
         platformStatus: document.getElementById('platformStatus'),
@@ -757,6 +808,9 @@
       };
 
       let toastTimer = null;
+      let toastHideTimer = null;
+
+      state.fontSizeMode = applyFontSizeMode(getStoredFontSizeMode(), { persist: false });
 
       document.addEventListener('DOMContentLoaded', bootstrap);
 
@@ -790,6 +844,8 @@
             switchTab(button.dataset.tabButton);
           });
         });
+
+        elements.fontSizeToggleButton.addEventListener('click', cycleFontSizeMode);
 
         elements.platformList.addEventListener('click', handlePlatformListClick);
         elements.closeModalButton.addEventListener('click', closePlatformModal);
@@ -842,6 +898,66 @@
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
           window.lucide.createIcons();
         }
+      }
+
+      function getStoredFontSizeMode() {
+        try {
+          const storedMode = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
+          return FONT_SIZE_ORDER.includes(storedMode) ? storedMode : 'normal';
+        } catch (error) {
+          return 'normal';
+        }
+      }
+
+      function applyFontSizeMode(mode, options = {}) {
+        const normalizedMode = FONT_SIZE_ORDER.includes(mode) ? mode : 'normal';
+        document.documentElement.style.fontSize = FONT_SIZE_SCALE_MAP[normalizedMode];
+        state.fontSizeMode = normalizedMode;
+
+        if (options.persist !== false) {
+          try {
+            localStorage.setItem(FONT_SIZE_STORAGE_KEY, normalizedMode);
+          } catch (error) {
+            console.warn('Unable to persist font size preference:', error);
+          }
+        }
+
+        syncFontSizeButton();
+        return normalizedMode;
+      }
+
+      function cycleFontSizeMode() {
+        const currentIndex = FONT_SIZE_ORDER.indexOf(state.fontSizeMode);
+        const nextMode = FONT_SIZE_ORDER[(currentIndex + 1) % FONT_SIZE_ORDER.length];
+        applyFontSizeMode(nextMode);
+        showToast(getFontSizeToastMessage(nextMode));
+      }
+
+      function getFontSizeToastMessage(mode) {
+        if (mode === 'large') {
+          return '已切換至大字舒適模式 ❤️';
+        }
+
+        if (mode === 'xlarge') {
+          return '已啟用特大字敬老模式 👵，看政見更輕鬆！';
+        }
+
+        return '已恢復標準字體大小';
+      }
+
+      function syncFontSizeButton() {
+        const labelMap = {
+          normal: '目前為標準字體，點擊切換為大字',
+          large: '目前為大字模式，點擊切換為特大字',
+          xlarge: '目前為特大字模式，點擊恢復標準字體',
+        };
+
+        if (!elements.fontSizeToggleButton) {
+          return;
+        }
+
+        elements.fontSizeToggleButton.setAttribute('aria-label', labelMap[state.fontSizeMode]);
+        elements.fontSizeToggleButton.setAttribute('title', labelMap[state.fontSizeMode]);
       }
 
       function getInitialTab() {
@@ -1312,14 +1428,28 @@
       function showToast(message) {
         elements.toastMessage.textContent = message;
         elements.toast.classList.remove('hidden');
+        elements.toastMessage.classList.remove('toast-enter', 'toast-leave');
+
+        void elements.toastMessage.offsetWidth;
+        elements.toastMessage.classList.add('toast-enter');
 
         if (toastTimer) {
           window.clearTimeout(toastTimer);
         }
 
+        if (toastHideTimer) {
+          window.clearTimeout(toastHideTimer);
+        }
+
         toastTimer = window.setTimeout(() => {
-          elements.toast.classList.add('hidden');
-        }, 2200);
+          elements.toastMessage.classList.remove('toast-enter');
+          elements.toastMessage.classList.add('toast-leave');
+
+          toastHideTimer = window.setTimeout(() => {
+            elements.toast.classList.add('hidden');
+            elements.toastMessage.classList.remove('toast-leave');
+          }, 180);
+        }, 1500);
       }
 
       function syncCandidateName() {
