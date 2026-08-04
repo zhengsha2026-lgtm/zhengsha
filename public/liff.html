@@ -360,22 +360,36 @@
                     <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
                       使用者識別
                     </p>
-                    <p id="profileName" class="mt-3 text-lg font-semibold tracking-tight text-slate-900">
-                      尚未取得 LINE 身分
-                    </p>
-                    <p
-                      id="profileHint"
-                      class="mt-3 whitespace-pre-line break-all text-sm leading-7 text-slate-500"
-                    >
-                      目前尚未建立身分資訊，系統將嘗試自動初始化。
-                    </p>
-                  </div>
+                    <div class="mt-4 flex items-center gap-4">
+                      <div
+                        class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white"
+                      >
+                        <img
+                          id="profileAvatar"
+                          alt="里民 LINE 頭像"
+                          class="hidden h-full w-full rounded-full object-cover"
+                        />
+                        <div
+                          id="profileAvatarFallback"
+                          class="flex h-full w-full items-center justify-center text-slate-400"
+                        >
+                          <i data-lucide="user" class="h-5 w-5"></i>
+                        </div>
+                      </div>
 
-                  <div
-                    id="wishStatusMessage"
-                    class="rounded-[1.5rem] border border-violet-100 bg-violet-50 px-4 py-4 text-sm leading-7 text-violet-600"
-                  >
-                    正在準備表單與 LIFF 環境...
+                      <div class="min-w-0">
+                        <p id="profileName" class="text-lg font-semibold tracking-tight text-slate-800">
+                          尚未取得 LINE 身分
+                        </p>
+                        <div
+                          id="profileBadge"
+                          class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500"
+                        >
+                          <i id="profileBadgeIcon" data-lucide="badge-check" class="h-3.5 w-3.5"></i>
+                          <span id="profileBadgeText">等待連結 LINE</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div
@@ -632,12 +646,15 @@
         category: document.getElementById('category'),
         content: document.getElementById('content'),
         submitButton: document.getElementById('submitButton'),
-        wishStatusMessage: document.getElementById('wishStatusMessage'),
         testModePanel: document.getElementById('testModePanel'),
         mockLineId: document.getElementById('mockLineId'),
         generateMockIdButton: document.getElementById('generateMockIdButton'),
         profileName: document.getElementById('profileName'),
-        profileHint: document.getElementById('profileHint'),
+        profileAvatar: document.getElementById('profileAvatar'),
+        profileAvatarFallback: document.getElementById('profileAvatarFallback'),
+        profileBadge: document.getElementById('profileBadge'),
+        profileBadgeIcon: document.getElementById('profileBadgeIcon'),
+        profileBadgeText: document.getElementById('profileBadgeText'),
       };
 
       let toastTimer = null;
@@ -713,7 +730,9 @@
           updateIdentity({
             lineUserId: mockId,
             displayName: elements.userName.value.trim() || '測試里民',
-            hint: '目前使用手動輸入的測試 LINE User ID。',
+            pictureUrl: '',
+            badgeText: '測試模式',
+            badgeIcon: 'shield',
           });
         });
 
@@ -797,7 +816,9 @@
           updateIdentity({
             lineUserId: profile.userId,
             displayName: profile.displayName || 'LINE 使用者',
-            hint: `已透過 LINE ${liff.isInClient() ? '應用內' : '外部瀏覽器'}身分取得使用者資料。`,
+            pictureUrl: profile.pictureUrl || '',
+            badgeText: '已安全連結 LINE',
+            badgeIcon: 'badge-check',
           });
 
           if (!elements.userName.value.trim()) {
@@ -805,7 +826,6 @@
           }
 
           elements.modeBadge.textContent = 'LIFF 模式';
-          setWishStatus('已成功取得 LINE Profile，表單可直接送出。', 'success');
         } catch (error) {
           console.error('LIFF initialization failed:', error);
           enableTestMode('LIFF 初始化失敗，已切換為測試模式。');
@@ -824,16 +844,37 @@
         updateIdentity({
           lineUserId: elements.mockLineId.value.trim(),
           displayName: elements.userName.value.trim() || '測試里民',
-          hint: '目前以測試模式運作，可手動修改或重新產生 LINE User ID。',
+          pictureUrl: '',
+          badgeText: '測試模式',
+            badgeIcon: 'shield',
         });
 
         setWishStatus(message, 'warning');
       }
 
-      function updateIdentity({ lineUserId, displayName, hint }) {
+      function updateIdentity({
+        lineUserId,
+        displayName,
+        pictureUrl = '',
+        badgeText = '等待連結 LINE',
+        badgeIcon = 'badge-check',
+      }) {
         elements.lineUserId.value = lineUserId;
         elements.profileName.textContent = displayName;
-        elements.profileHint.textContent = `LINE User ID：${lineUserId}\n${hint}`;
+        elements.profileBadgeText.textContent = badgeText;
+        elements.profileBadgeIcon.setAttribute('data-lucide', badgeIcon);
+
+        if (pictureUrl) {
+          elements.profileAvatar.src = pictureUrl;
+          elements.profileAvatar.classList.remove('hidden');
+          elements.profileAvatarFallback.classList.add('hidden');
+        } else {
+          elements.profileAvatar.removeAttribute('src');
+          elements.profileAvatar.classList.add('hidden');
+          elements.profileAvatarFallback.classList.remove('hidden');
+        }
+
+        renderIcons();
       }
 
       function hydrateStoredPhone() {
@@ -1130,15 +1171,12 @@
       }
 
       function setWishStatus(message, tone) {
-        const toneClassMap = {
-          info: 'border-rose-100 bg-rose-50 text-rose-600',
-          success: 'border-emerald-100 bg-emerald-50 text-emerald-700',
-          warning: 'border-amber-200 bg-amber-50 text-amber-800',
-          error: 'border-rose-200 bg-rose-50 text-rose-700',
-        };
-
-        elements.wishStatusMessage.textContent = message;
-        elements.wishStatusMessage.className = `rounded-[1.5rem] border px-4 py-4 text-sm leading-7 ${toneClassMap[tone] || toneClassMap.info}`;
+        if (tone === 'warning') {
+          const warningCopy = elements.testModePanel.querySelector('p.mt-2');
+          if (warningCopy) {
+            warningCopy.textContent = message;
+          }
+        }
       }
 
       function showToast(message) {
