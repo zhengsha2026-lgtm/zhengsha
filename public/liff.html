@@ -145,6 +145,18 @@
         }
       }
 
+      @keyframes portrait-glow {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(244, 114, 182, 0.14);
+        }
+        50% {
+          transform: scale(1.012);
+          box-shadow: 0 0 0 8px rgba(196, 181, 253, 0);
+        }
+      }
+
       .soft-grid {
         background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.16) 1px, transparent 0);
         background-size: 26px 26px;
@@ -156,6 +168,10 @@
 
       .arrow-pulse-btn {
         animation: arrow-breathe 2.5s infinite ease-in-out;
+      }
+
+      .portrait-glow-ring {
+        animation: portrait-glow 3.2s infinite ease-in-out;
       }
     </style>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -430,34 +446,37 @@
               <div
                 class="overflow-hidden rounded-[1.75rem] border border-violet-100 bg-gradient-to-br from-white via-violet-50/60 to-rose-50/70"
               >
-                <div class="grid gap-6 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+                <div class="grid gap-6 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
                   <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-600">
-                      Candidate Story
+                      溫柔而堅定的陪伴
                     </p>
                     <h2 class="mt-3 text-3xl font-semibold tracking-tight text-violet-950">
-                      <span data-candidate-name>曾思容</span>
+                      以愛服務 ‧ 以心關懷
                     </h2>
                     <p class="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
-                      作為一位母親，也是一位多年在正砂生活的鄰居，我相信真正有感的里政，不是口號，而是願意走進每一條巷弄，聽見每一個家庭的聲音，並把事情一件件做到位。
+                      大家好，我是正砂里長候選人──<span data-candidate-name>曾思容</span>。
+                    </p>
+                    <p class="mt-3 max-w-2xl text-sm leading-8 text-slate-600 sm:text-base">
+                      這一頁，不是制式的經歷表，而是一封想對里民說的心裡話。從家庭、社區到公共服務，我始終相信，真正被記住的治理，不是口號最響亮，而是有人願意在需要的時候，溫柔而堅定地站在你身邊。
                     </p>
                     <div class="mt-6 flex flex-wrap gap-2 text-xs font-medium text-slate-600">
-                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-violet-100">在地深耕</span>
-                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-violet-100">公共關懷</span>
-                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-violet-100">務實治理</span>
+                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-violet-100">兩個孩子的媽媽</span>
+                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-violet-100">正砂 16 年媳婦</span>
+                      <span class="rounded-full bg-white px-3 py-2 ring-1 ring-violet-100">社區服務 8+ 年</span>
                     </div>
                   </div>
 
                   <div class="flex justify-center lg:justify-end">
-                    <div class="rounded-full bg-gradient-to-br from-rose-300 via-violet-200 to-amber-200 p-[2px] shadow-float">
+                    <div class="portrait-glow-ring rounded-full bg-gradient-to-br from-rose-300 via-violet-300 to-amber-200 p-[2px] shadow-float">
                       <div class="rounded-full bg-white/90 p-[6px]">
-                        <div class="relative h-64 w-64 rounded-full bg-gradient-to-br from-violet-50 to-rose-50 p-3 ring-1 ring-violet-100/70">
+                        <div class="relative h-56 w-56 rounded-full bg-gradient-to-br from-violet-50 to-rose-50 p-3 ring-1 ring-violet-100/70 sm:h-64 sm:w-64">
                           <div class="absolute inset-4 rounded-full border border-violet-200/70"></div>
-                      <img
-                        src="/candidate.png"
-                        alt="候選人照片示意"
-                        class="h-full w-full rounded-full object-cover"
-                      />
+                          <img
+                            src="/candidate.png"
+                            alt="曾思容候選人照片"
+                            class="h-full w-full rounded-full object-cover"
+                          />
                         </div>
                       </div>
                     </div>
@@ -465,45 +484,113 @@
                 </div>
               </div>
 
-              <div class="mt-6 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                <article class="rounded-[1.75rem] border border-violet-100 bg-slate-50/80 p-5">
-                  <div class="flex items-center gap-3">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
-                      <i data-lucide="quote" class="h-5 w-5"></i>
-                    </div>
+              <div class="mt-6 space-y-4">
+                <article class="rounded-[1.75rem] border border-rose-100 bg-white p-5 shadow-[0_14px_40px_-28px_rgba(190,24,93,0.28)] sm:p-6">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <span class="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-rose-500">
+                      16年媳婦 ‧ 8年服務
+                    </span>
                     <div>
-                      <p class="text-sm font-semibold text-violet-950">參選心聲</p>
-                      <p class="text-xs text-slate-500">用細節建立信任，用行動累積改變</p>
+                      <p class="text-sm font-semibold text-violet-950">寫給正砂里民的一封真情信</p>
+                      <p class="text-xs text-slate-500">把生活走過的路，化成願意陪伴大家的力量</p>
                     </div>
                   </div>
-                  <p class="mt-4 text-sm leading-8 text-slate-600">
-                    我期待的里長角色，不只是活動協辦者，而是能夠成為社區溝通的橋樑、資源整合的推手，以及照顧需求真正落地的人。正砂值得一位願意長期陪伴、穩定執行、把里民放在第一位的里長。
-                  </p>
+                  <div class="mt-5 rounded-[1.5rem] bg-slate-50/80 p-5">
+                    <p class="text-3xl font-semibold leading-none text-rose-300">“</p>
+                    <div class="mt-2 space-y-4 text-sm leading-8 text-slate-600 sm:text-[15px]">
+                      <p>
+                        我是兩個孩子的媽媽，也是正砂 16 年的媳婦。這裡有我熟悉的巷弄、人情與日常，也有我最牽掛的長輩、孩子與每一個努力生活的家庭。
+                      </p>
+                      <p>
+                        這些年來，我在社區服務已超過 8 年，從陪伴據點課程、傾聽長輩需求，到關心家庭與孩子的成長，我愈來愈確定，服務不是一句漂亮的承諾，而是真正願意長期在場。
+                      </p>
+                      <p>
+                        無論是在美業創業的磨練，或是在大健康推廣的歷程中，我始終相信一件事：服務，是真正陪伴每一位居民。因為懂得生活裡的小事，才更知道大家真正需要的是什麼。
+                      </p>
+                    </div>
+                  </div>
                 </article>
 
-                <div class="grid gap-4">
-                  <article class="rounded-[1.75rem] border border-violet-100 bg-white p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.26em] text-violet-600">
-                      個人簡歷
+                <article class="rounded-[1.75rem] border border-violet-100/30 bg-gradient-to-tr from-violet-50/20 to-rose-50/20 p-5 shadow-[0_18px_48px_-30px_rgba(124,58,237,0.25)] ring-1 ring-white/70 backdrop-blur-md sm:p-6">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <span class="rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-violet-600 ring-1 ring-violet-100/60">
+                      真誠初心
+                    </span>
+                    <p class="text-sm font-semibold text-violet-950">把正砂，照顧成每個人都願意安心生活的地方</p>
+                  </div>
+                  <div class="mt-5 space-y-4 text-sm leading-8 text-slate-600 sm:text-[15px]">
+                    <p>
+                      正砂是我的第二個故鄉。因為在這裡成家、在這裡陪孩子長大，也在這裡看見長輩需要更多照顧、年輕人需要更多希望、家庭需要更多被理解的支持。
                     </p>
-                    <ul class="mt-4 space-y-3 text-sm leading-7 text-slate-600">
-                      <li>長期參與在地公共事務與社區互助服務</li>
-                      <li>熟悉親子、長者與家庭支持議題</li>
-                      <li>重視溝通回應、執行效率與公開透明</li>
-                    </ul>
-                  </article>
+                    <p>
+                      我希望未來的正砂里，長輩安心、孩子快樂、青年願意留下，每一位居民都能感受到幸福與溫暖。這份初心，不來自口號，而來自我每天真實走在社區裡，對大家生活的牽掛與責任。
+                    </p>
+                  </div>
+                </article>
 
-                  <article class="rounded-[1.75rem] border border-violet-100 bg-white p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.26em] text-violet-600">
-                      學經歷
-                    </p>
-                    <ul class="mt-4 space-y-3 text-sm leading-7 text-slate-600">
-                      <li>具地方服務與社區活動組織經驗</li>
-                      <li>持續投入社區環境、治安與關懷倡議</li>
-                      <li>擅長跨部門協調與實際問題追蹤</li>
-                    </ul>
-                  </article>
-                </div>
+                <section class="rounded-[1.75rem] border border-violet-100 bg-white p-5 sm:p-6">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p class="text-xs font-semibold uppercase tracking-[0.26em] text-violet-600">專業女力</p>
+                      <p class="mt-2 text-lg font-semibold tracking-tight text-violet-950">
+                        在照護、產業與陪伴之間，累積出能真正落地的行動力
+                      </p>
+                    </div>
+                    <span class="rounded-full bg-violet-50 px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-violet-600">
+                      斜槓實力持續發光
+                    </span>
+                  </div>
+
+                  <div class="mt-5 grid gap-4 md:grid-cols-2">
+                    <article class="rounded-[1.5rem] border border-violet-100 bg-slate-50/80 p-5">
+                      <div class="flex items-start gap-3">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                          <i data-lucide="activity" class="h-5 w-5"></i>
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-base font-semibold text-violet-950">深耕大健康</p>
+                          <p class="mt-1 text-sm leading-7 text-slate-600">
+                            正砂社區發展協會總幹事，長期投入社區健康與陪伴服務。
+                          </p>
+                        </div>
+                      </div>
+                      <div class="mt-4 space-y-3 text-sm leading-7 text-slate-600">
+                        <p>據點手作烘焙課程老師，陪伴社區超過 8 年。</p>
+                        <p>中華乙級健康管理師，把照顧落實到生活日常。</p>
+                      </div>
+                    </article>
+
+                    <article class="rounded-[1.5rem] border border-rose-100 bg-white p-5 shadow-[0_14px_40px_-30px_rgba(244,114,182,0.3)]">
+                      <div class="flex items-start gap-3">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-100 text-rose-500">
+                          <i data-lucide="award" class="h-5 w-5"></i>
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-base font-semibold text-violet-950">國際美學家</p>
+                          <p class="mt-1 text-sm leading-7 text-slate-600">
+                            帑娜美學創始人，曾在紋繡美甲比賽中累積冠亞季軍佳績。
+                          </p>
+                        </div>
+                      </div>
+                      <div class="mt-4 space-y-3 text-sm leading-7 text-slate-600">
+                        <p>IBEE 國際美容人才交流協會執行長，持續拓展專業視野。</p>
+                        <p>長期輔導青年就業與海外交流，陪更多年輕人把夢想走遠。</p>
+                      </div>
+                    </article>
+                  </div>
+
+                  <div class="mt-4 rounded-[1.5rem] border border-violet-100/80 bg-gradient-to-r from-white via-violet-50/45 to-rose-50/45 p-4">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-violet-700 ring-1 ring-violet-100">
+                        <i data-lucide="graduation-cap" class="h-5 w-5"></i>
+                      </div>
+                      <div>
+                        <p class="text-sm font-semibold text-violet-950">學習歷程</p>
+                        <p class="mt-1 text-sm text-slate-600">中華藝校影劇科，從表達、感受與觀察中，培養與人真誠連結的能力。</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </div>
             </div>
           </section>
