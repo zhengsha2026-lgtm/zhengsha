@@ -610,7 +610,36 @@
                 </div>
               </div>
 
-              <div class="mt-6 grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
+              <div class="mt-6">
+                <div
+                  id="wishSegmentedControl"
+                  class="relative flex h-11 w-full select-none items-center rounded-full border border-slate-200/50 bg-slate-100/85 p-1 shadow-inner"
+                  aria-label="許願池頁籤切換"
+                >
+                  <span
+                    id="wishSegmentSlider"
+                    class="pointer-events-none absolute top-1 left-1 h-9 w-[calc(50%-0.125rem)] rounded-full bg-white shadow-[0_6px_22px_-14px_rgba(99,102,241,0.45)] ring-1 ring-slate-200/70 transition-transform duration-300 ease-out"
+                  ></span>
+                  <button
+                    type="button"
+                    data-wish-view="form"
+                    class="relative z-10 flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-bold text-violet-950 transition-colors duration-300"
+                  >
+                    <i data-lucide="pen-line" class="h-3.5 w-3.5"></i>
+                    <span>我要許願</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-wish-view="list"
+                    class="relative z-10 flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-semibold text-slate-500 transition-colors duration-300"
+                  >
+                    <i data-lucide="inbox" class="h-3.5 w-3.5"></i>
+                    <span>我的許願</span>
+                  </button>
+                </div>
+              </div>
+
+              <div id="wishViewsContainer" class="mt-6 grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
                 <div class="space-y-4">
                   <div class="rounded-[1.75rem] border border-violet-100 bg-slate-50/85 p-5">
                     <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
@@ -678,11 +707,26 @@
                       placeholder="可手動輸入，或點上方按鈕自動產生"
                     />
                   </div>
+
+                  <div class="rounded-[1.75rem] border border-violet-100 bg-gradient-to-b from-violet-50/50 via-white/80 to-white/50 p-5 text-xs leading-7 text-slate-500">
+                    <div class="flex items-start gap-3">
+                      <div class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-2xl bg-white text-violet-600 ring-1 ring-violet-100">
+                        <i data-lucide="message-square-heart" class="h-4 w-4"></i>
+                      </div>
+                      <div class="min-w-0">
+                        <p class="font-semibold text-violet-950">隱私說明</p>
+                        <p class="mt-1">
+                          您填寫的聯絡資訊僅用於本服務案件聯繫，搭配 LINE 身分驗證，案件進度可從「我的許願」追蹤。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div class="rounded-[1.75rem] border border-violet-100 bg-slate-50/70 p-5">
-                  <form id="feedbackForm" class="space-y-4">
-                    <input id="line_user_id" name="line_user_id" type="hidden" />
+                <div class="relative rounded-[1.75rem] border border-violet-100 bg-slate-50/70 p-5">
+                  <div id="wishFormView" class="relative">
+                    <form id="feedbackForm" class="space-y-4">
+                      <input id="line_user_id" name="line_user_id" type="hidden" />
 
                     <div>
                       <label for="user_name" class="mb-2 block text-sm font-semibold text-slate-700">
@@ -815,6 +859,107 @@
                       送出里民建議
                     </button>
                   </form>
+                  </div>
+
+                  <div id="wishListView" class="hidden">
+                    <div id="wishListHeader" class="mb-4 flex items-center justify-between">
+                      <div>
+                        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                          My Wishes
+                        </p>
+                        <h3 class="mt-1 text-lg font-semibold tracking-tight text-violet-950">
+                          我的許願追蹤
+                        </h3>
+                      </div>
+                      <button
+                        id="wishListRefreshButton"
+                        type="button"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 shadow-input ring-1 ring-slate-200 transition hover:text-violet-600 active:scale-95"
+                        aria-label="重新整理列表"
+                      >
+                        <i data-lucide="rotate-cw" class="h-4 w-4"></i>
+                      </button>
+                    </div>
+
+                    <div id="wishListLoading" class="space-y-3">
+                      <div class="h-[104px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                      <div class="h-[104px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                      <div class="h-[104px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                    </div>
+
+                    <div id="wishListEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                        <i data-lucide="sparkles" class="h-6 w-6"></i>
+                      </div>
+                      <p class="mt-4 text-base font-semibold text-violet-950">還沒有任何許願</p>
+                      <p class="mt-2 text-sm leading-7 text-slate-500">
+                        切換到「我要許願」填寫表單，送出後就會在這裡看到處理進度哦。
+                      </p>
+                    </div>
+
+                    <div id="wishListError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                      <p class="font-semibold text-rose-700">載入列表失敗</p>
+                      <p id="wishListErrorText" class="mt-1 text-rose-700/90">請檢查網路或稍後再試。</p>
+                      <button
+                        type="button"
+                        data-wish-retry-list
+                        class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                      >
+                        <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                        <span>再試一次</span>
+                      </button>
+                    </div>
+
+                    <div id="wishListContainer" class="space-y-3"></div>
+                  </div>
+
+                  <div id="wishDetailView" class="hidden">
+                    <div class="mb-5 flex items-center justify-between">
+                      <button
+                        id="wishDetailBackButton"
+                        type="button"
+                        class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                      >
+                        <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                        <span>返回列表</span>
+                      </button>
+                      <button
+                        id="wishDetailRefreshButton"
+                        type="button"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 shadow-input ring-1 ring-slate-200 transition hover:text-violet-600 active:scale-95"
+                        aria-label="重新整理案件內容"
+                      >
+                        <i data-lucide="rotate-cw" class="h-4 w-4"></i>
+                      </button>
+                    </div>
+
+                    <div id="wishDetailLoading" class="space-y-4">
+                      <div class="h-8 w-1/3 animate-pulse rounded-full bg-slate-200/70"></div>
+                      <div class="h-28 animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                      <div class="h-[120px] animate-pulse rounded-[1.25rem] bg-slate-200/55"></div>
+                      <div class="h-[200px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                    </div>
+
+                    <div id="wishDetailEmpty" class="hidden rounded-[1.5rem] border border-dashed border-slate-200 bg-white/70 px-5 py-12 text-center">
+                      <p class="text-base font-semibold text-slate-700">尚未選擇案件</p>
+                      <p class="mt-2 text-sm text-slate-500">從列表點任一案件查看詳細內容。</p>
+                    </div>
+
+                    <div id="wishDetailError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                      <p class="font-semibold text-rose-700">載入案件失敗</p>
+                      <p id="wishDetailErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                      <button
+                        type="button"
+                        data-wish-retry-detail
+                        class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                      >
+                        <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                        <span>再試一次</span>
+                      </button>
+                    </div>
+
+                    <div id="wishDetailContainer" class="space-y-5"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -941,6 +1086,12 @@
         activePlatformId: null,
         fontSizeMode: 'normal',
         photos: [],
+        wish: {
+          view: 'form',
+          list: [],
+          listMeta: { loading: false, error: null, refreshedAt: null },
+          detail: { id: null, loading: false, data: null, error: null },
+        },
       };
 
       const elements = {
@@ -991,6 +1142,25 @@
         photoProgressText: document.getElementById('photoProgressText'),
         photoProgressPercent: document.getElementById('photoProgressPercent'),
         photoProgressBar: document.getElementById('photoProgressBar'),
+        wishSegmentedControl: document.getElementById('wishSegmentedControl'),
+        wishSegmentSlider: document.getElementById('wishSegmentSlider'),
+        wishViewButtons: Array.from(document.querySelectorAll('[data-wish-view]')),
+        wishFormView: document.getElementById('wishFormView'),
+        wishListView: document.getElementById('wishListView'),
+        wishDetailView: document.getElementById('wishDetailView'),
+        wishListRefreshButton: document.getElementById('wishListRefreshButton'),
+        wishListLoading: document.getElementById('wishListLoading'),
+        wishListEmpty: document.getElementById('wishListEmpty'),
+        wishListError: document.getElementById('wishListError'),
+        wishListErrorText: document.getElementById('wishListErrorText'),
+        wishListContainer: document.getElementById('wishListContainer'),
+        wishDetailBackButton: document.getElementById('wishDetailBackButton'),
+        wishDetailRefreshButton: document.getElementById('wishDetailRefreshButton'),
+        wishDetailLoading: document.getElementById('wishDetailLoading'),
+        wishDetailEmpty: document.getElementById('wishDetailEmpty'),
+        wishDetailError: document.getElementById('wishDetailError'),
+        wishDetailErrorText: document.getElementById('wishDetailErrorText'),
+        wishDetailContainer: document.getElementById('wishDetailContainer'),
       };
 
       let toastTimer = null;
@@ -1097,6 +1267,36 @@
               state.photos.splice(index, 1);
               renderPhotoGrid();
             }
+          }
+        });
+
+        elements.wishViewButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            const view = button.dataset.wishView;
+            if (view === 'form') switchWishView('form');
+            else if (view === 'list') switchWishView('list', { autoload: true });
+          });
+        });
+        elements.wishListRefreshButton.addEventListener('click', () => loadWishList({ force: true }));
+        elements.wishListError.addEventListener('click', (event) => {
+          if (event.target.closest('[data-wish-retry-list]')) loadWishList({ force: true });
+        });
+        elements.wishListContainer.addEventListener('click', (event) => {
+          const row = event.target.closest('[data-wish-item-id]');
+          if (row) {
+            const id = String(row.dataset.wishItemId || '');
+            if (id) openWishDetail(id);
+          }
+        });
+        elements.wishDetailBackButton.addEventListener('click', () => switchWishView('list'));
+        elements.wishDetailRefreshButton.addEventListener('click', () => {
+          const id = state.wish.detail.id;
+          if (id) loadWishDetail(id, { force: true });
+        });
+        elements.wishDetailError.addEventListener('click', (event) => {
+          if (event.target.closest('[data-wish-retry-detail]')) {
+            const id = state.wish.detail.id;
+            if (id) loadWishDetail(id, { force: true });
           }
         });
 
@@ -2153,6 +2353,504 @@
       }
 
       hydrateStoredPhone();
+
+      (function initWishViewState() {
+        switchWishView(state.wish.view, { autoload: false, animate: false });
+      })();
+
+      function switchWishView(view, options = {}) {
+        const targetView = view === 'list' || view === 'detail' ? view : 'form';
+        const prev = state.wish.view;
+        state.wish.view = targetView;
+
+        const { wishFormView, wishListView, wishDetailView } = elements;
+        if (wishFormView) wishFormView.classList.toggle('hidden', targetView !== 'form');
+        if (wishListView) wishListView.classList.toggle('hidden', targetView !== 'list');
+        if (wishDetailView) wishDetailView.classList.toggle('hidden', targetView !== 'detail');
+
+        const sliderTranslatePercent = targetView === 'form' ? 0 : 100;
+        if (elements.wishSegmentSlider) {
+          elements.wishSegmentSlider.style.transform = `translateX(${sliderTranslatePercent}%)`;
+          if (options.animate === false) {
+            elements.wishSegmentSlider.style.transition = 'none';
+            requestAnimationFrame(() => {
+              if (elements.wishSegmentSlider) {
+                elements.wishSegmentSlider.style.transition = '';
+              }
+            });
+          }
+        }
+
+        if (elements.wishViewButtons) {
+          elements.wishViewButtons.forEach((btn) => {
+            const v = btn.dataset.wishView;
+            const active = (v === 'form' && targetView === 'form') || ((v === 'list') && (targetView === 'list' || targetView === 'detail'));
+            const label = btn.querySelector('span');
+            const icon = btn.querySelector('svg');
+            btn.className = active
+              ? 'relative z-10 flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-bold text-violet-950 transition-colors duration-300'
+              : 'relative z-10 flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-semibold text-slate-500 transition-colors duration-300';
+            if (label && !label.dataset.locked) {
+              /* keep labels untouched */
+            }
+            if (icon) icon.classList.toggle('text-violet-600', active);
+          });
+        }
+
+        if (targetView === 'list' && (options.autoload === true || (!state.wish.listMeta.refreshedAt && !state.wish.listMeta.loading))) {
+          loadWishList({ force: false });
+        }
+
+        if (targetView !== 'detail' && prev !== targetView) {
+          if (window.innerWidth < 1024 && elements.wishSegmentedControl && elements.wishSegmentedControl.scrollIntoView) {
+            /* no-op: let natural scroll; avoid jarring jumps on mobile */
+          }
+        }
+      }
+
+      function wishStatusPill(status) {
+        const normalized = String(status || '');
+        const map = {
+          已收到: { label: '已收到', icon: 'inbox', classes: 'bg-violet-50 text-violet-700 ring-violet-100', dot: 'bg-violet-500' },
+          處理中: { label: '處理中', icon: 'loader-2', classes: 'bg-amber-50 text-amber-700 ring-amber-100', dot: 'bg-amber-500' },
+          已回覆: { label: '已回覆', icon: 'message-circle-heart', classes: 'bg-sky-50 text-sky-700 ring-sky-100', dot: 'bg-sky-500' },
+          已結案: { label: '已結案', icon: 'check-circle-2', classes: 'bg-emerald-50 text-emerald-700 ring-emerald-100', dot: 'bg-emerald-500' },
+        };
+        const pill = map[normalized] || { label: normalized || '未知', icon: 'help-circle', classes: 'bg-slate-50 text-slate-600 ring-slate-200', dot: 'bg-slate-400' };
+        return pill;
+      }
+
+      function formatWishDatetime(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return String(iso);
+        const y = d.getFullYear();
+        const mo = String(d.getMonth() + 1).padStart(2, '0');
+        const da = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${y}/${mo}/${da} ${hh}:${mm}`;
+      }
+
+      function wishRelDatetime(iso) {
+        if (!iso) return '';
+        const d = new Date(iso).getTime();
+        if (!Number.isFinite(d)) return '';
+        const ms = Date.now() - d;
+        const min = Math.floor(ms / 60000);
+        if (min < 1) return '剛剛';
+        if (min < 60) return `${min} 分鐘前`;
+        const hr = Math.floor(min / 60);
+        if (hr < 24) return `${hr} 小時前`;
+        const day = Math.floor(hr / 24);
+        if (day < 14) return `${day} 天前`;
+        return formatWishDatetime(iso);
+      }
+
+      async function loadWishList(options = {}) {
+        if (state.wish.listMeta.loading && options.force !== true) return;
+        state.wish.listMeta.loading = true;
+        state.wish.listMeta.error = null;
+        renderWishListState();
+
+        let tokenBundle = { kind: 'fallback' };
+        try {
+          tokenBundle = await getIdentityToken();
+        } catch (err) {
+          console.warn('getIdentityToken failed on wish list load', err);
+        }
+
+        if (tokenBundle.kind === 'liff' && state.mode !== 'test') {
+          /* OK: will send Bearer */
+        } else if (state.mode === 'test') {
+          /* fallback: no Bearer → backend returns 401 expected in LIFF */
+        }
+
+        try {
+          const headers = buildAuthHeaders(tokenBundle);
+          const res = await fetch('/api/my-feedback?limit=20&offset=0', { method: 'GET', headers });
+          if (res.status === 401) {
+            throw new Error('AUTH_401: 身分驗證失敗，請重新從 LINE 開啟 LIFF。');
+          }
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status}${txt ? ` - ${txt.slice(0, 80)}` : ''}`);
+          }
+          const json = await res.json();
+          if (!json || json.success === false) {
+            throw new Error((json && json.message) || '後端回傳格式錯誤');
+          }
+          const list = Array.isArray(json && json.data && json.data.items) ? json.data.items : [];
+          state.wish.list = list;
+          state.wish.listMeta.refreshedAt = Date.now();
+          state.wish.listMeta.error = null;
+          renderWishListState();
+          renderWishListItems();
+        } catch (err) {
+          console.error('loadWishList failed:', err);
+          const msg = err && err.message ? err.message : '載入失敗，請稍後再試。';
+          const isAuth = /AUTH_401/i.test(msg);
+          state.wish.listMeta.error = isAuth
+            ? '身分驗證失敗，請重新從 LINE 開啟 LIFF。'
+            : msg;
+          renderWishListState();
+          if (isAuth) {
+            setWishStatus('身分驗證失敗，請重新從 LINE 開啟 LIFF。', 'warning');
+            showToast('請重新從 LINE 開啟 LIFF 再查看「我的許願」');
+          }
+        } finally {
+          state.wish.listMeta.loading = false;
+          renderWishListState();
+        }
+      }
+
+      function renderWishListState() {
+        const { wishListLoading, wishListEmpty, wishListError, wishListContainer, wishListErrorText } = elements;
+        const { loading, error, refreshedAt } = state.wish.listMeta;
+        const items = state.wish.list || [];
+        if (wishListLoading) wishListLoading.classList.toggle('hidden', !loading);
+        const hasError = Boolean(error) && !loading;
+        if (wishListError) {
+          wishListError.classList.toggle('hidden', !hasError);
+          if (wishListErrorText) wishListErrorText.textContent = error || '';
+        }
+        const showEmpty = !loading && !hasError && items.length === 0;
+        if (wishListEmpty) wishListEmpty.classList.toggle('hidden', !showEmpty);
+        const showItems = !loading && !hasError && items.length > 0;
+        if (wishListContainer) wishListContainer.classList.toggle('hidden', !showItems);
+      }
+
+      function renderWishListItems() {
+        const container = elements.wishListContainer;
+        if (!container) return;
+        const items = state.wish.list || [];
+        if (items.length === 0) { container.innerHTML = ''; return; }
+        container.innerHTML = items.map((item, idx) => {
+          const id = String(item.id || '');
+          const category = escapeHtml(item.category || '未分類');
+          const summary = escapeHtml(item.excerpt || item.content || '（無內容）');
+          const createdAt = item.created_at || item.createdAt || null;
+          const photoCount = Number.isFinite(Number(item.photo_count)) ? Number(item.photo_count) : 0;
+          const hasPhotos = Boolean(item.has_photos) || photoCount > 0;
+          const pill = wishStatusPill(item.status);
+          const rel = wishRelDatetime(createdAt);
+          const full = formatWishDatetime(createdAt);
+          const accentClass = idx % 2 === 0
+            ? 'from-white via-white to-violet-50/40'
+            : 'from-white via-white to-rose-50/40';
+          return `
+            <button
+              type="button"
+              data-wish-item-id="${escapeHtml(id)}"
+              class="group relative block w-full overflow-hidden rounded-[1.25rem] border border-violet-100/60 bg-gradient-to-br ${accentClass} p-4 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] focus:outline-none focus:ring-2 focus:ring-violet-200 active:scale-[0.995]"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-100">
+                      <i data-lucide="tag" class="h-3 w-3"></i>
+                      <span>${category}</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${pill.classes}">
+                      <span class="relative inline-flex h-1.5 w-1.5">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full ${pill.dot} opacity-50"></span>
+                        <span class="relative inline-flex h-1.5 w-1.5 rounded-full ${pill.dot}"></span>
+                      </span>
+                      <i data-lucide="${pill.icon}" class="h-3 w-3"></i>
+                      <span>${pill.label}</span>
+                    </span>
+                    ${hasPhotos ? `
+                      <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100">
+                        <i data-lucide="image" class="h-3 w-3"></i>
+                        <span>${photoCount || ''}</span>
+                      </span>` : ''}
+                  </div>
+                  <p class="mt-3 line-clamp-2 text-sm leading-7 text-slate-700">${summary}</p>
+                  <p class="mt-3 text-[11px] font-medium text-slate-400" title="${escapeHtml(full)}">
+                    <i data-lucide="clock-4" class="mr-1 inline h-3 w-3 align-[-2px] text-slate-400"></i>
+                    ${escapeHtml(rel)} · ${escapeHtml(full)}
+                  </p>
+                </div>
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200 transition group-hover:text-violet-600 group-active:scale-95">
+                  <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                </div>
+              </div>
+              <span class="pointer-events-none absolute right-0 top-0 h-24 w-24 -translate-y-8 translate-x-10 rounded-full bg-gradient-to-br from-violet-400/10 via-rose-400/10 to-transparent blur-2xl group-hover:opacity-100"></span>
+            </button>
+          `;
+        }).join('');
+        renderIcons();
+      }
+
+      function openWishDetail(id) {
+        state.wish.detail = { id, loading: false, data: null, error: null };
+        switchWishView('detail', { autoload: false });
+        renderWishDetailState();
+        loadWishDetail(id, { force: true });
+      }
+
+      async function loadWishDetail(id, options = {}) {
+        if (!id) return;
+        state.wish.detail.id = id;
+        if (state.wish.detail.loading && options.force !== true) return;
+        state.wish.detail.loading = true;
+        state.wish.detail.error = null;
+        state.wish.detail.data = null;
+        renderWishDetailState();
+
+        let tokenBundle = { kind: 'fallback' };
+        try {
+          tokenBundle = await getIdentityToken();
+        } catch (err) {
+          console.warn('getIdentityToken failed on wish detail load', err);
+        }
+
+        try {
+          const headers = buildAuthHeaders(tokenBundle);
+          const res = await fetch(`/api/my-feedback/${encodeURIComponent(id)}`, { method: 'GET', headers });
+          if (res.status === 401) {
+            throw new Error('AUTH_401: 身分驗證失敗，請重新從 LINE 開啟 LIFF。');
+          }
+          if (res.status === 403) {
+            throw new Error('您沒有權限檢視此案件，請重新從 LINE 開啟 LIFF。');
+          }
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status}${txt ? ` - ${txt.slice(0, 80)}` : ''}`);
+          }
+          const json = await res.json();
+          if (!json || json.success === false) {
+            throw new Error((json && json.message) || '後端回傳格式錯誤');
+          }
+          state.wish.detail.data = json.data || null;
+          state.wish.detail.error = null;
+          renderWishDetailState();
+          renderWishDetailContent();
+        } catch (err) {
+          console.error('loadWishDetail failed:', err);
+          const msg = err && err.message ? err.message : '載入案件失敗，請稍後再試。';
+          const isAuth = /AUTH_401/i.test(msg);
+          state.wish.detail.error = isAuth
+            ? '身分驗證失敗，請重新從 LINE 開啟 LIFF。'
+            : msg;
+          renderWishDetailState();
+          if (isAuth) showToast('請重新從 LINE 開啟 LIFF 再查看案件內容');
+        } finally {
+          state.wish.detail.loading = false;
+          renderWishDetailState();
+        }
+      }
+
+      function renderWishDetailState() {
+        const { loading, error, data } = state.wish.detail;
+        if (elements.wishDetailLoading) elements.wishDetailLoading.classList.toggle('hidden', !loading);
+        const hasError = Boolean(error) && !loading;
+        if (elements.wishDetailError) {
+          elements.wishDetailError.classList.toggle('hidden', !hasError);
+          if (elements.wishDetailErrorText) elements.wishDetailErrorText.textContent = error || '';
+        }
+        const showEmpty = !loading && !hasError && !data;
+        if (elements.wishDetailEmpty) elements.wishDetailEmpty.classList.toggle('hidden', !showEmpty);
+        const showContent = !loading && !hasError && Boolean(data);
+        if (elements.wishDetailContainer) elements.wishDetailContainer.classList.toggle('hidden', !showContent);
+      }
+
+      function renderWishDetailContent() {
+        const container = elements.wishDetailContainer;
+        const data = state.wish.detail.data;
+        if (!container || !data) return;
+        const id = String(data.id || '');
+        const statusPill = wishStatusPill(data.status);
+        const createdAt = formatWishDatetime(data.created_at || data.createdAt);
+        const updatedAt = formatWishDatetime(data.updated_at || data.last_status_at || null);
+        const category = escapeHtml(data.category || '未分類');
+        const userName = escapeHtml(data.user_name || '里民');
+        const phone = escapeHtml(data.phone || '未填寫');
+        const content = escapeHtml(data.content || '（無內容）').replaceAll('\n', '<br>');
+        const replySummary = data.reply_summary ? escapeHtml(data.reply_summary).replaceAll('\n', '<br>') : null;
+        const photos = Array.isArray(data.photos) ? data.photos : [];
+        const logs = Array.isArray(data.status_logs) ? data.status_logs : [];
+        const lastStatusAt = formatWishDatetime(data.last_status_at || data.created_at);
+
+        const photosHtml = photos.length > 0 ? `
+          <div class="rounded-[1.5rem] border border-violet-100 bg-white p-4 shadow-[0_14px_40px_-34px_rgba(139,92,246,0.35)]">
+            <div class="mb-3 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 ring-1 ring-rose-100">
+                  <i data-lucide="images" class="h-4 w-4"></i>
+                </div>
+                <p class="text-sm font-semibold text-violet-950">案件照片</p>
+              </div>
+              <span class="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100">
+                共 ${photos.length} 張
+              </span>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              ${photos.map((p) => {
+                const thumbUrl = p.signed_url || '';
+                const name = escapeHtml(p.display_name || p.original_name || p.file_name || '照片');
+                const isMissing = !thumbUrl;
+                return `
+                  <a
+                    ${thumbUrl ? `href="${escapeHtml(thumbUrl)}" target="_blank" rel="noopener"` : ''}
+                    class="group relative block aspect-square overflow-hidden rounded-[1rem] ring-1 ring-slate-200 transition ${isMissing ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-0.5 hover:ring-violet-200'}"
+                    title="${name}"
+                  >
+                    ${thumbUrl
+                      ? `<img src="${escapeHtml(thumbUrl)}" alt="${name}" loading="lazy" class="h-full w-full object-cover transition duration-300 group-hover:scale-105">`
+                      : `<div class="flex h-full w-full items-center justify-center bg-slate-100 text-slate-400"><i data-lucide="image-off" class="h-6 w-6"></i></div>`}
+                    <span class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/65 via-slate-900/25 to-transparent px-2.5 py-1.5 text-[10px] font-semibold leading-5 text-white">
+                      ${name}
+                    </span>
+                  </a>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : '';
+
+        const sortedLogs = logs.slice().sort((a, b) => {
+          const ta = new Date(a.created_at || 0).getTime();
+          const tb = new Date(b.created_at || 0).getTime();
+          return ta - tb;
+        });
+        if (sortedLogs.length === 0) {
+          sortedLogs.push({
+            status: data.status || '已收到',
+            note: data.reply_summary || '系統已建立案件',
+            created_at: data.last_status_at || data.created_at,
+            is_fallback: true,
+          });
+        }
+
+        const timelineHtml = `
+          <div class="rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-violet-50/30 to-rose-50/30 p-4 shadow-[0_14px_40px_-34px_rgba(139,92,246,0.35)]">
+            <div class="mb-4 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                  <i data-lucide="git-branch-plus" class="h-4 w-4"></i>
+                </div>
+                <p class="text-sm font-semibold text-violet-950">處理時間軸</p>
+              </div>
+              <span class="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-100">
+                最後更新 ${escapeHtml(lastStatusAt)}
+              </span>
+            </div>
+            <ol class="relative space-y-5 pl-2">
+              <span class="pointer-events-none absolute left-[13px] top-1 bottom-1 w-[2px] bg-gradient-to-b from-violet-300/70 via-rose-300/60 to-transparent"></span>
+              ${sortedLogs.map((log, i) => {
+                const pill = wishStatusPill(log.status);
+                const when = formatWishDatetime(log.created_at || data.created_at);
+                const rel = wishRelDatetime(log.created_at || data.created_at);
+                const note = log.note ? escapeHtml(log.note).replaceAll('\n', '<br>') : '（未填寫說明）';
+                const isLast = i === sortedLogs.length - 1;
+                return `
+                  <li class="relative flex gap-3">
+                    <span class="pointer-events-none relative z-10 mt-1 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-white ring-1 ${pill.classes}">
+                      <span class="relative inline-flex h-2 w-2">
+                        ${isLast ? `<span class="absolute inline-flex h-full w-full animate-ping rounded-full ${pill.dot} opacity-50"></span>` : ''}
+                        <span class="relative inline-flex h-2 w-2 rounded-full ${pill.dot}"></span>
+                      </span>
+                    </span>
+                    <div class="min-w-0 flex-1 rounded-[1.25rem] border border-white bg-white/85 px-3.5 py-3 shadow-sm ring-1 ring-slate-100">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${pill.classes}">
+                          <i data-lucide="${pill.icon}" class="h-3 w-3"></i>
+                          <span>${pill.label}</span>
+                        </span>
+                        <p class="text-[11px] font-medium text-slate-400">
+                          <i data-lucide="clock-4" class="mr-1 inline h-3 w-3 align-[-2px]"></i>
+                          ${escapeHtml(rel)} · ${escapeHtml(when)}
+                        </p>
+                      </div>
+                      <p class="mt-2 text-sm leading-7 text-slate-700">${note}</p>
+                    </div>
+                  </li>
+                `;
+              }).join('')}
+            </ol>
+          </div>
+        `;
+
+        container.innerHTML = `
+          <div class="overflow-hidden rounded-[1.5rem] border border-violet-100 bg-white shadow-[0_16px_46px_-36px_rgba(139,92,246,0.45)]">
+            <div class="relative border-b border-violet-100/70 bg-gradient-to-br from-violet-50/70 via-white/80 to-rose-50/70 px-4 py-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold ring-1 ${statusPill.classes}">
+                  <i data-lucide="${statusPill.icon}" class="h-3.5 w-3.5"></i>
+                  <span>${statusPill.label}</span>
+                </span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-100">
+                  <i data-lucide="tag" class="h-3 w-3"></i>
+                  <span>${category}</span>
+                </span>
+                ${photos.length > 0 ? `<span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100">
+                  <i data-lucide="image" class="h-3 w-3"></i>
+                  <span>${photos.length} 張照片</span>
+                </span>` : ''}
+              </div>
+              <p class="mt-3 text-[11px] font-medium text-slate-400">
+                案件編號 <span class="font-semibold text-slate-600">#${escapeHtml(id)}</span>
+                <span class="mx-1.5 text-slate-300">·</span>
+                建立 ${escapeHtml(createdAt)}
+                <span class="mx-1.5 text-slate-300">·</span>
+                最後更新 ${escapeHtml(updatedAt)}
+              </p>
+            </div>
+            <div class="space-y-4 p-4">
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-[1.25rem] border border-slate-100 bg-slate-50/80 px-3.5 py-3">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">申請人</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-800">${userName}</p>
+                </div>
+                <div class="rounded-[1.25rem] border border-slate-100 bg-slate-50/80 px-3.5 py-3">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">聯絡電話</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-800">${phone}</p>
+                </div>
+              </div>
+              <div class="rounded-[1.25rem] border border-violet-100/70 bg-gradient-to-b from-white to-violet-50/40 px-4 py-4">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-500">里民心聲</p>
+                <p class="mt-2 whitespace-pre-wrap text-sm leading-8 text-slate-800">${content}</p>
+              </div>
+              ${replySummary ? `
+                <div class="rounded-[1.25rem] border border-emerald-100/80 bg-gradient-to-b from-emerald-50/60 to-white px-4 py-4">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">服務團隊回覆摘要</p>
+                  <p class="mt-2 whitespace-pre-wrap text-sm leading-8 text-slate-800">${replySummary}</p>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          ${photosHtml}
+          ${timelineHtml}
+
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              data-wish-detail-to-list
+              class="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-[0.99]"
+            >
+              <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+              <span>回到我的許願列表</span>
+            </button>
+            <button
+              type="button"
+              data-wish-detail-to-form
+              class="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-rose-400 to-pink-500 px-4 text-xs font-semibold text-white shadow-float transition hover:-translate-y-0.5 active:scale-[0.99]"
+            >
+              <i data-lucide="pen-line" class="h-3.5 w-3.5"></i>
+              <span>我要再許一個願</span>
+            </button>
+          </div>
+        `;
+
+        const back = container.querySelector('[data-wish-detail-to-list]');
+        if (back) back.addEventListener('click', () => switchWishView('list'));
+        const toForm = container.querySelector('[data-wish-detail-to-form]');
+        if (toForm) toForm.addEventListener('click', () => switchWishView('form'));
+
+        renderIcons();
+      }
     </script>
   </body>
 </html>
