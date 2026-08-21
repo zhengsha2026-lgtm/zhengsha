@@ -748,6 +748,65 @@
                       ></textarea>
                     </div>
 
+                    <div>
+                      <div class="mb-2 flex items-center justify-between">
+                        <label class="text-sm font-semibold text-slate-700">
+                          現場照片（選填，最多 3 張）
+                        </label>
+                        <span id="photoCountBadge" class="rounded-full bg-violet-50 px-3 py-1 text-[11px] font-semibold tracking-[0.14em] text-violet-600">
+                          0 / 3
+                        </span>
+                      </div>
+                      <p class="mb-3 text-xs leading-6 text-slate-500">
+                        支援手機拍照或從相簿選取。為避免傳輸失敗，系統會自動壓縮成較小的 WebP 格式後再上傳。
+                      </p>
+
+                      <div id="photoGrid" class="grid grid-cols-3 gap-3">
+                        <button
+                          id="addPhotoButton"
+                          type="button"
+                          class="group relative flex aspect-square flex-col items-center justify-center gap-1.5 overflow-hidden rounded-[1.25rem] border border-dashed border-violet-200 bg-white/70 text-violet-500 ring-1 ring-white/60 transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-white hover:text-violet-600 active:scale-[0.98]"
+                          aria-label="新增照片"
+                        >
+                          <span class="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-violet-50/60 via-rose-50/20 to-white/0"></span>
+                          <span class="relative flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-input ring-1 ring-violet-100">
+                            <i data-lucide="plus" class="h-4.5 w-4.5"></i>
+                          </span>
+                          <span class="relative text-[11px] font-semibold">新增照片</span>
+                        </button>
+                      </div>
+
+                      <input
+                        id="photoFileInput"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        class="hidden"
+                      />
+                    </div>
+
+                    <div
+                      id="photoProgressPanel"
+                      class="hidden rounded-[1.25rem] border border-violet-100 bg-white/80 p-4 text-xs"
+                    >
+                      <div class="flex items-center justify-between text-slate-600">
+                        <div class="flex items-center gap-2">
+                          <span id="photoProgressIcon" class="relative inline-flex h-2 w-2">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-60"></span>
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-violet-500"></span>
+                          </span>
+                          <p id="photoProgressText" class="font-semibold text-slate-700">正在準備照片...</p>
+                        </div>
+                        <p id="photoProgressPercent" class="font-semibold text-violet-600">0%</p>
+                      </div>
+                      <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/70">
+                        <div
+                          id="photoProgressBar"
+                          class="h-full w-0 rounded-full bg-gradient-to-r from-rose-400 via-pink-500 to-violet-500 transition-[width] duration-200 ease-out"
+                        ></div>
+                      </div>
+                    </div>
+
                     <button
                       id="submitButton"
                       type="submit"
@@ -881,6 +940,7 @@
         supportingIds: new Set(),
         activePlatformId: null,
         fontSizeMode: 'normal',
+        photos: [],
       };
 
       const elements = {
@@ -922,6 +982,15 @@
         profileBadge: document.getElementById('profileBadge'),
         profileBadgeIcon: document.getElementById('profileBadgeIcon'),
         profileBadgeText: document.getElementById('profileBadgeText'),
+        addPhotoButton: document.getElementById('addPhotoButton'),
+        photoFileInput: document.getElementById('photoFileInput'),
+        photoGrid: document.getElementById('photoGrid'),
+        photoCountBadge: document.getElementById('photoCountBadge'),
+        photoProgressPanel: document.getElementById('photoProgressPanel'),
+        photoProgressIcon: document.getElementById('photoProgressIcon'),
+        photoProgressText: document.getElementById('photoProgressText'),
+        photoProgressPercent: document.getElementById('photoProgressPercent'),
+        photoProgressBar: document.getElementById('photoProgressBar'),
       };
 
       let toastTimer = null;
@@ -953,6 +1022,7 @@
         }
 
         await loadPlatforms();
+        renderPhotoGrid();
       }
 
       function bindEvents() {
@@ -1006,6 +1076,28 @@
             badgeText: '測試模式',
             badgeIcon: 'shield',
           });
+        });
+
+        elements.addPhotoButton.addEventListener('click', () => {
+          const remainingSlots = 3 - state.photos.length;
+          if (remainingSlots <= 0) {
+            showToast('最多只能上傳 3 張照片哦。');
+            return;
+          }
+          elements.photoFileInput.value = '';
+          elements.photoFileInput.setAttribute('multiple', remainingSlots > 1 ? 'multiple' : '');
+          elements.photoFileInput.click();
+        });
+        elements.photoFileInput.addEventListener('change', handlePhotoFileChange);
+        elements.photoGrid.addEventListener('click', (event) => {
+          const removeBtn = event.target.closest('[data-remove-photo-index]');
+          if (removeBtn) {
+            const index = Number(removeBtn.dataset.removePhotoIndex);
+            if (Number.isFinite(index) && state.photos[index]) {
+              state.photos.splice(index, 1);
+              renderPhotoGrid();
+            }
+          }
         });
 
         elements.feedbackForm.addEventListener('submit', handleSubmit);
@@ -1502,54 +1594,481 @@
         return { active: true, minutesLeft };
       }
 
+      function renderPhotoGrid() {
+        const addButton = elements.addPhotoButton;
+        if (!elements.photoGrid) return;
+
+        state.photos.forEach((photo) => {
+          if (photo.previewUrl && photo._attached !== true) {
+            photo._attached = true;
+          }
+        });
+
+        const previewCards = state.photos.map((photo, index) => {
+          const sizeKb = photo.compressedSizeBytes
+            ? (photo.compressedSizeBytes / 1024).toFixed(1)
+            : '?';
+          return `
+            <div
+              class="group relative aspect-square overflow-hidden rounded-[1.25rem] border border-white bg-slate-50 ring-1 ring-violet-100/80 shadow-[0_6px_20px_-18px_rgba(15,23,42,0.3)]"
+              data-photo-index="${index}"
+            >
+              <img
+                src="${photo.previewUrl}"
+                alt="第 ${index + 1} 張許願照片預覽"
+                class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                loading="lazy"
+              />
+              <div class="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-900/70 via-slate-900/25 to-transparent"></div>
+              <div class="absolute left-2 bottom-2 max-w-[calc(100%-2.5rem)]">
+                <p class="line-clamp-1 text-[10px] font-semibold text-white/95 drop-shadow">
+                  ${escapeHtml(photo.originalName || `照片 ${index + 1}`)}
+                </p>
+                <p class="mt-0.5 text-[10px] font-medium text-white/80 drop-shadow">約 ${sizeKb} KB</p>
+              </div>
+              <button
+                type="button"
+                data-remove-photo-index="${index}"
+                class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-rose-500 shadow-sm ring-1 ring-rose-100 transition hover:bg-rose-500 hover:text-white active:scale-95"
+                aria-label="移除照片"
+              >
+                <i data-lucide="x" class="h-3.5 w-3.5"></i>
+              </button>
+            </div>
+          `;
+        });
+
+        const remainingSlots = Math.max(0, 3 - state.photos.length);
+        if (addButton) {
+          addButton.classList.toggle('hidden', remainingSlots === 0);
+        }
+
+        elements.photoGrid.innerHTML = '';
+        previewCards.forEach((html) => {
+          const wrap = document.createElement('div');
+          wrap.innerHTML = html;
+          elements.photoGrid.appendChild(wrap.firstElementChild);
+        });
+        if (addButton) {
+          elements.photoGrid.appendChild(addButton);
+        }
+
+        elements.photoCountBadge.textContent = `${Math.min(state.photos.length, 3)} / 3`;
+        elements.photoCountBadge.classList.toggle('bg-emerald-50', state.photos.length > 0);
+        elements.photoCountBadge.classList.toggle('text-emerald-600', state.photos.length > 0);
+        elements.photoCountBadge.classList.toggle('bg-violet-50', state.photos.length === 0);
+        elements.photoCountBadge.classList.toggle('text-violet-600', state.photos.length === 0);
+
+        renderIcons();
+      }
+
+      async function handlePhotoFileChange(event) {
+        const files = Array.from((event.target && event.target.files) || []);
+        if (!files.length) return;
+
+        const remainingSlots = Math.max(0, 3 - state.photos.length);
+        if (remainingSlots === 0) {
+          showToast('照片已經滿 3 張，請先移除部分照片。');
+          return;
+        }
+        const accepted = files.slice(0, remainingSlots);
+
+        setPhotoProgress('visible', '正在壓縮照片...', 0);
+        let processedCount = 0;
+        const errors = [];
+
+        for (const file of accepted) {
+          try {
+            const compressed = await compressImageToWebp(file, {
+              maxEdge: 1920,
+              quality: 0.82,
+              minQuality: 0.55,
+              targetMaxBytes: 1.8 * 1024 * 1024,
+            });
+            state.photos.push({
+              originalName: file.name || `photo_${Date.now()}`,
+              originalSizeBytes: file.size || 0,
+              mimeType: 'image/webp',
+              previewUrl: compressed.previewUrl,
+              compressedBlob: compressed.blob,
+              compressedSizeBytes: compressed.blob.size,
+            });
+            processedCount += 1;
+            updatePhotoProgressText();
+            const percent = Math.round((processedCount / accepted.length) * 50);
+            setPhotoProgress('visible', '正在壓縮照片...', percent);
+          } catch (error) {
+            console.warn('Photo compress failed:', file && file.name, error);
+            errors.push(file.name || '未命名檔案');
+          }
+        }
+
+        renderPhotoGrid();
+        setPhotoProgress('hidden', '照片準備完成', 100);
+        window.setTimeout(() => setPhotoProgress('hidden', '', 0), 600);
+
+        if (errors.length) {
+          showToast(`有 ${errors.length} 張照片無法處理，已略過。`);
+        } else if (processedCount) {
+          showToast(`已加入 ${processedCount} 張照片 ✨`);
+        }
+      }
+
+      function updatePhotoProgressText() {
+        const total = state.photos.length;
+        if (!total) return;
+        const allBytes = state.photos.reduce((sum, p) => sum + (p.compressedSizeBytes || 0), 0);
+        const kb = (allBytes / 1024).toFixed(0);
+        elements.photoProgressText.textContent = `已準備 ${total} 張照片（約 ${kb} KB）`;
+      }
+
+      function setPhotoProgress(mode, text, percent) {
+        if (mode === 'visible') {
+          elements.photoProgressPanel.classList.remove('hidden');
+        } else {
+          elements.photoProgressPanel.classList.add('hidden');
+        }
+        if (typeof text === 'string' && text) {
+          elements.photoProgressText.textContent = text;
+        }
+        const pct = Math.max(0, Math.min(100, Number(percent) || 0));
+        elements.photoProgressPercent.textContent = `${pct}%`;
+        elements.photoProgressBar.style.width = `${pct}%`;
+      }
+
+      function compressImageToWebp(file, options) {
+        return new Promise((resolve, reject) => {
+          if (!file || !file.type.startsWith('image/')) {
+            reject(new Error('檔案不是圖片'));
+            return;
+          }
+          const maxEdge = options && options.maxEdge ? Number(options.maxEdge) : 1920;
+          let quality = options && Number.isFinite(options.quality) ? options.quality : 0.82;
+          const minQuality = options && Number.isFinite(options.minQuality) ? options.minQuality : 0.58;
+          const targetMaxBytes =
+            options && Number.isFinite(options.targetMaxBytes) ? options.targetMaxBytes : 1.8 * 1024 * 1024;
+
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error('讀取圖片失敗'));
+          reader.onload = () => {
+            const img = new Image();
+            img.decoding = 'async';
+            img.onerror = () => reject(new Error('圖片無法解析'));
+            img.onload = async () => {
+              try {
+                if (typeof img.decode === 'function') {
+                  try { await img.decode(); } catch (_) { /* ignore */ }
+                }
+                const width = img.naturalWidth || img.width;
+                const height = img.naturalHeight || img.height;
+                const longEdge = Math.max(width, height);
+                const scale = longEdge > maxEdge ? maxEdge / longEdge : 1;
+                const targetW = Math.max(1, Math.round(width * scale));
+                const targetH = Math.max(1, Math.round(height * scale));
+
+                let canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                let blob = await new Promise((resBlob, rejBlob) => {
+                  canvas.toBlob(
+                    (b) => (b ? resBlob(b) : rejBlob(new Error('WebP 轉換失敗'))),
+                    'image/webp',
+                    quality
+                  );
+                });
+
+                while (blob.size > targetMaxBytes && quality > minQuality) {
+                  quality = Math.max(minQuality, Number((quality - 0.08).toFixed(2)));
+                  blob = await new Promise((resBlob, rejBlob) => {
+                    canvas.toBlob(
+                      (b) => (b ? resBlob(b) : rejBlob(new Error('WebP 重新壓縮失敗'))),
+                      'image/webp',
+                      quality
+                    );
+                  });
+                }
+
+                let previewUrl = URL.createObjectURL(blob);
+                try {
+                  if (canvas.transferToImageBitmap) canvas.transferToImageBitmap();
+                } catch (_) { /* ignore */ }
+                canvas.width = 1; canvas.height = 1; canvas = null;
+
+                resolve({
+                  blob,
+                  previewUrl,
+                  width: targetW,
+                  height: targetH,
+                  qualityUsed: quality,
+                });
+              } catch (err) {
+                reject(err);
+              }
+            };
+            img.src = String(reader.result || '');
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function getIdentityToken() {
+        if (state.mode === 'liff' && window.liff && typeof liff.getIDToken === 'function') {
+          const token = await liff.getIDToken();
+          if (token) return { kind: 'liff', token };
+        }
+        return { kind: 'fallback' };
+      }
+
+      function buildAuthHeaders(tokenBundle) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (tokenBundle && tokenBundle.kind === 'liff' && tokenBundle.token) {
+          headers['Authorization'] = `Bearer ${tokenBundle.token}`;
+        }
+        return headers;
+      }
+
       async function handleSubmit(event) {
         event.preventDefault();
 
-        if (!elements.lineUserId.value.trim()) {
-          enableTestMode('尚未取得 LINE User ID，已自動切換至測試模式。');
+        const tokenBundle = await getIdentityToken();
+        if (tokenBundle.kind !== 'liff') {
+          if (state.mode === 'liff') {
+            showToast('身分驗證資訊取得失敗，請重新開啟 LIFF。');
+            setWishStatus('身分驗證失敗，請重新從 LINE 開啟表單。', 'error');
+            return;
+          }
+          if (!elements.lineUserId.value.trim()) {
+            enableTestMode('尚未取得 LINE 身分，已切換為測試模式。');
+          }
         }
 
         const payload = {
-          line_user_id: elements.lineUserId.value.trim(),
           user_name: elements.userName.value.trim(),
           phone: elements.phone.value.trim(),
           category: elements.category.value,
           content: elements.content.value.trim(),
         };
 
-        toggleSubmitting(true);
+        if (!payload.user_name || !payload.phone || !payload.category || !payload.content) {
+          showToast('請完整填寫表單欄位。');
+          return;
+        }
+        if (state.photos.length > 3) {
+          showToast('照片最多只能 3 張。');
+          return;
+        }
+
+        toggleSubmitting(true, '正在送出許願...');
         setWishStatus('資料送出中，請稍候...', 'info');
 
         try {
+          const headers = buildAuthHeaders(tokenBundle);
+
+          let uploadResult = null;
+          if (state.photos.length > 0) {
+            setPhotoProgress('visible', '正在與伺服器核發照片上傳金鑰...', 8);
+            uploadResult = await issueSignedUrlsAndUploadPhotos(tokenBundle, headers);
+            payload.photos = uploadResult.photoRows;
+            setPhotoProgress('visible', '照片已就緒，正在儲存您的許願內容...', 92);
+          }
+
           const response = await fetch('/api/feedback', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify(payload),
           });
 
           const result = await response.json();
-          if (!response.ok || !result.success) {
-            throw new Error(result.message || '資料送出失敗');
+
+          if (response.status === 401) {
+            throw new Error(
+              (result && result.message) || '身分驗證失敗，請重新從 LINE 開啟 LIFF 表單。'
+            );
+          }
+          if (!response.ok || !result || !result.success) {
+            throw new Error((result && result.message) || '資料送出失敗');
           }
 
           localStorage.setItem(RESIDENT_PHONE_STORAGE_KEY, payload.phone);
           elements.category.value = '';
           elements.content.value = '';
-          setWishStatus(result.message || '感謝您的建議，我們已收到。', 'success');
-          showToast('許願池表單已成功送出。');
+          clearPhotos();
+
+          setWishStatus(result.message || '感謝您的許願，我們已收到。', 'success');
+          showSuccessCelebration(result && result.data ? result.data : null);
         } catch (error) {
-          console.error('Submit failed:', error);
-          setWishStatus(error.message || '送出失敗，請稍後再試。', 'error');
+          console.error('Submit secure flow failed:', error);
+          if (error.message && error.message.includes('身分驗證失敗')) {
+            setWishStatus(error.message, 'error');
+          } else {
+            setWishStatus(error.message || '送出失敗，請稍後再試。', 'error');
+          }
+          showToast(error.message || '送出失敗，請稍後再試。');
         } finally {
-          toggleSubmitting(false);
+          toggleSubmitting(false, '送出里民建議');
+          setPhotoProgress('hidden', '', 0);
         }
       }
 
-      function toggleSubmitting(isSubmitting) {
+      async function issueSignedUrlsAndUploadPhotos(tokenBundle, baseHeaders) {
+        const count = state.photos.length;
+        const uploadRes = await fetch('/api/feedback/upload-urls', {
+          method: 'POST',
+          headers: baseHeaders,
+          body: JSON.stringify({ count }),
+        });
+        const uploadJson = await uploadRes.json();
+        if (uploadRes.status === 401) {
+          throw new Error('身分驗證失敗，請重新從 LINE 開啟 LIFF。');
+        }
+        if (!uploadRes.ok || !uploadJson || !uploadJson.success || !uploadJson.data) {
+          throw new Error((uploadJson && uploadJson.message) || '照片上傳金鑰核發失敗，請稍後再試。');
+        }
+
+        const uploads = Array.isArray(uploadJson.data.uploads) ? uploadJson.data.uploads : [];
+        if (uploads.length !== count) {
+          throw new Error('照片金鑰數量與準備的照片不符，請重新整理後再試。');
+        }
+
+        const photoRows = [];
+        for (let i = 0; i < count; i += 1) {
+          const photo = state.photos[i];
+          const signed = uploads[i];
+          const percent = 10 + Math.round(((i + 1) / count) * 80);
+          setPhotoProgress(
+            'visible',
+            `正在上傳第 ${i + 1} / ${count} 張照片...`,
+            percent
+          );
+
+          try {
+            const putRes = await fetch(signed.upload_url, {
+              method: 'PUT',
+              headers: { 'Content-Type': photo.mimeType || 'image/webp' },
+              body: photo.compressedBlob,
+            });
+            if (!putRes.ok) {
+              throw new Error(`HTTP ${putRes.status}`);
+            }
+            photoRows.push({
+              storage_path: signed.storage_path,
+              file_name: photo.originalName || '',
+              content_type: photo.mimeType || 'image/webp',
+              sort_order: i + 1,
+            });
+          } catch (err) {
+            console.error('Photo PUT upload failed at index', i, err);
+            throw new Error(`第 ${i + 1} 張照片上傳失敗（${err.message || '網路錯誤'}），請重試。`);
+          }
+        }
+
+        return { photoRows };
+      }
+
+      function clearPhotos() {
+        state.photos.forEach((p) => {
+          try {
+            if (p && p.previewUrl && p.previewUrl.startsWith('blob:')) {
+              URL.revokeObjectURL(p.previewUrl);
+            }
+          } catch (_) { /* ignore */ }
+        });
+        state.photos = [];
+        renderPhotoGrid();
+      }
+
+      function showSuccessCelebration(data) {
+        const wishId = data && data.id ? data.id : null;
+        const created = data && data.created_at ? data.created_at : null;
+        const when = created ? new Date(created) : null;
+        const createdAtText = when && !Number.isNaN(when.getTime())
+          ? `${when.getFullYear()}/${String(when.getMonth() + 1).padStart(2, '0')}/${String(when.getDate()).padStart(2, '0')} ${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}`
+          : '剛剛';
+
+        const banner = document.createElement('div');
+        banner.id = 'wishSuccessBanner';
+        banner.className =
+          'glass-modal fixed inset-x-4 top-20 z-50 mx-auto max-w-md overflow-hidden rounded-[1.75rem] border border-emerald-100/80 bg-white/90 p-5 shadow-2xl shadow-emerald-500/10 sm:inset-x-6 sm:mx-auto sm:top-28';
+        banner.innerHTML = `
+          <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-50/70 via-white/0 to-rose-50/70"></div>
+          <div class="relative flex items-start gap-4">
+            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-glow">
+              <i data-lucide="check" class="h-6 w-6"></i>
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">許願已送到</p>
+              <h3 class="mt-2 text-xl font-semibold tracking-tight text-violet-950">感謝您的每一則意見</h3>
+              <p class="mt-3 text-sm leading-7 text-slate-600">
+                您的許願已在 <span class="font-semibold text-slate-800">${createdAtText}</span> 被認真接住。我們會在 1~3 個工作天內了解狀況，並把處理進度寫回「我的許願」。
+              </p>
+              ${wishId ? `<p class="mt-3 text-[11px] font-medium text-slate-400">案件編號 #${String(wishId)}</p>` : ''}
+            </div>
+            <button
+              type="button"
+              data-close-success
+              class="rounded-full bg-white/80 p-2 text-slate-500 shadow-sm ring-1 ring-slate-200 transition hover:text-slate-900"
+              aria-label="關閉成功提示"
+            >
+              <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+          </div>
+          <div class="relative mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-xs leading-6 text-slate-500">
+              未來可以從<span class="mx-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-600">「里民許願池」</span>頁面查看進度。
+            </p>
+            <button
+              type="button"
+              data-scroll-to-wish
+              class="rounded-full bg-gradient-to-r from-rose-400 to-pink-500 px-5 py-2.5 text-xs font-semibold text-white shadow-float transition hover:-translate-y-0.5"
+            >
+              我知道了
+            </button>
+          </div>
+        `;
+        document.body.appendChild(banner);
+        renderIcons();
+        showToast('許願已送出，期待為您服務 ❤️');
+
+        const remove = () => {
+          if (banner && banner.parentNode) {
+            banner.style.transition = 'opacity 220ms ease, transform 220ms ease';
+            banner.style.opacity = '0';
+            banner.style.transform = 'translateY(-10px)';
+            window.setTimeout(() => banner.remove(), 240);
+          }
+        };
+
+        banner.querySelector('[data-close-success]').addEventListener('click', remove);
+        banner.querySelector('[data-scroll-to-wish]').addEventListener('click', () => {
+          if (elements.photoGrid && elements.photoGrid.scrollIntoView) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+          remove();
+        });
+        window.setTimeout(remove, 12000);
+      }
+
+      function toggleSubmitting(isSubmitting, customText) {
         elements.submitButton.disabled = isSubmitting;
-        elements.submitButton.textContent = isSubmitting ? '送出中...' : '送出里民建議';
+        if (isSubmitting) {
+          elements.submitButton.innerHTML = `
+            <span class="inline-flex items-center justify-center gap-2">
+              <span class="relative flex h-3.5 w-3.5">
+                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 opacity-60"></span>
+                <span class="relative inline-flex h-3.5 w-3.5 rounded-full bg-white"></span>
+              </span>
+              <span>${customText || '送出中...'}</span>
+            </span>`;
+        } else {
+          elements.submitButton.textContent = customText || '送出里民建議';
+        }
       }
 
       function setPlatformStatus(message, tone) {
