@@ -576,40 +576,38 @@
             data-tab-panel="wish"
             class="hidden space-y-5"
           >
-            <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
+            <div class="rounded-[1.75rem] border border-violet-100/60 bg-white p-5 shadow-[0_12px_40px_rgba(31,38,135,0.07)] sm:p-6">
               <div>
-                <div>
-                  <p class="text-sm font-semibold text-violet-600">里民許願池</p>
-                  <h2 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">
-                    您的每一則意見，我們都會認真接住
-                  </h2>
-                </div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.3em] text-violet-500">里民許願池</p>
+                <h2 class="mt-2 text-2xl font-bold tracking-tight text-violet-950">
+                  您的每一則意見，我們都會認真接住
+                </h2>
               </div>
 
               <div class="mt-6">
                 <div
                   id="wishSegmentedControl"
-                  class="relative flex h-11 w-full select-none items-center rounded-full border border-slate-200/50 bg-slate-100/85 p-1 shadow-inner"
+                  class="relative flex h-12 w-full select-none items-center rounded-full border border-violet-100/60 bg-violet-50/50 p-1"
                   aria-label="許願池頁籤切換"
                 >
                   <span
                     id="wishSegmentSlider"
-                    class="pointer-events-none absolute top-1 left-1 h-9 w-[calc(50%-0.125rem)] rounded-full bg-white shadow-[0_6px_22px_-14px_rgba(99,102,241,0.45)] ring-1 ring-slate-200/70 transition-transform duration-300 ease-out"
+                    class="pointer-events-none absolute top-1 left-1 h-10 w-[calc(50%-0.125rem)] rounded-full bg-white shadow-[0_4px_16px_-6px_rgba(139,92,246,0.35)] ring-1 ring-violet-100 transition-transform duration-300 ease-out"
                   ></span>
                   <button
                     type="button"
                     data-wish-view="form"
-                    class="relative z-10 flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-bold text-violet-950 transition-colors duration-300"
+                    class="relative z-10 flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-bold text-violet-700 transition-colors duration-300"
                   >
-                    <i data-lucide="pen-line" class="h-3.5 w-3.5"></i>
+                    <i data-lucide="pen-line" class="h-4 w-4"></i>
                     <span>我要許願</span>
                   </button>
                   <button
                     type="button"
                     data-wish-view="list"
-                    class="relative z-10 flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-semibold text-slate-500 transition-colors duration-300"
+                    class="relative z-10 flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-slate-400 transition-colors duration-300"
                   >
-                    <i data-lucide="inbox" class="h-3.5 w-3.5"></i>
+                    <i data-lucide="inbox" class="h-4 w-4"></i>
                     <span>我的許願</span>
                   </button>
                 </div>
@@ -617,45 +615,43 @@
 
               <div id="wishViewsContainer" class="mt-6 grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
                 <div class="space-y-4">
-                  <div class="rounded-[1.75rem] border border-violet-100 bg-slate-50/85 p-5">
-                    <div class="flex items-center gap-4">
+                  <div class="flex items-center gap-3 rounded-xl border border-violet-100/60 bg-violet-50/30 px-3 py-2.5">
+                    <div
+                      class="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-violet-100 bg-white"
+                    >
+                      <img
+                        id="profileAvatar"
+                        alt="里民 LINE 頭像"
+                        class="hidden h-full w-full rounded-full object-cover"
+                      />
                       <div
-                        class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white"
+                        id="profileAvatarFallback"
+                        class="flex h-full w-full items-center justify-center text-slate-400"
                       >
-                        <img
-                          id="profileAvatar"
-                          alt="里民 LINE 頭像"
-                          class="hidden h-full w-full rounded-full object-cover"
-                        />
-                        <div
-                          id="profileAvatarFallback"
-                          class="flex h-full w-full items-center justify-center text-slate-400"
-                        >
-                          <i data-lucide="user" class="h-5 w-5"></i>
-                        </div>
+                        <i data-lucide="user" class="h-4 w-4"></i>
                       </div>
+                    </div>
 
-                      <div class="min-w-0 flex-1">
-                        <div class="flex items-center gap-2">
-                          <p id="profileName" class="text-lg font-semibold tracking-tight text-slate-800">
-                            尚未取得 LINE 身分
-                          </p>
-                          <button
-                            id="privacyInfoButton"
-                            type="button"
-                            aria-label="查看隱私說明"
-                            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200 transition hover:text-violet-600 hover:ring-violet-200"
-                          >
-                            <i data-lucide="help-circle" class="h-3.5 w-3.5"></i>
-                          </button>
-                        </div>
-                        <div
-                          id="profileBadge"
-                          class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500"
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2">
+                        <p id="profileName" class="text-sm font-semibold text-slate-800">
+                          尚未取得 LINE 身分
+                        </p>
+                        <button
+                          id="privacyInfoButton"
+                          type="button"
+                          aria-label="查看隱私說明"
+                          class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200 transition hover:text-violet-600 hover:ring-violet-200"
                         >
-                          <i id="profileBadgeIcon" data-lucide="badge-check" class="h-3.5 w-3.5"></i>
-                          <span id="profileBadgeText">等待連結 LINE</span>
-                        </div>
+                          <i data-lucide="help-circle" class="h-3 w-3"></i>
+                        </button>
+                      </div>
+                      <div
+                        id="profileBadge"
+                        class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-600"
+                      >
+                        <i id="profileBadgeIcon" data-lucide="badge-check" class="h-3 w-3"></i>
+                        <span id="profileBadgeText">等待連結 LINE</span>
                       </div>
                     </div>
                   </div>
@@ -692,13 +688,13 @@
                   </div>
                 </div>
 
-                <div class="relative rounded-[1.75rem] border border-violet-100 bg-slate-50/70 p-5">
+                <div class="relative rounded-[1.75rem] border border-violet-100/60 bg-white p-5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]">
                   <div id="wishFormView" class="relative">
                     <form id="feedbackForm" class="space-y-4">
                       <input id="line_user_id" name="line_user_id" type="hidden" />
 
                     <div>
-                      <label for="user_name" class="mb-2 block text-sm font-semibold text-slate-700">
+                      <label for="user_name" class="mb-1.5 block text-xs font-medium text-slate-500">
                         里民姓名
                       </label>
                       <input
@@ -707,13 +703,13 @@
                         type="text"
                         required
                         maxlength="100"
-                        class="w-full rounded-[1.25rem] border border-white bg-white px-4 py-3 text-sm text-slate-900 shadow-input outline-none transition placeholder:text-slate-400 focus:border-slate-200 focus:ring-2 focus:ring-slate-900/10"
-                        placeholder="請輸入您的姓名或暱稱"
+                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                        placeholder="姓名或暱稱"
                       />
                     </div>
 
                     <div>
-                      <label for="phone" class="mb-2 block text-sm font-semibold text-slate-700">
+                      <label for="phone" class="mb-1.5 block text-xs font-medium text-slate-500">
                         聯絡電話
                       </label>
                       <input
@@ -722,8 +718,8 @@
                         type="tel"
                         required
                         maxlength="30"
-                        class="w-full rounded-[1.25rem] border border-white bg-white px-4 py-3 text-sm text-slate-900 shadow-input outline-none transition placeholder:text-slate-400 focus:border-slate-200 focus:ring-2 focus:ring-slate-900/10"
-                        placeholder="例如 0912-345-678"
+                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                        placeholder="0912-345-678"
                       />
                     </div>
 
@@ -735,7 +731,7 @@
                         id="category"
                         name="category"
                         required
-                        class="w-full rounded-[1.25rem] border border-white bg-white px-4 py-3 text-sm text-slate-900 shadow-input outline-none transition focus:border-slate-200 focus:ring-2 focus:ring-slate-900/10"
+                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                       >
                         <option value="">請選擇類別</option>
                         <option value="環境">環境維護</option>
@@ -747,16 +743,16 @@
                     </div>
 
                     <div>
-                      <label for="content" class="mb-2 block text-sm font-semibold text-slate-700">
+                      <label for="content" class="mb-2 block text-sm font-semibold text-violet-700">
                         具體建議內容
                       </label>
                       <textarea
                         id="content"
                         name="content"
                         required
-                        rows="6"
+                        rows="8"
                         maxlength="2000"
-                        class="w-full rounded-[1.5rem] border border-white bg-white px-4 py-3 text-sm leading-7 text-slate-900 shadow-input outline-none transition placeholder:text-slate-400 focus:border-slate-200 focus:ring-2 focus:ring-slate-900/10"
+                        class="w-full rounded-[1rem] border border-violet-200 bg-white px-4 py-3 text-sm leading-7 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
                         placeholder="請描述您希望改善的內容、遇到的問題，或想提出的建議。"
                       ></textarea>
                     </div>
@@ -770,8 +766,8 @@
                           0 / 3
                         </span>
                       </div>
-                      <p class="mb-3 text-xs leading-6 text-slate-500">
-                        支援手機拍照或從相簿選取。為避免傳輸失敗，系統會自動壓縮成較小的 WebP 格式後再上傳。
+                      <p class="mb-3 text-xs text-slate-400">
+                        可拍照或從相簿選擇，最多 3 張
                       </p>
 
                       <div id="photoGrid" class="grid grid-cols-3 gap-3">
@@ -815,7 +811,7 @@
                       <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/70">
                         <div
                           id="photoProgressBar"
-                          class="h-full w-0 rounded-full bg-gradient-to-r from-rose-400 via-pink-500 to-violet-500 transition-[width] duration-200 ease-out"
+                          class="h-full w-0 rounded-full bg-violet-500 transition-[width] duration-200 ease-out"
                         ></div>
                       </div>
                     </div>
@@ -823,7 +819,7 @@
                     <button
                       id="submitButton"
                       type="submit"
-                      class="w-full rounded-full bg-gradient-to-r from-rose-400 to-pink-500 px-5 py-3.5 text-sm font-semibold text-white shadow-float transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-rose-200/70 disabled:cursor-not-allowed disabled:opacity-60"
+                      class="w-full rounded-full bg-violet-600 px-5 py-3.5 text-sm font-bold text-white shadow-[0_8px_24px_-4px_rgba(139,92,246,0.4)] transition hover:-translate-y-0.5 hover:bg-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       送出里民建議
                     </button>
