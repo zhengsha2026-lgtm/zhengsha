@@ -54,6 +54,20 @@ const lineLoginChannelId = process.env.LINE_LOGIN_CHANNEL_ID || '';
 const hasLineLoginChannelId =
   Boolean(lineLoginChannelId) && !lineLoginChannelId.includes('your_line_');
 
+// 許願池後台管理員白名單（逗號分隔 LINE user id，即 LINE verify API 回傳的 sub）
+const adminLineUserIds = new Set(
+  String(process.env.ADMIN_LINE_USER_IDS || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+);
+const hasAdminWhitelist = adminLineUserIds.size > 0;
+
+function isAdminLineUserId(lineUserId) {
+  if (!lineUserId) return false;
+  return adminLineUserIds.has(lineUserId);
+}
+
 const STORAGE_BUCKET_WISH_PHOTOS = 'wish-photos';
 const SIGNED_UPLOAD_URL_EXPIRES_IN = 60 * 10;
 const SIGNED_READ_URL_EXPIRES_IN = 60 * 30;
@@ -582,6 +596,478 @@ app.get('/api/my-feedback/:id', async (req, res) => {
   }
 });
 
+// ============================================================================
+// 許願池後台管理 API
+// 所有 /api/admin/* 路徑：
+//   1. 必須驗證 LINE ID Token（與里民端同一個 authenticateLineIdentity）
+//   2. 必須在 ADMIN_LINE_USER_IDS 白名單內
+//   3. 一律使用 Service Role Key 存取資料
+// 與里民端 /api/feedback、/api/my-feedback 權限完全分開
+// ============================================================================
+
+const ADMIN_FEEDBACK_STATUSES = ['已收到', '處理中', '已回覆', '已結案'];
+const ADMIN_FEEDBACK_STATUS_SET = new Set(ADMIN_FEEDBACK_STATUSES);
+const ADMIN_FEEDBACK_LIST_MAX_LIMIT = 100;
+const ADMIN_FEEDBACK_LIST_DEFAULT_LIMIT = 30;
+const ADMIN_FEEDBACK_SEARCH_MIN_LENGTH = 1;
+const ADMIN_REPLY_SUMMARY_MAX_LENGTH = 2000;
+
+app.get('/api/admin/me', async (req, res) => {
+  let identity;
+  try {
+    identity = await authenticateLineIdentity(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/me auth failed');
+  }
+
+  if (!hasAdminWhitelist) {
+    return res.status(403).json({
+      success: false,
+      message: '系統尚未設定管理員白名單。',
+    });
+  }
+
+  const isAdmin = isAdminLineUserId(identity.lineUserId);
+  return res.json({
+    success: true,
+    data: {
+      is_admin: isAdmin,
+      line_user_id: identity.lineUserId,
+    },
+  });
+});
+
+app.get('/api/admin/feedback', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/feedback list auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase Service Role 尚未完成設定。',
+    });
+  }
+
+  const statusParam = String(req.query.status || '').trim();
+  const searchQuery = String(req.query.q || '').trim();
+  const limit = Math.min(
+    Math.max(Number(req.query.limit) || ADMIN_FEEDBACK_LIST_DEFAULT_LIMIT, 1),
+    ADMIN_FEEDBACK_LIST_MAX_LIMIT
+  );
+  const offset = Math.max(Number(req.query.offset) || 0, 0);
+
+  const filterStatus =
+    statusParam && statusParam !== '全部' && ADMIN_FEEDBACK_STATUS_SET.has(statusParam)
+      ? statusParam
+      : null;
+
+  try {
+    let query = supabaseAdmin
+      .from('user_feedback')
+      .select(
+        'id, created_at, updated_at, last_status_at, line_user_id, user_name, phone, category, content, status, photo_count, has_photos, reply_summary',
+        { count: 'exact' }
+      )
+      .order('last_status_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
+
+    if (filterStatus) {
+      query = query.eq('status', filterStatus);
+    }
+
+    if (searchQuery.length >= ADMIN_FEEDBACK_SEARCH_MIN_LENGTH) {
+      const sanitized = searchQuery.replace(/[%_]/g, (m) => '\\' + m);
+      const pattern = `%${sanitized}%`;
+      query = query.or(
+        `user_name.ilike.${pattern},phone.ilike.${pattern},content.ilike.${pattern}`
+      );
+    }
+
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('admin/feedback list fetch failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '許願列表讀取失敗，請稍後再試。',
+      });
+    }
+
+    const items = (data || []).map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      last_status_at: row.last_status_at,
+      user_name: row.user_name || '',
+      phone: row.phone || '',
+      category: row.category,
+      status: row.status,
+      photo_count: Number(row.photo_count) || 0,
+      has_photos: Boolean(row.has_photos),
+      excerpt: buildExcerpt(row.content, 80),
+      reply_summary: row.reply_summary ? buildExcerpt(row.reply_summary, 120) : null,
+    }));
+
+    // 同時撈各狀態數量給前端顯示 chips
+    const countsPromise = supabaseAdmin
+      .from('user_feedback')
+      .select('status', { count: 'exact', head: true });
+
+    const [allCountRes, receivedCountRes, processingRes, repliedRes, closedRes] =
+      await Promise.all([
+        countsPromise,
+        supabaseAdmin
+          .from('user_feedback')
+          .select('status', { count: 'exact', head: true })
+          .eq('status', '已收到'),
+        supabaseAdmin
+          .from('user_feedback')
+          .select('status', { count: 'exact', head: true })
+          .eq('status', '處理中'),
+        supabaseAdmin
+          .from('user_feedback')
+          .select('status', { count: 'exact', head: true })
+          .eq('status', '已回覆'),
+        supabaseAdmin
+          .from('user_feedback')
+          .select('status', { count: 'exact', head: true })
+          .eq('status', '已結案'),
+      ]);
+
+    return res.json({
+      success: true,
+      data: {
+        items,
+        pagination: {
+          offset,
+          limit,
+          returned_count: items.length,
+          total_count: Number(count) || 0,
+        },
+        counts: {
+          全部: Number(allCountRes.count) || 0,
+          已收到: Number(receivedCountRes.count) || 0,
+          處理中: Number(processingRes.count) || 0,
+          已回覆: Number(repliedRes.count) || 0,
+          已結案: Number(closedRes.count) || 0,
+        },
+        applied_filters: {
+          status: filterStatus || '全部',
+          q: searchQuery || null,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('admin/feedback list failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
+    });
+  }
+});
+
+app.get('/api/admin/feedback/:id', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/feedback detail auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase Service Role 尚未完成設定。',
+    });
+  }
+
+  const feedbackId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: '許願編號不正確。',
+    });
+  }
+
+  try {
+    const { data: feedbackRow, error: fetchError } = await supabaseAdmin
+      .from('user_feedback')
+      .select(
+        'id, line_user_id, user_name, phone, category, content, status, created_at, updated_at, last_status_at, photo_count, has_photos, reply_summary'
+      )
+      .eq('id', feedbackId)
+      .single();
+
+    if (fetchError || !feedbackRow) {
+      const code = fetchError && fetchError.code;
+      if (code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          message: '找不到這筆許願紀錄。',
+        });
+      }
+      console.error('admin/feedback detail fetch failed:', fetchError);
+      return res.status(500).json({
+        success: false,
+        message: '許願內容讀取失敗，請稍後再試。',
+      });
+    }
+
+    const photosPromise = supabaseAdmin
+      .from('user_feedback_photos')
+      .select(
+        'id, sort_order, bucket_name, storage_path, file_name, content_type, created_at'
+      )
+      .eq('feedback_id', feedbackId)
+      .order('sort_order', { ascending: true });
+
+    const statusLogsPromise = supabaseAdmin
+      .from('user_feedback_status_logs')
+      .select('id, status, note, changed_by, changed_at')
+      .eq('feedback_id', feedbackId)
+      .order('changed_at', { ascending: true })
+      .order('id', { ascending: true });
+
+    const [photosResult, logsResult] = await Promise.all([
+      photosPromise,
+      statusLogsPromise,
+    ]);
+
+    if (photosResult.error) {
+      console.error('admin photos select failed:', photosResult.error);
+    }
+    if (logsResult.error) {
+      console.error('admin status_logs select failed:', logsResult.error);
+    }
+
+    const rawPhotos = (photosResult.data || []).filter(Boolean);
+    const signedPhotos = [];
+    for (const photo of rawPhotos) {
+      let signedUrl = null;
+      if (photo.storage_path) {
+        try {
+          const { data, error } = await supabaseAdmin.storage
+            .from(STORAGE_BUCKET_WISH_PHOTOS)
+            .createSignedUrl(photo.storage_path, SIGNED_READ_URL_EXPIRES_IN);
+          if (!error && data) {
+            signedUrl = data.signedUrl;
+          }
+        } catch (err) {
+          console.error('admin photo signed URL error:', err.message);
+        }
+      }
+      signedPhotos.push({
+        id: photo.id,
+        sort_order: photo.sort_order,
+        bucket_name: photo.bucket_name || STORAGE_BUCKET_WISH_PHOTOS,
+        file_name: photo.file_name || null,
+        content_type: photo.content_type || 'image/webp',
+        created_at: photo.created_at,
+        storage_path: photo.storage_path,
+        signed_url: signedUrl,
+        expires_in_seconds: signedUrl ? SIGNED_READ_URL_EXPIRES_IN : null,
+      });
+    }
+
+    const statusLogs = (logsResult.data || []).filter(Boolean).map((log) => ({
+      id: log.id,
+      status: log.status,
+      note: log.note || null,
+      changed_by: log.changed_by || null,
+      changed_at: log.changed_at,
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        id: feedbackRow.id,
+        line_user_id: feedbackRow.line_user_id,
+        category: feedbackRow.category,
+        user_name: feedbackRow.user_name || '',
+        phone: feedbackRow.phone || '',
+        content: feedbackRow.content,
+        status: feedbackRow.status,
+        created_at: feedbackRow.created_at,
+        updated_at: feedbackRow.updated_at,
+        last_status_at: feedbackRow.last_status_at,
+        photo_count: Number(feedbackRow.photo_count) || 0,
+        has_photos: Boolean(feedbackRow.has_photos),
+        reply_summary: feedbackRow.reply_summary || null,
+        photos: signedPhotos,
+        status_logs: statusLogs,
+      },
+    });
+  } catch (error) {
+    console.error('admin/feedback detail failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
+    });
+  }
+});
+
+app.patch('/api/admin/feedback/:id', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/feedback patch auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase Service Role 尚未完成設定。',
+    });
+  }
+
+  const feedbackId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: '許願編號不正確。',
+    });
+  }
+
+  const body = req.body || {};
+  const hasStatus = Object.prototype.hasOwnProperty.call(body, 'status');
+  const hasReply = Object.prototype.hasOwnProperty.call(body, 'reply_summary');
+
+  if (!hasStatus && !hasReply) {
+    return res.status(400).json({
+      success: false,
+      message: '請至少提供狀態或回覆內容其中一項。',
+    });
+  }
+
+  let nextStatus = null;
+  if (hasStatus) {
+    nextStatus = String(body.status || '').trim();
+    if (!ADMIN_FEEDBACK_STATUS_SET.has(nextStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: '狀態值不正確，僅接受：已收到 / 處理中 / 已回覆 / 已結案。',
+      });
+    }
+  }
+
+  let nextReplySummary = null;
+  let shouldUpdateReply = false;
+  if (hasReply) {
+    shouldUpdateReply = true;
+    nextReplySummary = String(body.reply_summary || '').trim();
+    if (nextReplySummary.length > ADMIN_REPLY_SUMMARY_MAX_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: `回覆內容長度不得超過 ${ADMIN_REPLY_SUMMARY_MAX_LENGTH} 字。`,
+      });
+    }
+  }
+
+  try {
+    const { data: currentRow, error: fetchError } = await supabaseAdmin
+      .from('user_feedback')
+      .select('id, status, reply_summary')
+      .eq('id', feedbackId)
+      .single();
+
+    if (fetchError || !currentRow) {
+      const code = fetchError && fetchError.code;
+      if (code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          message: '找不到這筆許願紀錄。',
+        });
+      }
+      console.error('admin patch fetch failed:', fetchError);
+      return res.status(500).json({
+        success: false,
+        message: '案件讀取失敗，請稍後再試。',
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const updatePayload = {
+      updated_at: nowIso,
+      last_status_at: nowIso,
+    };
+
+    if (nextStatus) {
+      updatePayload.status = nextStatus;
+    }
+    if (shouldUpdateReply) {
+      updatePayload.reply_summary = nextReplySummary || null;
+    }
+
+    const { data: updatedRow, error: updateError } = await supabaseAdmin
+      .from('user_feedback')
+      .update(updatePayload)
+      .eq('id', feedbackId)
+      .select(
+        'id, status, reply_summary, updated_at, last_status_at, photo_count, has_photos'
+      )
+      .single();
+
+    if (updateError || !updatedRow) {
+      console.error('admin patch update failed:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: '許願狀態更新失敗，請稍後再試。',
+      });
+    }
+
+    // 寫入狀態歷程。若同時變更狀態與回覆，note 以回覆為主；若只變更狀態，則記錄狀態說明。
+    const logStatus = nextStatus || currentRow.status;
+    let logNote = null;
+    if (shouldUpdateReply) {
+      logNote = nextReplySummary || null;
+    } else if (nextStatus && nextStatus !== currentRow.status) {
+      logNote = `狀態由「${currentRow.status}」變更為「${nextStatus}」`;
+    }
+
+    const statusLogInsert = await supabaseAdmin
+      .from('user_feedback_status_logs')
+      .insert([
+        {
+          feedback_id: feedbackId,
+          status: logStatus,
+          note: logNote,
+          changed_by: identity.lineUserId,
+          changed_at: nowIso,
+        },
+      ]);
+
+    if (statusLogInsert.error) {
+      console.error('admin status_logs insert failed:', statusLogInsert.error);
+      // 主表已更新成功，不阻擋回應，但記錄錯誤
+    }
+
+    return res.json({
+      success: true,
+      message: '已儲存進度，里民端「我的許願」將同步顯示最新狀態。',
+      data: {
+        id: updatedRow.id,
+        status: updatedRow.status,
+        reply_summary: updatedRow.reply_summary || null,
+        updated_at: updatedRow.updated_at,
+        last_status_at: updatedRow.last_status_at,
+      },
+    });
+  } catch (error) {
+    console.error('admin patch failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
+    });
+  }
+});
+
 app.use((error, req, res, next) => {
   if (error instanceof line.SignatureValidationFailed) {
     console.error('LINE signature validation failed.');
@@ -718,6 +1204,28 @@ async function authenticateLineIdentity(req) {
     unknownError.status = 500;
     throw unknownError;
   }
+}
+
+// 管理員專用驗證：先做 LINE ID Token 驗證，再比對 ADMIN_LINE_USER_IDS 白名單
+// 非管理員會拋出 ForbiddenError（status 403），與一般 AuthError 區別
+class ForbiddenError extends Error {
+  constructor(message = '您沒有權限使用此功能。') {
+    super(message);
+    this.name = 'ForbiddenError';
+    this.status = 403;
+  }
+}
+
+async function requireAdmin(req) {
+  const identity = await authenticateLineIdentity(req);
+  if (!hasAdminWhitelist) {
+    const err = new ForbiddenError('系統尚未設定管理員白名單。');
+    throw err;
+  }
+  if (!isAdminLineUserId(identity.lineUserId)) {
+    throw new ForbiddenError('您沒有管理員權限，無法使用此功能。');
+  }
+  return identity;
 }
 
 function handleAuthOrServerError(res, error, contextMessage) {

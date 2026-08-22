@@ -982,6 +982,143 @@
               </div>
             </div>
           </section>
+
+          <section
+            id="adminPanel"
+            data-tab-panel="admin"
+            class="hidden space-y-5"
+          >
+            <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-violet-600">許願池後台管理</p>
+                  <h2 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">
+                    里民許願案件處理
+                  </h2>
+                  <p class="mt-2 text-sm leading-7 text-slate-500">
+                    篩選狀態、搜尋里民姓名/電話/內容，點案件進入詳情處理。
+                  </p>
+                </div>
+                <div
+                  id="adminStatus"
+                  class="rounded-full border border-violet-100 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-600"
+                >
+                  載入中...
+                </div>
+              </div>
+
+              <div id="adminListView" class="mt-6 space-y-4">
+                <div id="adminChipsRow" class="flex flex-wrap gap-2"></div>
+
+                <div class="relative">
+                  <i data-lucide="search" class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                  <input
+                    id="adminSearchInput"
+                    type="text"
+                    maxlength="100"
+                    placeholder="搜尋姓名、電話或內容（例如：路燈、0912）"
+                    class="w-full rounded-full border border-white bg-white py-3 pl-11 pr-4 text-sm text-slate-900 shadow-input outline-none transition placeholder:text-slate-400 focus:border-slate-200 focus:ring-2 focus:ring-slate-900/10"
+                  />
+                </div>
+
+                <div id="adminListLoading" class="space-y-3">
+                  <div class="h-[112px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[112px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[112px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminListEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                    <i data-lucide="inbox" class="h-6 w-6"></i>
+                  </div>
+                  <p class="mt-4 text-base font-semibold text-violet-950">尚無符合條件的許願</p>
+                  <p id="adminListEmptyHint" class="mt-2 text-sm leading-7 text-slate-500">
+                    嘗試調整搜尋關鍵字或切換狀態篩選。
+                  </p>
+                </div>
+
+                <div id="adminListError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入列表失敗</p>
+                  <p id="adminListErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    data-admin-retry-list
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminListContainer" class="space-y-3"></div>
+
+                <div id="adminListPagination" class="hidden flex items-center justify-between gap-3 pt-2 text-xs text-slate-500">
+                  <p id="adminListPageInfo"></p>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="adminPrevPage"
+                      class="inline-flex h-9 items-center gap-1 rounded-full bg-white px-3 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                      <span>上一頁</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="adminNextPage"
+                      class="inline-flex h-9 items-center gap-1 rounded-full bg-white px-3 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span>下一頁</span>
+                      <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="adminDetailView" class="hidden space-y-5">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminDetailBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回列表</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="adminDetailRefreshButton"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 shadow-input ring-1 ring-slate-200 transition hover:text-violet-600 active:scale-95"
+                    aria-label="重新整理案件內容"
+                  >
+                    <i data-lucide="rotate-cw" class="h-4 w-4"></i>
+                  </button>
+                </div>
+
+                <div id="adminDetailLoading" class="space-y-4">
+                  <div class="h-8 w-1/3 animate-pulse rounded-full bg-slate-200/70"></div>
+                  <div class="h-28 animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[120px] animate-pulse rounded-[1.25rem] bg-slate-200/55"></div>
+                  <div class="h-[200px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminDetailError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入案件失敗</p>
+                  <p id="adminDetailErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    data-admin-retry-detail
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminDetailContainer" class="space-y-5"></div>
+              </div>
+            </div>
+          </section>
         </section>
       </main>
 
@@ -989,7 +1126,7 @@
         <div
           class="pointer-events-auto mx-auto max-w-xl rounded-full border-t border-violet-50 bg-white/95 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-md"
         >
-          <div class="grid grid-cols-4 gap-1">
+          <div id="adminNavGrid" class="grid grid-cols-4 gap-1">
             <button
               type="button"
               data-tab-button="platforms"
@@ -1038,13 +1175,31 @@
               <i data-lucide="calendar-days" class="h-[18px] w-[18px]"></i>
               <span class="mt-1 text-[11px] font-medium">競選行程</span>
             </button>
+            <button
+              type="button"
+              data-tab-button="admin"
+              id="adminTabButton"
+              class="group relative hidden min-h-[4.5rem] flex-col items-center justify-center rounded-full px-2 py-2 text-slate-400 transition"
+            >
+              <span
+                data-tab-indicator="admin"
+                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 opacity-0 transition"
+              ></span>
+              <i data-lucide="shield-check" class="h-[18px] w-[18px]"></i>
+              <span class="mt-1 text-[11px] font-medium">管理</span>
+            </button>
           </div>
         </div>
       </nav>
     </div>
 
     <script>
-      const TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule'];
+      const TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule', 'admin'];
+      const PUBLIC_TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule'];
+      const ADMIN_TAB_KEY = 'admin';
+      const ADMIN_STATUS_FILTERS = ['全部', '已收到', '處理中', '已回覆', '已結案'];
+      const ADMIN_LIST_LIMIT = 20;
+      const ADMIN_SEARCH_DEBOUNCE_MS = 350;
       const AGREE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
       const DEFAULT_CANDIDATE_NAME = '曾思容';
       const RESIDENT_PHONE_STORAGE_KEY = 'zhengsha_resident_phone';
@@ -1086,6 +1241,27 @@
         activePlatformId: null,
         fontSizeMode: 'normal',
         photos: [],
+        isAdmin: false,
+        admin: {
+          view: 'list',
+          list: {
+            items: [],
+            counts: { 全部: 0, 已收到: 0, 處理中: 0, 已回覆: 0, 已結案: 0 },
+            pagination: { offset: 0, limit: ADMIN_LIST_LIMIT, total: 0 },
+            filterStatus: '全部',
+            searchQuery: '',
+            loading: false,
+            error: null,
+            refreshedAt: null,
+          },
+          detail: {
+            id: null,
+            loading: false,
+            data: null,
+            error: null,
+            saving: false,
+          },
+        },
         wish: {
           view: 'form',
           list: [],
@@ -1161,6 +1337,30 @@
         wishDetailError: document.getElementById('wishDetailError'),
         wishDetailErrorText: document.getElementById('wishDetailErrorText'),
         wishDetailContainer: document.getElementById('wishDetailContainer'),
+        adminTabButton: document.getElementById('adminTabButton'),
+        adminNavGrid: document.getElementById('adminNavGrid'),
+        adminPanel: document.getElementById('adminPanel'),
+        adminStatus: document.getElementById('adminStatus'),
+        adminListView: document.getElementById('adminListView'),
+        adminDetailView: document.getElementById('adminDetailView'),
+        adminChipsRow: document.getElementById('adminChipsRow'),
+        adminSearchInput: document.getElementById('adminSearchInput'),
+        adminListLoading: document.getElementById('adminListLoading'),
+        adminListEmpty: document.getElementById('adminListEmpty'),
+        adminListEmptyHint: document.getElementById('adminListEmptyHint'),
+        adminListError: document.getElementById('adminListError'),
+        adminListErrorText: document.getElementById('adminListErrorText'),
+        adminListContainer: document.getElementById('adminListContainer'),
+        adminListPagination: document.getElementById('adminListPagination'),
+        adminListPageInfo: document.getElementById('adminListPageInfo'),
+        adminPrevPage: document.getElementById('adminPrevPage'),
+        adminNextPage: document.getElementById('adminNextPage'),
+        adminDetailBackButton: document.getElementById('adminDetailBackButton'),
+        adminDetailRefreshButton: document.getElementById('adminDetailRefreshButton'),
+        adminDetailLoading: document.getElementById('adminDetailLoading'),
+        adminDetailError: document.getElementById('adminDetailError'),
+        adminDetailErrorText: document.getElementById('adminDetailErrorText'),
+        adminDetailContainer: document.getElementById('adminDetailContainer'),
       };
 
       let toastTimer = null;
@@ -1185,6 +1385,7 @@
           }
           syncCandidateName();
           await initializeIdentity(config);
+          await checkAdminIdentity();
         } catch (error) {
           console.error('Bootstrap config failed:', error);
           syncCandidateName();
@@ -1193,6 +1394,78 @@
 
         await loadPlatforms();
         renderPhotoGrid();
+      }
+
+      async function checkAdminIdentity() {
+        if (state.mode !== 'liff') {
+          state.isAdmin = false;
+          updateAdminTabVisibility();
+          return;
+        }
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            state.isAdmin = false;
+            updateAdminTabVisibility();
+            return;
+          }
+          const res = await fetch('/api/admin/me', {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          if (res.status === 403) {
+            // 白名單未設定或非管理員：靜默隱藏管理入口
+            state.isAdmin = false;
+            updateAdminTabVisibility();
+            return;
+          }
+          if (res.status === 401) {
+            state.isAdmin = false;
+            updateAdminTabVisibility();
+            return;
+          }
+          if (!res.ok) {
+            state.isAdmin = false;
+            updateAdminTabVisibility();
+            return;
+          }
+          const json = await res.json();
+          state.isAdmin = Boolean(json && json.data && json.data.is_admin);
+          updateAdminTabVisibility();
+
+          // 若使用者以 ?tab=admin 開啟且確認為管理員，切換到管理面板
+          if (state.isAdmin) {
+            const urlTab = new URL(window.location.href).searchParams.get('tab');
+            if (urlTab === ADMIN_TAB_KEY) {
+              switchTab(ADMIN_TAB_KEY, { updateHistory: false });
+            }
+          }
+        } catch (err) {
+          console.warn('checkAdminIdentity failed (silent):', err);
+          state.isAdmin = false;
+          updateAdminTabVisibility();
+        }
+      }
+
+      function updateAdminTabVisibility() {
+        const button = elements.adminTabButton;
+        const grid = elements.adminNavGrid;
+        if (!button || !grid) return;
+        if (state.isAdmin) {
+          button.classList.remove('hidden');
+          button.classList.add('flex');
+          grid.classList.remove('grid-cols-4');
+          grid.classList.add('grid-cols-5');
+        } else {
+          button.classList.add('hidden');
+          button.classList.remove('flex');
+          grid.classList.add('grid-cols-4');
+          grid.classList.remove('grid-cols-5');
+          // 若使用者透過 URL ?tab=admin 嘗試進入但非管理員，導回 platforms
+          if (state.activeTab === ADMIN_TAB_KEY) {
+            switchTab('platforms', { updateHistory: true });
+          }
+        }
       }
 
       function bindEvents() {
@@ -1301,6 +1574,86 @@
         });
 
         elements.feedbackForm.addEventListener('submit', handleSubmit);
+
+        // ===== 管理面板事件 =====
+        if (elements.adminChipsRow) {
+          elements.adminChipsRow.addEventListener('click', (event) => {
+            const chip = event.target.closest('[data-admin-status-filter]');
+            if (!chip) return;
+            const status = chip.dataset.adminStatusFilter;
+            if (!status) return;
+            state.admin.list.filterStatus = status;
+            state.admin.list.pagination.offset = 0;
+            renderAdminChips();
+            loadAdminList({ force: true });
+          });
+        }
+
+        if (elements.adminSearchInput) {
+          let searchDebounce = null;
+          elements.adminSearchInput.addEventListener('input', (event) => {
+            const value = event.target.value.trim();
+            if (searchDebounce) clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+              if (state.admin.list.searchQuery === value) return;
+              state.admin.list.searchQuery = value;
+              state.admin.list.pagination.offset = 0;
+              loadAdminList({ force: true });
+            }, ADMIN_SEARCH_DEBOUNCE_MS);
+          });
+        }
+
+        if (elements.adminListError) {
+          elements.adminListError.addEventListener('click', (event) => {
+            if (event.target.closest('[data-admin-retry-list]')) {
+              loadAdminList({ force: true });
+            }
+          });
+        }
+        if (elements.adminListContainer) {
+          elements.adminListContainer.addEventListener('click', (event) => {
+            const row = event.target.closest('[data-admin-item-id]');
+            if (!row) return;
+            const id = String(row.dataset.adminItemId || '');
+            if (id) openAdminDetail(id);
+          });
+        }
+        if (elements.adminPrevPage) {
+          elements.adminPrevPage.addEventListener('click', () => {
+            const nextOffset = Math.max(
+              0,
+              state.admin.list.pagination.offset - state.admin.list.pagination.limit
+            );
+            if (nextOffset === state.admin.list.pagination.offset) return;
+            state.admin.list.pagination.offset = nextOffset;
+            loadAdminList({ force: true });
+          });
+        }
+        if (elements.adminNextPage) {
+          elements.adminNextPage.addEventListener('click', () => {
+            const { offset, limit, total } = state.admin.list.pagination;
+            if (offset + limit >= total) return;
+            state.admin.list.pagination.offset = offset + limit;
+            loadAdminList({ force: true });
+          });
+        }
+        if (elements.adminDetailBackButton) {
+          elements.adminDetailBackButton.addEventListener('click', () => switchAdminView('list'));
+        }
+        if (elements.adminDetailRefreshButton) {
+          elements.adminDetailRefreshButton.addEventListener('click', () => {
+            const id = state.admin.detail.id;
+            if (id) loadAdminDetail(id, { force: true });
+          });
+        }
+        if (elements.adminDetailError) {
+          elements.adminDetailError.addEventListener('click', (event) => {
+            if (event.target.closest('[data-admin-retry-detail]')) {
+              const id = state.admin.detail.id;
+              if (id) loadAdminDetail(id, { force: true });
+            }
+          });
+        }
       }
 
       function renderIcons() {
@@ -1401,10 +1754,21 @@
 
       function getInitialTab() {
         const tab = new URL(window.location.href).searchParams.get('tab');
+        if (!tab) return 'platforms';
+        // admin tab 須等到 checkAdminIdentity() 確認後才允許；
+        // 初始呼叫時 isAdmin 預設為 false，因此 ?tab=admin 在啟動階段會先導回 platforms
+        // 待 checkAdminIdentity() 完成後若為管理員，會由 bootstrap 末段再切換過去
+        if (tab === ADMIN_TAB_KEY) {
+          return state.isAdmin ? ADMIN_TAB_KEY : 'platforms';
+        }
         return TAB_KEYS.includes(tab) ? tab : 'platforms';
       }
 
       function switchTab(tab, options = {}) {
+        // 非管理員不得切換到 admin tab
+        if (tab === ADMIN_TAB_KEY && !state.isAdmin) {
+          tab = 'platforms';
+        }
         const nextTab = TAB_KEYS.includes(tab) ? tab : 'platforms';
         state.activeTab = nextTab;
 
@@ -1432,6 +1796,12 @@
 
         if (nextTab === 'wish') {
           hydrateStoredPhone();
+        }
+
+        if (nextTab === ADMIN_TAB_KEY) {
+          // 進入管理面板時自動載入列表（若尚未載入過）
+          switchAdminView('list', { autoload: true });
+          setAdminStatus('管理員模式已啟用', 'success');
         }
 
         const scrollContainer = document.scrollingElement || document.documentElement || document.body;
@@ -2291,6 +2661,21 @@
         }
       }
 
+      function setAdminStatus(message, tone) {
+        if (!elements.adminStatus) return;
+        const toneClassMap = {
+          info: 'border-violet-100 bg-violet-50 text-violet-600',
+          success: 'border-emerald-100 bg-emerald-50 text-emerald-600',
+          warning: 'border-amber-100 bg-amber-50 text-amber-700',
+          error: 'border-rose-100 bg-rose-50 text-rose-600',
+        };
+        const fallback = 'border-violet-100 bg-violet-50 text-violet-600';
+        elements.adminStatus.className = `rounded-full border px-4 py-2 text-sm font-medium ${toneClassMap[tone] || fallback}`;
+        if (message) {
+          elements.adminStatus.textContent = message;
+        }
+      }
+
       function showToast(message) {
         elements.toastMessage.textContent = message;
         elements.toast.classList.remove('hidden');
@@ -2850,6 +3235,720 @@
         if (toForm) toForm.addEventListener('click', () => switchWishView('form'));
 
         renderIcons();
+      }
+
+      // ==========================================================================
+      // 許願池後台管理 — 列表 / 詳情 / 狀態變更 / 回覆
+      // 僅在 state.isAdmin === true 時可見可用
+      // ==========================================================================
+
+      function switchAdminView(view, options = {}) {
+        const targetView = view === 'detail' ? 'detail' : 'list';
+        state.admin.view = targetView;
+        if (elements.adminListView) {
+          elements.adminListView.classList.toggle('hidden', targetView !== 'list');
+        }
+        if (elements.adminDetailView) {
+          elements.adminDetailView.classList.toggle('hidden', targetView !== 'detail');
+        }
+
+        if (
+          targetView === 'list' &&
+          (options.autoload === true || (!state.admin.list.refreshedAt && !state.admin.list.loading))
+        ) {
+          loadAdminList({ force: options.autoload === true ? false : !state.admin.list.refreshedAt });
+        }
+      }
+
+      async function loadAdminList(options = {}) {
+        if (state.admin.list.loading && options.force !== true) return;
+        state.admin.list.loading = true;
+        state.admin.list.error = null;
+        renderAdminListState();
+
+        let tokenBundle = { kind: 'fallback' };
+        try {
+          tokenBundle = await getIdentityToken();
+        } catch (err) {
+          console.warn('getIdentityToken failed on admin list load', err);
+        }
+
+        if (tokenBundle.kind !== 'liff') {
+          state.admin.list.loading = false;
+          state.admin.list.error = '身分驗證資訊取得失敗，請重新從 LINE 開啟 LIFF。';
+          renderAdminListState();
+          return;
+        }
+
+        try {
+          const { filterStatus, searchQuery, pagination } = state.admin.list;
+          const params = new URLSearchParams();
+          params.set('status', filterStatus || '全部');
+          if (searchQuery) params.set('q', searchQuery);
+          params.set('limit', String(pagination.limit));
+          params.set('offset', String(pagination.offset));
+
+          const res = await fetch(`/api/admin/feedback?${params.toString()}`, {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+
+          if (res.status === 401 || res.status === 403) {
+            throw new Error('AUTH_FORBIDDEN: 您沒有管理員權限，請重新從 LINE 開啟 LIFF。');
+          }
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status}${txt ? ` - ${txt.slice(0, 80)}` : ''}`);
+          }
+
+          const json = await res.json();
+          if (!json || json.success === false) {
+            throw new Error((json && json.message) || '後端回傳格式錯誤');
+          }
+
+          const data = json.data || {};
+          state.admin.list.items = Array.isArray(data.items) ? data.items : [];
+          state.admin.list.counts = data.counts || state.admin.list.counts;
+          state.admin.list.pagination.total = Number(data.pagination?.total_count) || 0;
+          state.admin.list.pagination.returned = Number(data.pagination?.returned_count) || 0;
+          state.admin.list.refreshedAt = Date.now();
+          state.admin.list.error = null;
+          renderAdminChips();
+          renderAdminListState();
+          renderAdminListItems();
+          renderAdminPagination();
+          setAdminStatus(`已載入 ${state.admin.list.items.length} 筆，共 ${state.admin.list.pagination.total} 筆`, 'success');
+        } catch (err) {
+          console.error('loadAdminList failed:', err);
+          const msg = err && err.message ? err.message : '載入失敗，請稍後再試。';
+          const isAuth = /AUTH_FORBIDDEN/i.test(msg);
+          state.admin.list.error = isAuth
+            ? '您沒有管理員權限，請重新從 LINE 開啟 LIFF。'
+            : msg;
+          renderAdminListState();
+          setAdminStatus(state.admin.list.error, 'error');
+        } finally {
+          state.admin.list.loading = false;
+          renderAdminListState();
+        }
+      }
+
+      function renderAdminListState() {
+        const {
+          adminListLoading,
+          adminListEmpty,
+          adminListError,
+          adminListContainer,
+          adminListErrorText,
+          adminListPagination,
+        } = elements;
+        const { loading, error, items } = state.admin.list;
+        if (adminListLoading) adminListLoading.classList.toggle('hidden', !loading);
+        const hasError = Boolean(error) && !loading;
+        if (adminListError) {
+          adminListError.classList.toggle('hidden', !hasError);
+          if (adminListErrorText) adminListErrorText.textContent = error || '';
+        }
+        const showEmpty = !loading && !hasError && items.length === 0;
+        if (adminListEmpty) adminListEmpty.classList.toggle('hidden', !showEmpty);
+        const showItems = !loading && !hasError && items.length > 0;
+        if (adminListContainer) adminListContainer.classList.toggle('hidden', !showItems);
+        if (adminListPagination) adminListPagination.classList.toggle('hidden', !showItems);
+      }
+
+      function renderAdminChips() {
+        const container = elements.adminChipsRow;
+        if (!container) return;
+        const counts = state.admin.list.counts || {};
+        const current = state.admin.list.filterStatus || '全部';
+        container.innerHTML = ADMIN_STATUS_FILTERS.map((status) => {
+          const count = Number(counts[status]) || 0;
+          const isActive = status === current;
+          const baseClasses = 'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition';
+          const activeClasses = 'bg-violet-600 text-white ring-violet-600 shadow-sm';
+          const idleClasses = 'bg-white text-slate-600 ring-slate-200 hover:text-violet-700 hover:ring-violet-200';
+          const pill = wishStatusPill(status);
+          const dotClass = status === '全部' ? 'bg-slate-400' : pill.dot;
+          return `
+            <button
+              type="button"
+              data-admin-status-filter="${escapeHtml(status)}"
+              class="${baseClasses} ${isActive ? activeClasses : idleClasses}"
+            >
+              <span class="inline-flex h-1.5 w-1.5 rounded-full ${dotClass}"></span>
+              <span>${escapeHtml(status)}</span>
+              <span class="ml-1 rounded-full px-1.5 text-[10px] ${isActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'}">${count}</span>
+            </button>
+          `;
+        }).join('');
+        renderIcons();
+      }
+
+      function renderAdminListItems() {
+        const container = elements.adminListContainer;
+        if (!container) return;
+        const items = state.admin.list.items || [];
+        if (items.length === 0) {
+          container.innerHTML = '';
+          return;
+        }
+        container.innerHTML = items.map((item, idx) => {
+          const id = String(item.id || '');
+          const statusPill = wishStatusPill(item.status);
+          const category = escapeHtml(item.category || '未分類');
+          const excerpt = escapeHtml(item.excerpt || item.content || '（無內容）');
+          const userName = escapeHtml(item.user_name || '匿名');
+          const phone = escapeHtml(item.phone || '未填寫');
+          const createdAt = item.created_at || null;
+          const lastStatusAt = item.last_status_at || createdAt;
+          const rel = wishRelDatetime(lastStatusAt);
+          const full = formatWishDatetime(lastStatusAt);
+          const photoCount = Number(item.photo_count) || 0;
+          const hasPhotos = Boolean(item.has_photos) || photoCount > 0;
+          const replySummary = item.reply_summary ? escapeHtml(item.reply_summary) : null;
+          const accentClass = idx % 2 === 0
+            ? 'from-white via-white to-violet-50/40'
+            : 'from-white via-white to-rose-50/40';
+          return `
+            <button
+              type="button"
+              data-admin-item-id="${escapeHtml(id)}"
+              class="group relative block w-full overflow-hidden rounded-[1.25rem] border border-violet-100/60 bg-gradient-to-br ${accentClass} p-4 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] focus:outline-none focus:ring-2 focus:ring-violet-200 active:scale-[0.995]"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${statusPill.classes}">
+                      <span class="relative inline-flex h-1.5 w-1.5">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full ${statusPill.dot} opacity-50"></span>
+                        <span class="relative inline-flex h-1.5 w-1.5 rounded-full ${statusPill.dot}"></span>
+                      </span>
+                      <i data-lucide="${statusPill.icon}" class="h-3 w-3"></i>
+                      <span>${statusPill.label}</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-100">
+                      <i data-lucide="tag" class="h-3 w-3"></i>
+                      <span>${category}</span>
+                    </span>
+                    ${hasPhotos ? `
+                      <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100">
+                        <i data-lucide="image" class="h-3 w-3"></i>
+                        <span>${photoCount}</span>
+                      </span>` : ''}
+                    <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200">
+                      <i data-lucide="hash" class="h-3 w-3"></i>
+                      <span>${escapeHtml(id)}</span>
+                    </span>
+                  </div>
+                  <p class="mt-3 line-clamp-2 text-sm leading-7 text-slate-700">${excerpt}</p>
+                  ${replySummary ? `<p class="mt-2 line-clamp-1 text-xs text-emerald-700">回覆：${replySummary}</p>` : ''}
+                  <div class="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                    <span class="inline-flex items-center gap-1">
+                      <i data-lucide="user" class="h-3 w-3"></i>
+                      <span>${userName}</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <i data-lucide="phone" class="h-3 w-3"></i>
+                      <span>${phone}</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1" title="${escapeHtml(full)}">
+                      <i data-lucide="clock-4" class="h-3 w-3"></i>
+                      <span>${escapeHtml(rel)} · ${escapeHtml(full)}</span>
+                    </span>
+                  </div>
+                </div>
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200 transition group-hover:text-violet-600 group-active:scale-95">
+                  <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                </div>
+              </div>
+              <span class="pointer-events-none absolute right-0 top-0 h-24 w-24 -translate-y-8 translate-x-10 rounded-full bg-gradient-to-br from-violet-400/10 via-rose-400/10 to-transparent blur-2xl group-hover:opacity-100"></span>
+            </button>
+          `;
+        }).join('');
+        renderIcons();
+      }
+
+      function renderAdminPagination() {
+        const { offset, limit, total, returned } = state.admin.list.pagination;
+        if (!elements.adminListPagination) return;
+        if (total === 0) {
+          elements.adminListPagination.classList.add('hidden');
+          return;
+        }
+        elements.adminListPagination.classList.remove('hidden');
+        const from = offset + 1;
+        const to = offset + (returned || state.admin.list.items.length);
+        if (elements.adminListPageInfo) {
+          elements.adminListPageInfo.textContent = `第 ${from}-${to} 筆，共 ${total} 筆`;
+        }
+        if (elements.adminPrevPage) {
+          elements.adminPrevPage.disabled = offset === 0;
+        }
+        if (elements.adminNextPage) {
+          elements.adminNextPage.disabled = offset + limit >= total;
+        }
+      }
+
+      function openAdminDetail(id) {
+        state.admin.detail = { id, loading: false, data: null, error: null, saving: false };
+        switchAdminView('detail', { autoload: false });
+        renderAdminDetailState();
+        loadAdminDetail(id, { force: true });
+      }
+
+      async function loadAdminDetail(id, options = {}) {
+        if (!id) return;
+        state.admin.detail.id = id;
+        if (state.admin.detail.loading && options.force !== true) return;
+        state.admin.detail.loading = true;
+        state.admin.detail.error = null;
+        state.admin.detail.data = null;
+        renderAdminDetailState();
+
+        let tokenBundle = { kind: 'fallback' };
+        try {
+          tokenBundle = await getIdentityToken();
+        } catch (err) {
+          console.warn('getIdentityToken failed on admin detail load', err);
+        }
+
+        if (tokenBundle.kind !== 'liff') {
+          state.admin.detail.loading = false;
+          state.admin.detail.error = '身分驗證資訊取得失敗，請重新從 LINE 開啟 LIFF。';
+          renderAdminDetailState();
+          return;
+        }
+
+        try {
+          const res = await fetch(`/api/admin/feedback/${encodeURIComponent(id)}`, {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          if (res.status === 401 || res.status === 403) {
+            throw new Error('AUTH_FORBIDDEN: 您沒有管理員權限，請重新從 LINE 開啟 LIFF。');
+          }
+          if (res.status === 404) {
+            throw new Error('找不到這筆許願紀錄，可能已被刪除。');
+          }
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status}${txt ? ` - ${txt.slice(0, 80)}` : ''}`);
+          }
+          const json = await res.json();
+          if (!json || json.success === false) {
+            throw new Error((json && json.message) || '後端回傳格式錯誤');
+          }
+          state.admin.detail.data = json.data || null;
+          state.admin.detail.error = null;
+          renderAdminDetailState();
+          renderAdminDetailContent();
+        } catch (err) {
+          console.error('loadAdminDetail failed:', err);
+          const msg = err && err.message ? err.message : '載入案件失敗，請稍後再試。';
+          const isAuth = /AUTH_FORBIDDEN/i.test(msg);
+          state.admin.detail.error = isAuth
+            ? '您沒有管理員權限，請重新從 LINE 開啟 LIFF。'
+            : msg;
+          renderAdminDetailState();
+        } finally {
+          state.admin.detail.loading = false;
+          renderAdminDetailState();
+        }
+      }
+
+      function renderAdminDetailState() {
+        const {
+          adminDetailLoading,
+          adminDetailError,
+          adminDetailErrorText,
+          adminDetailContainer,
+        } = elements;
+        const { loading, error, data } = state.admin.detail;
+        if (adminDetailLoading) adminDetailLoading.classList.toggle('hidden', !loading);
+        const hasError = Boolean(error) && !loading;
+        if (adminDetailError) {
+          adminDetailError.classList.toggle('hidden', !hasError);
+          if (adminDetailErrorText) adminDetailErrorText.textContent = error || '';
+        }
+        const showContent = !loading && !hasError && Boolean(data);
+        if (adminDetailContainer) adminDetailContainer.classList.toggle('hidden', !showContent);
+      }
+
+      function renderAdminDetailContent() {
+        const container = elements.adminDetailContainer;
+        const data = state.admin.detail.data;
+        if (!container || !data) return;
+        const id = String(data.id || '');
+        const statusPill = wishStatusPill(data.status);
+        const createdAt = formatWishDatetime(data.created_at);
+        const updatedAt = formatWishDatetime(data.updated_at || data.last_status_at);
+        const lastStatusAt = formatWishDatetime(data.last_status_at || data.created_at);
+        const category = escapeHtml(data.category || '未分類');
+        const userName = escapeHtml(data.user_name || '匿名');
+        const phone = escapeHtml(data.phone || '未填寫');
+        const content = escapeHtml(data.content || '（無內容）').replaceAll('\n', '<br>');
+        const replySummary = data.reply_summary ? escapeHtml(data.reply_summary).replaceAll('\n', '<br>') : '';
+        const photos = Array.isArray(data.photos) ? data.photos : [];
+        const logs = Array.isArray(data.status_logs) ? data.status_logs : [];
+        const phoneHref = phone && phone !== '未填寫' ? `tel:${phone.replace(/[^0-9+]/g, '')}` : null;
+
+        const photosHtml = photos.length > 0 ? `
+          <div class="rounded-[1.5rem] border border-violet-100 bg-white p-4 shadow-[0_14px_40px_-34px_rgba(139,92,246,0.35)]">
+            <div class="mb-3 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 ring-1 ring-rose-100">
+                  <i data-lucide="images" class="h-4 w-4"></i>
+                </div>
+                <p class="text-sm font-semibold text-violet-950">案件照片</p>
+              </div>
+              <span class="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100">
+                共 ${photos.length} 張
+              </span>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              ${photos.map((p) => {
+                const thumbUrl = p.signed_url || '';
+                const name = escapeHtml(p.file_name || '照片');
+                const isMissing = !thumbUrl;
+                return `
+                  <a
+                    ${thumbUrl ? `href="${escapeHtml(thumbUrl)}" target="_blank" rel="noopener"` : ''}
+                    class="group relative block aspect-square overflow-hidden rounded-[1rem] ring-1 ring-slate-200 transition ${isMissing ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-0.5 hover:ring-violet-200'}"
+                    title="${name}"
+                  >
+                    ${thumbUrl
+                      ? `<img src="${escapeHtml(thumbUrl)}" alt="${name}" loading="lazy" class="h-full w-full object-cover transition duration-300 group-hover:scale-105">`
+                      : `<div class="flex h-full w-full items-center justify-center bg-slate-100 text-slate-400"><i data-lucide="image-off" class="h-6 w-6"></i></div>`}
+                    <span class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/65 via-slate-900/25 to-transparent px-2.5 py-1.5 text-[10px] font-semibold leading-5 text-white">
+                      ${name}
+                    </span>
+                  </a>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : '';
+
+        const sortedLogs = logs.slice().sort((a, b) => {
+          const ta = new Date(a.changed_at || a.created_at || 0).getTime();
+          const tb = new Date(b.changed_at || b.created_at || 0).getTime();
+          if (ta !== tb) return ta - tb;
+          return Number(a.id || 0) - Number(b.id || 0);
+        });
+        if (sortedLogs.length === 0) {
+          sortedLogs.push({
+            status: data.status || '已收到',
+            note: '系統建立案件',
+            changed_at: data.created_at,
+            is_fallback: true,
+          });
+        }
+
+        const timelineHtml = `
+          <div class="rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-violet-50/30 to-rose-50/30 p-4 shadow-[0_14px_40px_-34px_rgba(139,92,246,0.35)]">
+            <div class="mb-4 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                  <i data-lucide="git-branch-plus" class="h-4 w-4"></i>
+                </div>
+                <p class="text-sm font-semibold text-violet-950">處理時間軸</p>
+              </div>
+              <span class="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-100">
+                最後更新 ${escapeHtml(lastStatusAt)}
+              </span>
+            </div>
+            <ol class="relative space-y-5 pl-2">
+              <span class="pointer-events-none absolute left-[13px] top-1 bottom-1 w-[2px] bg-gradient-to-b from-violet-300/70 via-rose-300/60 to-transparent"></span>
+              ${sortedLogs.map((log, i) => {
+                const pill = wishStatusPill(log.status);
+                const when = formatWishDatetime(log.changed_at || log.created_at || data.created_at);
+                const rel = wishRelDatetime(log.changed_at || log.created_at || data.created_at);
+                const note = log.note ? escapeHtml(log.note).replaceAll('\n', '<br>') : '（未填寫說明）';
+                const isLast = i === sortedLogs.length - 1;
+                return `
+                  <li class="relative flex gap-3">
+                    <span class="pointer-events-none relative z-10 mt-1 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-white ring-1 ${pill.classes}">
+                      <span class="relative inline-flex h-2 w-2">
+                        ${isLast ? `<span class="absolute inline-flex h-full w-full animate-ping rounded-full ${pill.dot} opacity-50"></span>` : ''}
+                        <span class="relative inline-flex h-2 w-2 rounded-full ${pill.dot}"></span>
+                      </span>
+                    </span>
+                    <div class="min-w-0 flex-1 rounded-[1.25rem] border border-white bg-white/85 px-3.5 py-3 shadow-sm ring-1 ring-slate-100">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${pill.classes}">
+                          <i data-lucide="${pill.icon}" class="h-3 w-3"></i>
+                          <span>${pill.label}</span>
+                        </span>
+                        <p class="text-[11px] font-medium text-slate-400">
+                          <i data-lucide="clock-4" class="mr-1 inline h-3 w-3 align-[-2px]"></i>
+                          ${escapeHtml(rel)} · ${escapeHtml(when)}
+                        </p>
+                      </div>
+                      <p class="mt-2 text-sm leading-7 text-slate-700">${note}</p>
+                    </div>
+                  </li>
+                `;
+              }).join('')}
+            </ol>
+          </div>
+        `;
+
+        container.innerHTML = `
+          <div class="overflow-hidden rounded-[1.5rem] border border-violet-100 bg-white shadow-[0_16px_46px_-36px_rgba(139,92,246,0.45)]">
+            <div class="relative border-b border-violet-100/70 bg-gradient-to-br from-violet-50/70 via-white/80 to-rose-50/70 px-4 py-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold ring-1 ${statusPill.classes}">
+                  <i data-lucide="${statusPill.icon}" class="h-3.5 w-3.5"></i>
+                  <span>${statusPill.label}</span>
+                </span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-100">
+                  <i data-lucide="tag" class="h-3 w-3"></i>
+                  <span>${category}</span>
+                </span>
+                ${photos.length > 0 ? `<span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100">
+                  <i data-lucide="image" class="h-3 w-3"></i>
+                  <span>${photos.length} 張照片</span>
+                </span>` : ''}
+                <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200">
+                  <i data-lucide="hash" class="h-3 w-3"></i>
+                  <span>${escapeHtml(id)}</span>
+                </span>
+              </div>
+              <p class="mt-3 text-[11px] font-medium text-slate-400">
+                案件編號 <span class="font-semibold text-slate-600">#${escapeHtml(id)}</span>
+                <span class="mx-1.5 text-slate-300">·</span>
+                建立 ${escapeHtml(createdAt)}
+                <span class="mx-1.5 text-slate-300">·</span>
+                最後更新 ${escapeHtml(updatedAt)}
+              </p>
+            </div>
+            <div class="space-y-4 p-4">
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-[1.25rem] border border-slate-100 bg-slate-50/80 px-3.5 py-3">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">申請人</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-800">${userName}</p>
+                </div>
+                <div class="rounded-[1.25rem] border border-slate-100 bg-slate-50/80 px-3.5 py-3">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">聯絡電話</p>
+                  <div class="mt-1 flex items-center gap-2">
+                    <p class="text-sm font-semibold text-slate-800">${phone}</p>
+                    ${phoneHref ? `
+                      <button
+                        type="button"
+                        data-admin-copy-phone="${escapeHtml(phone)}"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200 transition hover:text-violet-600"
+                        aria-label="複製電話"
+                      >
+                        <i data-lucide="copy" class="h-3 w-3"></i>
+                      </button>
+                      <a
+                        href="${escapeHtml(phoneHref)}"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200 transition hover:text-violet-600"
+                        aria-label="撥打電話"
+                      >
+                        <i data-lucide="phone-call" class="h-3 w-3"></i>
+                      </a>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+              <div class="rounded-[1.25rem] border border-violet-100/70 bg-gradient-to-b from-white to-violet-50/40 px-4 py-4">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-500">里民心聲</p>
+                <p class="mt-2 whitespace-pre-wrap text-sm leading-8 text-slate-800">${content}</p>
+              </div>
+              ${replySummary ? `
+                <div class="rounded-[1.25rem] border border-emerald-100/80 bg-gradient-to-b from-emerald-50/60 to-white px-4 py-4">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">目前回覆內容</p>
+                  <p class="mt-2 whitespace-pre-wrap text-sm leading-8 text-slate-800">${replySummary}</p>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          ${photosHtml}
+
+          <div class="rounded-[1.75rem] border border-violet-200 bg-gradient-to-br from-violet-50/60 via-white to-rose-50/40 p-5 shadow-[0_18px_48px_-30px_rgba(124,58,237,0.35)]">
+            <div class="flex items-center gap-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-violet-700 ring-1 ring-violet-100">
+                <i data-lucide="settings-2" class="h-5 w-5"></i>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-violet-950">案件處理</p>
+                <p class="text-xs text-slate-500">變更狀態或填寫回覆後送出，里民端「我的許願」將同步更新。</p>
+              </div>
+            </div>
+
+            <div class="mt-4 space-y-4">
+              <div>
+                <label for="adminStatusSelect" class="mb-2 block text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  變更狀態
+                </label>
+                <select
+                  id="adminStatusSelect"
+                  class="w-full rounded-[1.25rem] border border-white bg-white px-4 py-3 text-sm text-slate-900 shadow-input outline-none transition focus:border-slate-200 focus:ring-2 focus:ring-slate-900/10"
+                >
+                  <option value="已收到" ${data.status === '已收到' ? 'selected' : ''}>已收到</option>
+                  <option value="處理中" ${data.status === '處理中' ? 'selected' : ''}>處理中</option>
+                  <option value="已回覆" ${data.status === '已回覆' ? 'selected' : ''}>已回覆</option>
+                  <option value="已結案" ${data.status === '已結案' ? 'selected' : ''}>已結案</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="adminReplyInput" class="mb-2 block text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  回覆內容（選填，最長 2000 字）
+                </label>
+                <textarea
+                  id="adminReplyInput"
+                  rows="4"
+                  maxlength="2000"
+                  placeholder="例如：已安排 09/15 上午巡查，會再回報里民。"
+                  class="w-full rounded-[1.25rem] border border-white bg-white px-4 py-3 text-sm leading-7 text-slate-900 shadow-input outline-none transition placeholder:text-slate-400 focus:border-slate-200 focus:ring-2 focus:ring-slate-900/10"
+                >${replySummary ? escapeHtml(data.reply_summary) : ''}</textarea>
+              </div>
+
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p id="adminSaveHint" class="text-xs text-slate-500">至少變更狀態或填寫回覆其中一項即可儲存。</p>
+                <button
+                  type="button"
+                  id="adminSaveButton"
+                  class="inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 text-sm font-semibold text-white shadow-float transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <i data-lucide="save" class="h-4 w-4"></i>
+                  <span>儲存進度</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          ${timelineHtml}
+        `;
+
+        const copyBtn = container.querySelector('[data-admin-copy-phone]');
+        if (copyBtn) {
+          copyBtn.addEventListener('click', async () => {
+            const phoneText = copyBtn.dataset.adminCopyPhone || '';
+            if (!phoneText) return;
+            try {
+              await navigator.clipboard.writeText(phoneText);
+              showToast(`已複製電話：${phoneText}`);
+            } catch (err) {
+              showToast('複製失敗，請手動選取。');
+            }
+          });
+        }
+
+        const saveBtn = container.querySelector('#adminSaveButton');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', () => handleAdminSave(id));
+        }
+
+        renderIcons();
+      }
+
+      async function handleAdminSave(feedbackId) {
+        if (state.admin.detail.saving) return;
+        const container = elements.adminDetailContainer;
+        if (!container) return;
+        const statusSelect = container.querySelector('#adminStatusSelect');
+        const replyInput = container.querySelector('#adminReplyInput');
+        const saveBtn = container.querySelector('#adminSaveButton');
+        const hintEl = container.querySelector('#adminSaveHint');
+        if (!statusSelect || !replyInput || !saveBtn) return;
+
+        const nextStatus = String(statusSelect.value || '').trim();
+        const nextReply = String(replyInput.value || '').trim();
+        const original = state.admin.detail.data || {};
+        const statusChanged = nextStatus && nextStatus !== original.status;
+        const replyChanged =
+          (nextReply || '') !== (original.reply_summary || '') ||
+          (!nextReply && original.reply_summary);
+
+        if (!statusChanged && !replyChanged) {
+          if (hintEl) {
+            hintEl.textContent = '狀態與回覆都沒有變更，無需儲存。';
+            hintEl.className = 'text-xs text-amber-600';
+          }
+          showToast('沒有變更內容，無需儲存。');
+          return;
+        }
+
+        const payload = {};
+        if (statusChanged) payload.status = nextStatus;
+        if (replyChanged) payload.reply_summary = nextReply;
+
+        state.admin.detail.saving = true;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i data-lucide="loader-2" class="h-4 w-4 animate-spin"></i><span>儲存中...</span>';
+        renderIcons();
+        if (hintEl) {
+          hintEl.textContent = '儲存中，請稍候...';
+          hintEl.className = 'text-xs text-violet-600';
+        }
+
+        let tokenBundle = { kind: 'fallback' };
+        try {
+          tokenBundle = await getIdentityToken();
+        } catch (err) {
+          console.warn('getIdentityToken failed on admin save', err);
+        }
+
+        if (tokenBundle.kind !== 'liff') {
+          state.admin.detail.saving = false;
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i data-lucide="save" class="h-4 w-4"></i><span>儲存進度</span>';
+          renderIcons();
+          showToast('身分驗證資訊取得失敗，請重新從 LINE 開啟 LIFF。');
+          if (hintEl) {
+            hintEl.textContent = '身分驗證失敗，請重新從 LINE 開啟 LIFF。';
+            hintEl.className = 'text-xs text-rose-600';
+          }
+          return;
+        }
+
+        try {
+          const res = await fetch(`/api/admin/feedback/${encodeURIComponent(feedbackId)}`, {
+            method: 'PATCH',
+            headers: buildAuthHeaders(tokenBundle),
+            body: JSON.stringify(payload),
+          });
+          const json = await res.json();
+
+          if (res.status === 401 || res.status === 403) {
+            throw new Error('您沒有管理員權限，請重新從 LINE 開啟 LIFF。');
+          }
+          if (res.status === 404) {
+            throw new Error('找不到這筆許願紀錄，可能已被刪除。');
+          }
+          if (!res.ok || !json || json.success === false) {
+            throw new Error((json && json.message) || `儲存失敗（HTTP ${res.status}）`);
+          }
+
+          showToast(json.message || '已儲存進度。');
+          if (hintEl) {
+            hintEl.textContent = '儲存成功，已更新案件狀態與回覆。';
+            hintEl.className = 'text-xs text-emerald-600';
+          }
+
+          // 重新載入該筆詳情以追加最新一筆歷程，並同步列表
+          await loadAdminDetail(feedbackId, { force: true });
+          // 同步列表計數（狀態變更會影響 chips 計數）
+          state.admin.list.refreshedAt = null;
+          loadAdminList({ force: true });
+        } catch (err) {
+          console.error('handleAdminSave failed:', err);
+          const msg = err && err.message ? err.message : '儲存失敗，請稍後再試。';
+          showToast(msg);
+          if (hintEl) {
+            hintEl.textContent = msg;
+            hintEl.className = 'text-xs text-rose-600';
+          }
+        } finally {
+          state.admin.detail.saving = false;
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i data-lucide="save" class="h-4 w-4"></i><span>儲存進度</span>';
+          renderIcons();
+        }
       }
     </script>
   </body>
