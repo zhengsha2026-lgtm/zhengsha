@@ -1511,6 +1511,7 @@
         liffId: '',
         mode: 'loading',
         platforms: [],
+        platformsMeta: { loadedAt: null, loading: false },
         supportingIds: new Set(),
         activePlatformId: null,
         fontSizeMode: 'normal',
@@ -1726,10 +1727,13 @@
 
       async function bootstrap() {
         bindEvents();
-        switchTab(getInitialTab(), { updateHistory: false });
-        setWishStatus('正在初始化 LIFF 與許願池表單...', 'info');
-        setPlatformStatus('正在載入核心政見資料...', 'info');
+        // 1) 初始先切到正確 Tab（讀 query+hash），避免先畫 platforms 再跳
+        const initialTab = getInitialTab();
+        switchTab(initialTab, { updateHistory: false, skipHydrate: true, autoload: false });
         renderIcons();
+
+        // 許願池：只顯示載入中狀態文字，先不打 API
+        setWishStatus('已就緒，進入許願池即可載入。', 'info');
 
         try {
           const config = await fetchRuntimeConfig();
@@ -1746,8 +1750,34 @@
           enableTestMode('載入前端設定失敗，已切換為測試模式。');
         }
 
-        await loadPlatforms();
+        // 2) 只針對初始 Tab 載入該 Tab 需要的資料（其他 Tab 留給使用者切過去時才載）
+        hydrateStoredPhone();
+        await loadTabDataForCurrentTab();
         renderPhotoGrid();
+      }
+
+      // 依當前 state.activeTab，載入對應 Tab 需要的 API 資料（已載入過則快取跳過）
+      async function loadTabDataForCurrentTab(options = {}) {
+        const tab = state.activeTab;
+        if (tab === 'platforms') {
+          await loadPlatforms(options);
+          return;
+        }
+        if (tab === 'wish') {
+          hydrateStoredPhone();
+          // 進 wish tab 時依目前子視圖決定是否載入 list
+          if (state.wish.view === 'list') {
+            if (options.force === true || (!state.wish.listMeta.refreshedAt && !state.wish.listMeta.loading)) {
+              await loadWishList({ force: !!options.force });
+            }
+          }
+          return;
+        }
+        if (tab === 'schedule') {
+          await loadEvents(options);
+          return;
+        }
+        // intro / admin：靜態或由各自管理流程載入
       }
 
       async function checkAdminIdentity() {
@@ -1787,9 +1817,9 @@
           state.isAdmin = Boolean(json && json.data && json.data.is_admin);
           updateAdminEntryVisibility();
 
-          // 若使用者以 ?tab=admin 開啟且確認為管理員，切換到管理面板
+          // 若使用者以 ?tab=admin / #tab=admin 開啟且確認為管理員，切換到管理面板
           if (state.isAdmin) {
-            const urlTab = new URL(window.location.href).searchParams.get('tab');
+            const urlTab = readTabFromUrl();
             if (urlTab === ADMIN_TAB_KEY) {
               switchTab(ADMIN_TAB_KEY, { updateHistory: false });
             }
@@ -2316,8 +2346,37 @@
         });
       }
 
+      // 從 URL 讀取初始 tab：同時支援 query (?tab=xxx) 與 hash (#tab=xxx)，
+      // 因為 LINE 導向有時會把 query 放到 hash 裡（例如 liff.line.me/xxx?tab=wish 可能被轉成 xxx#?tab=wish）
+      function readTabFromUrl() {
+        const { search, hash } = window.location;
+        // 1) query
+        if (search && search.includes('tab=')) {
+          try {
+            const q = new URLSearchParams(search);
+            const t = q.get('tab');
+            if (t) return t;
+          } catch (_) { /* ignore */ }
+        }
+        // 2) hash：可能是 #tab=xxx、#?tab=xxx、#/?tab=xxx
+        if (hash && hash.length > 1) {
+          const clean = hash.startsWith('#') ? hash.slice(1) : hash;
+          try {
+            // 嘗試用 URLSearchParams 解析（handle ?tab=xxx or just tab=xxx or /?tab=xxx）
+            const stripped = clean.startsWith('?') ? clean : (clean.startsWith('/?') ? clean.slice(1) : `?${clean.replace(/^\//, '')}`);
+            const q = new URLSearchParams(stripped.startsWith('?') ? stripped.slice(1) : stripped);
+            const t = q.get('tab');
+            if (t) return t;
+          } catch (_) { /* ignore */ }
+          // fallback regex
+          const m = clean.match(/(?:^|[?&])tab=([a-zA-Z0-9_-]+)/);
+          if (m) return m[1];
+        }
+        return '';
+      }
+
       function getInitialTab() {
-        const tab = new URL(window.location.href).searchParams.get('tab');
+        const tab = readTabFromUrl();
         if (!tab) return 'platforms';
         // admin tab 須等到 checkAdminIdentity() 確認後才允許；
         // 初始呼叫時 isAdmin 預設為 false，因此 ?tab=admin 在啟動階段會先導回 platforms
@@ -2325,7 +2384,7 @@
         if (tab === ADMIN_TAB_KEY) {
           return state.isAdmin ? ADMIN_TAB_KEY : 'platforms';
         }
-        return TAB_KEYS.includes(tab) ? tab : 'platforms';
+        return PUBLIC_TAB_KEYS.includes(tab) ? tab : 'platforms';
       }
 
       function switchTab(tab, options = {}) {
@@ -2360,12 +2419,9 @@
           window.history.replaceState({}, '', url);
         }
 
-        if (nextTab === 'wish') {
-          hydrateStoredPhone();
-        }
-
-        if (nextTab === 'schedule') {
-          loadEvents();
+        // 除非 autoload=false（啟動階段的初始切換），否則切到 tab 就載入該 tab 資料（內部有快取，已載入會直接跳過）
+        if (options.autoload !== false && options.skipHydrate !== true) {
+          loadTabDataForCurrentTab();
         }
 
         if (nextTab === ADMIN_TAB_KEY) {
@@ -2488,7 +2544,15 @@
         }
       }
 
-      async function loadPlatforms() {
+      async function loadPlatforms(options = {}) {
+        // 快取：已載入過且非強制，直接跳過（避免每次切 tab 重抓）
+        if (options.force !== true) {
+          // 有快取資料：跳過
+          if (state.platformsMeta && state.platformsMeta.loadedAt) return;
+          // 正在載入中：跳過
+          if (state.platformsMeta && state.platformsMeta.loading) return;
+        }
+        state.platformsMeta = { ...(state.platformsMeta || {}), loading: true };
         renderPlatformSkeletons();
 
         try {
@@ -2500,11 +2564,13 @@
           }
 
           state.platforms = Array.isArray(result.data) ? result.data : [];
+          state.platformsMeta = { loadedAt: Date.now(), loading: false };
           setPlatformStatus(`已載入 ${state.platforms.length} 項核心政見。`, 'success');
           renderPlatforms();
         } catch (error) {
           console.error('Load platforms failed:', error);
           state.platforms = [];
+          state.platformsMeta = { loadedAt: null, loading: false };
           setPlatformStatus(error.message || '政見資料載入失敗，請稍後再試。', 'error');
           renderPlatforms();
         }
@@ -2702,7 +2768,7 @@
         // 封面圖（有圖才顯示）
         if (elements.modalCoverWrap) {
           if (platform.cover_url) {
-            elements.modalCoverWrap.innerHTML = `<img src="${escapeHtml(platform.cover_url)}" alt="${escapeHtml(platform.title || '政見封面')}" class="aspect-[16/9] w-full object-cover" />`;
+            elements.modalCoverWrap.innerHTML = `<img src="${escapeHtml(platform.cover_url)}" alt="${escapeHtml(platform.title || '政見封面')}" class="aspect-[16/9] w-full object-cover" loading="lazy" />`;
             elements.modalCoverWrap.classList.remove('hidden');
           } else {
             elements.modalCoverWrap.innerHTML = '';
@@ -2758,7 +2824,11 @@
       // ============================================
 
       async function loadEvents(options = {}) {
-        if (state.events.loading && options.force !== true) return;
+        // 快取：已載入過且非強制，直接跳過（避免每次切 schedule tab 重抓）
+        if (options.force !== true) {
+          if (state.events.refreshedAt) return;
+          if (state.events.loading) return;
+        }
         state.events.loading = true;
         state.events.error = null;
 
@@ -2982,7 +3052,7 @@
         if (!container || !data) return;
 
         const coverHtml = data.cover_url
-          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" />`
+          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" loading="lazy" />`
           : `<div class="flex aspect-[16/9] w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="calendar-days" class="h-10 w-10"></i></div>`;
 
         const startStr = formatEventDateTimeDisplay(data.start_at);
@@ -4473,7 +4543,7 @@
           const isFeatured = p.is_featured === true;
           const isPublished = p.is_published !== false;
           const coverThumb = p.cover_url
-            ? `<div class="flex-shrink-0 overflow-hidden rounded-lg"><img src="${escapeHtml(p.cover_url)}" alt="" class="h-14 w-24 object-cover" /></div>`
+            ? `<div class="flex-shrink-0 overflow-hidden rounded-lg"><img src="${escapeHtml(p.cover_url)}" alt="" class="h-14 w-24 object-cover" loading="lazy" /></div>`
             : `<div class="flex h-14 w-24 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-400"><i data-lucide="image" class="h-5 w-5"></i></div>`;
 
           return `
@@ -4557,7 +4627,7 @@
         if (!container || !data) return;
 
         const coverPreview = data.cover_url
-          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" />`
+          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" loading="lazy" />`
           : `<div class="flex aspect-[16/9] w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="image" class="h-8 w-8"></i><span class="ml-2 text-sm">尚無封面</span></div>`;
 
         container.innerHTML = `
@@ -4907,7 +4977,7 @@
           const isPublished = e.is_published !== false;
           const rsvpCount = Number(e.rsvp_count) || 0;
           const coverThumb = e.cover_url
-            ? `<img src="${escapeHtml(e.cover_url)}" alt="" class="h-14 w-24 flex-shrink-0 object-cover rounded-lg" />`
+            ? `<img src="${escapeHtml(e.cover_url)}" alt="" class="h-14 w-24 flex-shrink-0 object-cover rounded-lg" loading="lazy" />`
             : `<div class="flex h-14 w-24 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-400"><i data-lucide="image" class="h-5 w-5"></i></div>`;
           const startStr = formatEventDateTimeDisplay(e.start_at);
 
@@ -5016,14 +5086,14 @@
         if (!container || !data) return;
 
         const coverPreview = data.cover_url
-          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" />`
+          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" loading="lazy" />`
           : `<div class="flex aspect-[16/9] w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="image" class="h-8 w-8"></i><span class="ml-2 text-sm">尚無封面</span></div>`;
 
         const albumPhotos = Array.isArray(data.album) ? data.album : [];
         const albumCount = albumPhotos.length;
         const albumHtml = albumPhotos.map((p) => `
           <div class="group relative overflow-hidden rounded-lg">
-            <img src="${escapeHtml(p.signed_url || '')}" alt="" class="aspect-square w-full object-cover" />
+            <img src="${escapeHtml(p.signed_url || '')}" alt="" class="aspect-square w-full object-cover" loading="lazy" />
             <button type="button" data-event-edit-action="delete-album" data-photo-id="${p.id}" class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600/90 text-white opacity-0 transition group-hover:opacity-100 active:scale-95" aria-label="刪除相簿照片">
               <i data-lucide="x" class="h-3 w-3"></i>
             </button>
@@ -5180,7 +5250,7 @@
         const section = document.getElementById('eventCoverSection');
         if (!section || !data) return;
         const coverPreview = data.cover_url
-          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" />`
+          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" loading="lazy" />`
           : `<div class="flex aspect-[16/9] w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="image" class="h-8 w-8"></i><span class="ml-2 text-sm">尚無封面</span></div>`;
         section.innerHTML = `
           <label class="text-xs font-semibold text-violet-700">封面圖（16:9）</label>
@@ -5212,7 +5282,7 @@
         const albumCount = albumPhotos.length;
         const albumHtml = albumPhotos.map((p) => `
           <div class="group relative overflow-hidden rounded-lg">
-            <img src="${escapeHtml(p.signed_url || '')}" alt="" class="aspect-square w-full object-cover" />
+            <img src="${escapeHtml(p.signed_url || '')}" alt="" class="aspect-square w-full object-cover" loading="lazy" />
             <button type="button" data-event-edit-action="delete-album" data-photo-id="${p.id}" class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600/90 text-white opacity-0 transition group-hover:opacity-100 active:scale-95" aria-label="刪除相簿照片">
               <i data-lucide="x" class="h-3 w-3"></i>
             </button>
