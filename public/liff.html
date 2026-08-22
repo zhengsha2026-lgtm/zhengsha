@@ -255,6 +255,48 @@
         </div>
       </div>
 
+      <div
+        id="privacyModal"
+        class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
+      >
+        <div
+          class="glass-modal relative w-full max-w-md overflow-hidden rounded-[2rem] border border-white/55 bg-white/74 shadow-2xl shadow-slate-900/20"
+        >
+          <div class="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-violet-200/70 via-rose-100/65 to-white/0"></div>
+          <div class="relative p-6">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex items-start gap-4">
+                <div
+                  class="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-white/80"
+                >
+                  <i data-lucide="message-square-heart" class="h-7 w-7"></i>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                    Privacy
+                  </p>
+                  <h3 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">隱私說明</h3>
+                </div>
+              </div>
+              <button
+                id="closePrivacyModalButton"
+                type="button"
+                class="rounded-full bg-white/75 p-2 text-slate-500 shadow-sm ring-1 ring-slate-200 transition hover:text-slate-900"
+                aria-label="關閉隱私說明"
+              >
+                <i data-lucide="x" class="h-4 w-4"></i>
+              </button>
+            </div>
+
+            <div class="mt-6 rounded-[1.75rem] border border-white/60 bg-white/68 p-5 shadow-sm">
+              <p class="text-sm leading-7 text-slate-600">
+                您填寫的聯絡資訊僅用於本服務案件聯繫，搭配 LINE 身分驗證，案件進度可從「我的許願」追蹤。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <header class="fixed inset-x-0 top-0 z-40 border-b border-violet-100/80 bg-white/80 backdrop-blur-md">
         <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div class="flex min-w-0 items-center gap-2.5">
@@ -642,10 +684,7 @@
               <div id="wishViewsContainer" class="mt-6 grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
                 <div class="space-y-4">
                   <div class="rounded-[1.75rem] border border-violet-100 bg-slate-50/85 p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                      使用者識別
-                    </p>
-                    <div class="mt-4 flex items-center gap-4">
+                    <div class="flex items-center gap-4">
                       <div
                         class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white"
                       >
@@ -662,10 +701,20 @@
                         </div>
                       </div>
 
-                      <div class="min-w-0">
-                        <p id="profileName" class="text-lg font-semibold tracking-tight text-slate-800">
-                          尚未取得 LINE 身分
-                        </p>
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2">
+                          <p id="profileName" class="text-lg font-semibold tracking-tight text-slate-800">
+                            尚未取得 LINE 身分
+                          </p>
+                          <button
+                            id="privacyInfoButton"
+                            type="button"
+                            aria-label="查看隱私說明"
+                            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200 transition hover:text-violet-600 hover:ring-violet-200"
+                          >
+                            <i data-lucide="help-circle" class="h-3.5 w-3.5"></i>
+                          </button>
+                        </div>
                         <div
                           id="profileBadge"
                           class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500"
@@ -706,20 +755,6 @@
                       class="mt-2 w-full rounded-[1.25rem] border border-white bg-white px-4 py-3 text-sm text-slate-900 shadow-input outline-none ring-0 transition focus:border-slate-200 focus:ring-2 focus:ring-slate-900/10"
                       placeholder="可手動輸入，或點上方按鈕自動產生"
                     />
-                  </div>
-
-                  <div class="rounded-[1.75rem] border border-violet-100 bg-gradient-to-b from-violet-50/50 via-white/80 to-white/50 p-5 text-xs leading-7 text-slate-500">
-                    <div class="flex items-start gap-3">
-                      <div class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-2xl bg-white text-violet-600 ring-1 ring-violet-100">
-                        <i data-lucide="message-square-heart" class="h-4 w-4"></i>
-                      </div>
-                      <div class="min-w-0">
-                        <p class="font-semibold text-violet-950">隱私說明</p>
-                        <p class="mt-1">
-                          您填寫的聯絡資訊僅用於本服務案件聯繫，搭配 LINE 身分驗證，案件進度可從「我的許願」追蹤。
-                        </p>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
@@ -1285,6 +1320,9 @@
         platformList: document.getElementById('platformList'),
         platformModal: document.getElementById('platformModal'),
         closeModalButton: document.getElementById('closeModalButton'),
+        privacyModal: document.getElementById('privacyModal'),
+        closePrivacyModalButton: document.getElementById('closePrivacyModalButton'),
+        privacyInfoButton: document.getElementById('privacyInfoButton'),
         modalIconWrap: document.getElementById('modalIconWrap'),
         modalSubtitle: document.getElementById('modalSubtitle'),
         modalTitle: document.getElementById('modalTitle'),
@@ -1485,10 +1523,28 @@
           }
         });
         document.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape' && !elements.platformModal.classList.contains('hidden')) {
-            closePlatformModal();
+          if (event.key === 'Escape') {
+            if (!elements.platformModal.classList.contains('hidden')) {
+              closePlatformModal();
+            } else if (!elements.privacyModal.classList.contains('hidden')) {
+              closePrivacyModal();
+            }
           }
         });
+
+        if (elements.privacyInfoButton) {
+          elements.privacyInfoButton.addEventListener('click', openPrivacyModal);
+        }
+        if (elements.closePrivacyModalButton) {
+          elements.closePrivacyModalButton.addEventListener('click', closePrivacyModal);
+        }
+        if (elements.privacyModal) {
+          elements.privacyModal.addEventListener('click', (event) => {
+            if (event.target === elements.privacyModal) {
+              closePrivacyModal();
+            }
+          });
+        }
         elements.modalSupportButton.addEventListener('click', async () => {
           if (state.activePlatformId) {
             await supportPlatform(state.activePlatformId);
@@ -2067,6 +2123,19 @@
         elements.platformModal.classList.add('hidden');
         elements.platformModal.classList.remove('flex');
         document.body.classList.remove('overflow-hidden');
+      }
+
+      function openPrivacyModal() {
+        if (!elements.privacyModal) return;
+        elements.privacyModal.classList.remove('hidden');
+        elements.privacyModal.classList.add('flex');
+        renderIcons();
+      }
+
+      function closePrivacyModal() {
+        if (!elements.privacyModal) return;
+        elements.privacyModal.classList.add('hidden');
+        elements.privacyModal.classList.remove('flex');
       }
 
       async function supportPlatform(platformId) {
@@ -3060,7 +3129,14 @@
         const content = escapeHtml(data.content || '（無內容）').replaceAll('\n', '<br>');
         const replySummary = data.reply_summary ? escapeHtml(data.reply_summary).replaceAll('\n', '<br>') : null;
         const photos = Array.isArray(data.photos) ? data.photos : [];
-        const logs = Array.isArray(data.status_logs) ? data.status_logs : [];
+        // 對齊後端 API：里民端 GET /api/my-feedback/:id 回傳的是 status_timeline（非 status_logs）
+        // 每筆欄位為 { id, status, note, changed_at }（非 created_at）
+        // 為相容性保留 fallback：若未來 API 改用 status_logs 或 created_at 仍可運作
+        const logs = Array.isArray(data.status_timeline)
+          ? data.status_timeline
+          : Array.isArray(data.status_logs)
+          ? data.status_logs
+          : [];
         const lastStatusAt = formatWishDatetime(data.last_status_at || data.created_at);
 
         const photosHtml = photos.length > 0 ? `
@@ -3101,15 +3177,15 @@
         ` : '';
 
         const sortedLogs = logs.slice().sort((a, b) => {
-          const ta = new Date(a.created_at || 0).getTime();
-          const tb = new Date(b.created_at || 0).getTime();
+          const ta = new Date(a.changed_at || a.created_at || 0).getTime();
+          const tb = new Date(b.changed_at || b.created_at || 0).getTime();
           return ta - tb;
         });
         if (sortedLogs.length === 0) {
           sortedLogs.push({
             status: data.status || '已收到',
             note: data.reply_summary || '系統已建立案件',
-            created_at: data.last_status_at || data.created_at,
+            changed_at: data.last_status_at || data.created_at,
             is_fallback: true,
           });
         }
@@ -3131,8 +3207,9 @@
               <span class="pointer-events-none absolute left-[13px] top-1 bottom-1 w-[2px] bg-gradient-to-b from-violet-300/70 via-rose-300/60 to-transparent"></span>
               ${sortedLogs.map((log, i) => {
                 const pill = wishStatusPill(log.status);
-                const when = formatWishDatetime(log.created_at || data.created_at);
-                const rel = wishRelDatetime(log.created_at || data.created_at);
+                const logTime = log.changed_at || log.created_at || data.created_at;
+                const when = formatWishDatetime(logTime);
+                const rel = wishRelDatetime(logTime);
                 const note = log.note ? escapeHtml(log.note).replaceAll('\n', '<br>') : '（未填寫說明）';
                 const isLast = i === sortedLogs.length - 1;
                 return `
