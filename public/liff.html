@@ -359,6 +359,15 @@
                 初始化中
               </span>
             </div>
+            <button
+              type="button"
+              id="adminEntryButton"
+              class="hidden h-9 w-9 items-center justify-center rounded-full border border-violet-100 bg-white/90 text-violet-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-violet-50 hover:text-violet-700 active:scale-95"
+              aria-label="進入管理中心"
+              title="管理中心"
+            >
+              <i data-lucide="shield-check" class="h-4 w-4"></i>
+            </button>
           </div>
         </div>
       </header>
@@ -1024,25 +1033,104 @@
             class="hidden space-y-5"
           >
             <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
-              <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-violet-600">許願池後台管理</p>
-                  <h2 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">
-                    里民許願案件處理
-                  </h2>
-                  <p class="mt-2 text-sm leading-7 text-slate-500">
-                    篩選狀態、搜尋里民姓名/電話/內容，點案件進入詳情處理。
-                  </p>
+              <div id="adminHomeView" class="space-y-5">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p class="text-sm font-semibold text-violet-600">管理中心</p>
+                    <h2 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">
+                      管理首頁
+                    </h2>
+                    <p class="mt-2 text-sm leading-7 text-slate-500">
+                      處理里民服務案件、維護政見與行程內容。
+                    </p>
+                  </div>
+                  <div
+                    id="adminStatus"
+                    class="rounded-full border border-violet-100 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-600"
+                  >
+                    載入中...
+                  </div>
                 </div>
-                <div
-                  id="adminStatus"
-                  class="rounded-full border border-violet-100 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-600"
+
+                <button
+                  type="button"
+                  id="adminHomeBackButton"
+                  class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
                 >
-                  載入中...
+                  <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                  <span>返回里民頁面</span>
+                </button>
+
+                <div class="grid gap-4 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    data-admin-module="wish"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/50 p-5 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] active:scale-[0.995]"
+                  >
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                      <i data-lucide="message-square-heart" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-base font-semibold text-violet-950">許願管理</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-500">
+                      查看與處理里民許願、更新進度與回覆
+                    </p>
+                    <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
+                      <span>進入</span>
+                      <i data-lucide="chevron-right" class="h-3 w-3"></i>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-admin-module="platform"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50/60 p-5 text-left shadow-[0_12px_34px_-34px_rgba(100,116,139,0.3)] transition hover:-translate-y-0.5 active:scale-[0.995]"
+                  >
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 ring-1 ring-slate-200">
+                      <i data-lucide="sparkles" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-base font-semibold text-slate-700">政見管理</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-400">
+                      編輯核心政見內容與支持度
+                    </p>
+                    <span class="mt-4 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
+                      <span class="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+                      <span>規劃中</span>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-admin-module="schedule"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50/60 p-5 text-left shadow-[0_12px_34px_-34px_rgba(100,116,139,0.3)] transition hover:-translate-y-0.5 active:scale-[0.995]"
+                  >
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 ring-1 ring-slate-200">
+                      <i data-lucide="calendar-days" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-base font-semibold text-slate-700">行程管理</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-400">
+                      維護競選行程與服務站點
+                    </p>
+                    <span class="mt-4 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
+                      <span class="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+                      <span>規劃中</span>
+                    </span>
+                  </button>
                 </div>
               </div>
 
-              <div id="adminListView" class="mt-6 space-y-4">
+              <div id="adminListView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminListBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回管理首頁</span>
+                  </button>
+                  <p class="text-sm font-semibold text-violet-950">許願管理</p>
+                </div>
+
                 <div id="adminChipsRow" class="flex flex-wrap gap-2"></div>
 
                 <div class="relative">
@@ -1161,7 +1249,7 @@
         <div
           class="pointer-events-auto mx-auto max-w-xl rounded-full border-t border-violet-50 bg-white/95 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-md"
         >
-          <div id="adminNavGrid" class="grid grid-cols-4 gap-1">
+          <div class="grid grid-cols-4 gap-1">
             <button
               type="button"
               data-tab-button="platforms"
@@ -1209,19 +1297,6 @@
               ></span>
               <i data-lucide="calendar-days" class="h-[18px] w-[18px]"></i>
               <span class="mt-1 text-[11px] font-medium">競選行程</span>
-            </button>
-            <button
-              type="button"
-              data-tab-button="admin"
-              id="adminTabButton"
-              class="group relative hidden min-h-[4.5rem] flex-col items-center justify-center rounded-full px-2 py-2 text-slate-400 transition"
-            >
-              <span
-                data-tab-indicator="admin"
-                class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 opacity-0 transition"
-              ></span>
-              <i data-lucide="shield-check" class="h-[18px] w-[18px]"></i>
-              <span class="mt-1 text-[11px] font-medium">管理</span>
             </button>
           </div>
         </div>
@@ -1278,7 +1353,7 @@
         photos: [],
         isAdmin: false,
         admin: {
-          view: 'list',
+          view: 'home',
           list: {
             items: [],
             counts: { 全部: 0, 已收到: 0, 處理中: 0, 已回覆: 0, 已結案: 0 },
@@ -1315,6 +1390,7 @@
         fontSizeSlider: document.getElementById('fontSizeSlider'),
         fontSizeOptions: Array.from(document.querySelectorAll('[data-font-size-option]')),
         modeBadge: document.getElementById('modeBadge'),
+        adminEntryButton: document.getElementById('adminEntryButton'),
         candidateNameNodes: Array.from(document.querySelectorAll('[data-candidate-name]')),
         platformStatus: document.getElementById('platformStatus'),
         platformList: document.getElementById('platformList'),
@@ -1375,10 +1451,11 @@
         wishDetailError: document.getElementById('wishDetailError'),
         wishDetailErrorText: document.getElementById('wishDetailErrorText'),
         wishDetailContainer: document.getElementById('wishDetailContainer'),
-        adminTabButton: document.getElementById('adminTabButton'),
-        adminNavGrid: document.getElementById('adminNavGrid'),
         adminPanel: document.getElementById('adminPanel'),
         adminStatus: document.getElementById('adminStatus'),
+        adminHomeView: document.getElementById('adminHomeView'),
+        adminHomeBackButton: document.getElementById('adminHomeBackButton'),
+        adminListBackButton: document.getElementById('adminListBackButton'),
         adminListView: document.getElementById('adminListView'),
         adminDetailView: document.getElementById('adminDetailView'),
         adminChipsRow: document.getElementById('adminChipsRow'),
@@ -1437,14 +1514,14 @@
       async function checkAdminIdentity() {
         if (state.mode !== 'liff') {
           state.isAdmin = false;
-          updateAdminTabVisibility();
+          updateAdminEntryVisibility();
           return;
         }
         try {
           const tokenBundle = await getIdentityToken();
           if (tokenBundle.kind !== 'liff') {
             state.isAdmin = false;
-            updateAdminTabVisibility();
+            updateAdminEntryVisibility();
             return;
           }
           const res = await fetch('/api/admin/me', {
@@ -1454,22 +1531,22 @@
           if (res.status === 403) {
             // 白名單未設定或非管理員：靜默隱藏管理入口
             state.isAdmin = false;
-            updateAdminTabVisibility();
+            updateAdminEntryVisibility();
             return;
           }
           if (res.status === 401) {
             state.isAdmin = false;
-            updateAdminTabVisibility();
+            updateAdminEntryVisibility();
             return;
           }
           if (!res.ok) {
             state.isAdmin = false;
-            updateAdminTabVisibility();
+            updateAdminEntryVisibility();
             return;
           }
           const json = await res.json();
           state.isAdmin = Boolean(json && json.data && json.data.is_admin);
-          updateAdminTabVisibility();
+          updateAdminEntryVisibility();
 
           // 若使用者以 ?tab=admin 開啟且確認為管理員，切換到管理面板
           if (state.isAdmin) {
@@ -1481,24 +1558,21 @@
         } catch (err) {
           console.warn('checkAdminIdentity failed (silent):', err);
           state.isAdmin = false;
-          updateAdminTabVisibility();
+          updateAdminEntryVisibility();
         }
       }
 
-      function updateAdminTabVisibility() {
-        const button = elements.adminTabButton;
-        const grid = elements.adminNavGrid;
-        if (!button || !grid) return;
+      // 只控制 header 右上角管理圖示的顯示
+      // 底部導覽永遠維持 4 欄，不再動態切換
+      function updateAdminEntryVisibility() {
+        const button = elements.adminEntryButton;
+        if (!button) return;
         if (state.isAdmin) {
           button.classList.remove('hidden');
           button.classList.add('flex');
-          grid.classList.remove('grid-cols-4');
-          grid.classList.add('grid-cols-5');
         } else {
           button.classList.add('hidden');
           button.classList.remove('flex');
-          grid.classList.add('grid-cols-4');
-          grid.classList.remove('grid-cols-5');
           // 若使用者透過 URL ?tab=admin 嘗試進入但非管理員，導回 platforms
           if (state.activeTab === ADMIN_TAB_KEY) {
             switchTab('platforms', { updateHistory: true });
@@ -1632,6 +1706,32 @@
         elements.feedbackForm.addEventListener('submit', handleSubmit);
 
         // ===== 管理面板事件 =====
+        if (elements.adminEntryButton) {
+          elements.adminEntryButton.addEventListener('click', () => {
+            if (state.isAdmin) {
+              switchTab(ADMIN_TAB_KEY);
+            }
+          });
+        }
+        if (elements.adminHomeBackButton) {
+          elements.adminHomeBackButton.addEventListener('click', () => switchTab('platforms'));
+        }
+        if (elements.adminHomeView) {
+          elements.adminHomeView.addEventListener('click', (event) => {
+            const card = event.target.closest('[data-admin-module]');
+            if (!card) return;
+            const module = card.dataset.adminModule;
+            if (module === 'wish') {
+              switchAdminView('list', { autoload: true });
+            } else if (module === 'platform' || module === 'schedule') {
+              const label = module === 'platform' ? '政見管理' : '行程管理';
+              showToast(`${label}功能規劃中，敬請期待。`);
+            }
+          });
+        }
+        if (elements.adminListBackButton) {
+          elements.adminListBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
         if (elements.adminChipsRow) {
           elements.adminChipsRow.addEventListener('click', (event) => {
             const chip = event.target.closest('[data-admin-status-filter]');
@@ -1821,7 +1921,8 @@
       }
 
       function switchTab(tab, options = {}) {
-        // 非管理員不得切換到 admin tab
+        // admin 不再是底部 tab，但保留作為面板切換目標（由 header 圖示觸發）
+        // 非管理員不得切換到 admin panel
         if (tab === ADMIN_TAB_KEY && !state.isAdmin) {
           tab = 'platforms';
         }
@@ -1834,11 +1935,6 @@
 
         elements.tabButtons.forEach((button) => {
           const buttonKey = button.dataset.tabButton;
-          // 「管理」Tab 的顯示狀態完全由 updateAdminTabVisibility() 控制
-          // 非管理員時絕不可在這裡覆寫 class，以免把 hidden 移除而顯示出來
-          if (buttonKey === ADMIN_TAB_KEY && !state.isAdmin) {
-            return;
-          }
           const isActive = buttonKey === nextTab;
           button.className = isActive
             ? 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full bg-violet-50/80 px-2 py-2 text-violet-950 transition'
@@ -1861,8 +1957,8 @@
         }
 
         if (nextTab === ADMIN_TAB_KEY) {
-          // 進入管理面板時自動載入列表（若尚未載入過）
-          switchAdminView('list', { autoload: true });
+          // 進入管理面板時顯示管理首頁
+          switchAdminView('home');
           setAdminStatus('管理員模式已啟用', 'success');
         }
 
@@ -3326,8 +3422,11 @@
       // ==========================================================================
 
       function switchAdminView(view, options = {}) {
-        const targetView = view === 'detail' ? 'detail' : 'list';
+        const targetView = ['home', 'list', 'detail'].includes(view) ? view : 'home';
         state.admin.view = targetView;
+        if (elements.adminHomeView) {
+          elements.adminHomeView.classList.toggle('hidden', targetView !== 'home');
+        }
         if (elements.adminListView) {
           elements.adminListView.classList.toggle('hidden', targetView !== 'list');
         }
@@ -3341,6 +3440,12 @@
         ) {
           loadAdminList({ force: options.autoload === true ? false : !state.admin.list.refreshedAt });
         }
+
+        const scrollContainer = document.scrollingElement || document.documentElement || document.body;
+        if (scrollContainer) {
+          scrollContainer.scrollTop = 0;
+        }
+        renderIcons();
       }
 
       async function loadAdminList(options = {}) {
