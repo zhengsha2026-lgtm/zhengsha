@@ -1777,7 +1777,13 @@
         });
 
         elements.tabButtons.forEach((button) => {
-          const isActive = button.dataset.tabButton === nextTab;
+          const buttonKey = button.dataset.tabButton;
+          // 「管理」Tab 的顯示狀態完全由 updateAdminTabVisibility() 控制
+          // 非管理員時絕不可在這裡覆寫 class，以免把 hidden 移除而顯示出來
+          if (buttonKey === ADMIN_TAB_KEY && !state.isAdmin) {
+            return;
+          }
+          const isActive = buttonKey === nextTab;
           button.className = isActive
             ? 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full bg-violet-50/80 px-2 py-2 text-violet-950 transition'
             : 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full px-2 py-2 text-slate-400 transition';
