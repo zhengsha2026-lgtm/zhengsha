@@ -201,6 +201,7 @@
         >
           <div class="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-rose-200/70 via-amber-100/65 to-white/0"></div>
           <div class="relative p-6">
+            <div id="modalCoverWrap" class="hidden mb-5 overflow-hidden rounded-[1.5rem] border border-violet-100/60"></div>
             <div class="flex items-start justify-between gap-4">
               <div class="flex items-start gap-4">
                 <div
@@ -402,85 +403,32 @@
                 <div class="pointer-events-none absolute left-0 top-0 z-0 h-72 w-72 -translate-x-12 -translate-y-12 rounded-full bg-violet-200/20 blur-[100px]"></div>
                 <div class="pointer-events-none absolute bottom-0 right-0 z-0 h-80 w-80 translate-x-12 translate-y-12 rounded-full bg-rose-200/20 blur-[120px]"></div>
 
-                <div id="platformList" class="relative z-10 grid grid-cols-2 gap-3 sm:gap-4">
-                  <div class="rounded-[1.5rem] border border-white/80 bg-white/45 p-4 shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md">
-                    <div class="animate-pulse">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="h-12 w-12 rounded-full bg-slate-200/60"></div>
-                        <div class="h-5 w-10 rounded-full bg-slate-200/60"></div>
+                <div id="platformList" class="relative z-10 space-y-4">
+                  <div class="overflow-hidden rounded-[1.5rem] border border-violet-100/60 bg-white shadow-[0_8px_32px_rgba(31,38,135,0.06)]">
+                    <div class="aspect-[16/9] w-full animate-pulse bg-gradient-to-br from-violet-100/60 to-rose-100/40"></div>
+                    <div class="p-4">
+                      <div class="flex items-center gap-2">
+                        <div class="h-5 w-16 animate-pulse rounded-full bg-violet-100/70"></div>
+                        <div class="h-5 w-10 animate-pulse rounded-full bg-slate-100"></div>
                       </div>
-                      <div class="mt-5 h-3 w-1/3 rounded bg-slate-200/60"></div>
-                      <div class="mt-2 h-5 w-3/4 rounded bg-slate-200/60"></div>
+                      <div class="mt-3 h-5 w-2/3 animate-pulse rounded bg-slate-200/70"></div>
+                      <div class="mt-2 h-3 w-full animate-pulse rounded bg-slate-200/50"></div>
                     </div>
                   </div>
-                  <div class="rounded-[1.5rem] border border-white/80 bg-white/45 p-4 shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md">
-                    <div class="animate-pulse">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="h-12 w-12 rounded-full bg-slate-200/60"></div>
-                        <div class="h-5 w-10 rounded-full bg-slate-200/60"></div>
-                      </div>
-                      <div class="mt-5 h-3 w-1/3 rounded bg-slate-200/60"></div>
-                      <div class="mt-2 h-5 w-3/4 rounded bg-slate-200/60"></div>
+                  <div class="flex gap-3 rounded-[1.25rem] border border-violet-100/40 bg-white p-3 shadow-[0_6px_24px_rgba(31,38,135,0.05)]">
+                    <div class="h-20 w-20 flex-shrink-0 animate-pulse rounded-xl bg-slate-200/60"></div>
+                    <div class="flex-1 space-y-2 py-1">
+                      <div class="h-3 w-1/3 animate-pulse rounded bg-slate-200/60"></div>
+                      <div class="h-4 w-3/4 animate-pulse rounded bg-slate-200/70"></div>
+                      <div class="h-3 w-full animate-pulse rounded bg-slate-200/50"></div>
                     </div>
                   </div>
-                  <div class="rounded-[1.5rem] border border-white/80 bg-white/45 p-4 shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md">
-                    <div class="animate-pulse">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="h-12 w-12 rounded-full bg-slate-200/60"></div>
-                        <div class="h-5 w-10 rounded-full bg-slate-200/60"></div>
-                      </div>
-                      <div class="mt-5 h-3 w-1/3 rounded bg-slate-200/60"></div>
-                      <div class="mt-2 h-5 w-3/4 rounded bg-slate-200/60"></div>
-                    </div>
-                  </div>
-                  <div class="rounded-[1.5rem] border border-white/80 bg-white/45 p-4 shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md">
-                    <div class="animate-pulse">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="h-12 w-12 rounded-full bg-slate-200/60"></div>
-                        <div class="h-5 w-10 rounded-full bg-slate-200/60"></div>
-                      </div>
-                      <div class="mt-5 h-3 w-1/3 rounded bg-slate-200/60"></div>
-                      <div class="mt-2 h-5 w-3/4 rounded bg-slate-200/60"></div>
-                    </div>
-                  </div>
-                  <div class="rounded-[1.5rem] border border-white/80 bg-white/45 p-4 shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md">
-                    <div class="animate-pulse">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="h-12 w-12 rounded-full bg-slate-200/60"></div>
-                        <div class="h-5 w-10 rounded-full bg-slate-200/60"></div>
-                      </div>
-                      <div class="mt-5 h-3 w-1/3 rounded bg-slate-200/60"></div>
-                      <div class="mt-2 h-5 w-3/4 rounded bg-slate-200/60"></div>
-                    </div>
-                  </div>
-                  <div class="rounded-[1.5rem] border border-white/80 bg-white/45 p-4 shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md">
-                    <div class="animate-pulse">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="h-12 w-12 rounded-full bg-slate-200/60"></div>
-                        <div class="h-5 w-10 rounded-full bg-slate-200/60"></div>
-                      </div>
-                      <div class="mt-5 h-3 w-1/3 rounded bg-slate-200/60"></div>
-                      <div class="mt-2 h-5 w-3/4 rounded bg-slate-200/60"></div>
-                    </div>
-                  </div>
-                  <div class="rounded-[1.5rem] border border-white/80 bg-white/45 p-4 shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md">
-                    <div class="animate-pulse">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="h-12 w-12 rounded-full bg-slate-200/60"></div>
-                        <div class="h-5 w-10 rounded-full bg-slate-200/60"></div>
-                      </div>
-                      <div class="mt-5 h-3 w-1/3 rounded bg-slate-200/60"></div>
-                      <div class="mt-2 h-5 w-3/4 rounded bg-slate-200/60"></div>
-                    </div>
-                  </div>
-                  <div class="rounded-[1.5rem] border border-white/80 bg-white/45 p-4 shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md">
-                    <div class="animate-pulse">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="h-12 w-12 rounded-full bg-slate-200/60"></div>
-                        <div class="h-5 w-10 rounded-full bg-slate-200/60"></div>
-                      </div>
-                      <div class="mt-5 h-3 w-1/3 rounded bg-slate-200/60"></div>
-                      <div class="mt-2 h-5 w-3/4 rounded bg-slate-200/60"></div>
+                  <div class="flex gap-3 rounded-[1.25rem] border border-violet-100/40 bg-white p-3 shadow-[0_6px_24px_rgba(31,38,135,0.05)]">
+                    <div class="h-20 w-20 flex-shrink-0 animate-pulse rounded-xl bg-slate-200/60"></div>
+                    <div class="flex-1 space-y-2 py-1">
+                      <div class="h-3 w-1/3 animate-pulse rounded bg-slate-200/60"></div>
+                      <div class="h-4 w-3/4 animate-pulse rounded bg-slate-200/70"></div>
+                      <div class="h-3 w-full animate-pulse rounded bg-slate-200/50"></div>
                     </div>
                   </div>
                 </div>
@@ -1083,18 +1031,18 @@
                   <button
                     type="button"
                     data-admin-module="platform"
-                    class="group relative overflow-hidden rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50/60 p-5 text-left shadow-[0_12px_34px_-34px_rgba(100,116,139,0.3)] transition hover:-translate-y-0.5 active:scale-[0.995]"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/50 p-5 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] active:scale-[0.995]"
                   >
-                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 ring-1 ring-slate-200">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
                       <i data-lucide="sparkles" class="h-5 w-5"></i>
                     </div>
-                    <p class="mt-4 text-base font-semibold text-slate-700">政見管理</p>
-                    <p class="mt-2 text-xs leading-6 text-slate-400">
-                      編輯核心政見內容與支持度
+                    <p class="mt-4 text-base font-semibold text-violet-950">政見管理</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-500">
+                      編輯核心政見文案、封面、排序與主打
                     </p>
-                    <span class="mt-4 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
-                      <span class="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-                      <span>規劃中</span>
+                    <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
+                      <span>進入</span>
+                      <i data-lucide="chevron-right" class="h-3 w-3"></i>
                     </span>
                   </button>
 
@@ -1240,6 +1188,76 @@
 
                 <div id="adminDetailContainer" class="space-y-5"></div>
               </div>
+
+              <div id="adminPlatformListView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminPlatformListBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回管理首頁</span>
+                  </button>
+                  <p class="text-sm font-semibold text-violet-950">政見管理</p>
+                </div>
+
+                <div id="adminPlatformListLoading" class="space-y-3">
+                  <div class="h-[80px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[80px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[80px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminPlatformListEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                    <i data-lucide="inbox" class="h-6 w-6"></i>
+                  </div>
+                  <p class="mt-4 text-base font-semibold text-violet-950">尚無政見資料</p>
+                  <p class="mt-2 text-sm leading-7 text-slate-500">請至 Supabase 新增政見後再回此頁面。</p>
+                </div>
+
+                <div id="adminPlatformListError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入政見列表失敗</p>
+                  <p id="adminPlatformListErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    id="adminPlatformListRetryButton"
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminPlatformListContainer" class="space-y-3"></div>
+              </div>
+
+              <div id="adminPlatformEditView" class="hidden mt-6 space-y-5">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminPlatformEditBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回政見列表</span>
+                  </button>
+                  <p id="adminPlatformEditTitle" class="text-sm font-semibold text-violet-950">跨輯政見</p>
+                </div>
+
+                <div id="adminPlatformEditLoading" class="space-y-4">
+                  <div class="h-8 w-1/3 animate-pulse rounded-full bg-slate-200/70"></div>
+                  <div class="h-28 animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[120px] animate-pulse rounded-[1.25rem] bg-slate-200/55"></div>
+                </div>
+
+                <div id="adminPlatformEditError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入政見失敗</p>
+                  <p id="adminPlatformEditErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                </div>
+
+                <div id="adminPlatformEditContainer" class="hidden space-y-5"></div>
+              </div>
             </div>
           </section>
         </section>
@@ -1341,6 +1359,44 @@
         '傾聽每一個聲音': 'message-square-heart',
       };
 
+      // 把 db theme_color 對應到 fallback 色塊用 tailwind class
+      const PLATFORM_THEME_COLOR_MAP = {
+        blue:    { softBg: 'bg-blue-50',    iconText: 'text-blue-600',    ring: 'ring-blue-100' },
+        pink:    { softBg: 'bg-pink-50',    iconText: 'text-pink-600',    ring: 'ring-pink-100' },
+        emerald: { softBg: 'bg-emerald-50', iconText: 'text-emerald-600', ring: 'ring-emerald-100' },
+        amber:   { softBg: 'bg-amber-50',   iconText: 'text-amber-600',   ring: 'ring-amber-100' },
+        indigo:  { softBg: 'bg-indigo-50',  iconText: 'text-indigo-600',  ring: 'ring-indigo-100' },
+        violet:  { softBg: 'bg-violet-50',  iconText: 'text-violet-600',  ring: 'ring-violet-100' },
+        rose:    { softBg: 'bg-rose-50',    iconText: 'text-rose-600',    ring: 'ring-rose-100' },
+        sky:     { softBg: 'bg-sky-50',     iconText: 'text-sky-600',     ring: 'ring-sky-100' },
+        cyan:    { softBg: 'bg-cyan-50',    iconText: 'text-cyan-600',    ring: 'ring-cyan-100' },
+        teal:    { softBg: 'bg-teal-50',    iconText: 'text-teal-600',    ring: 'ring-teal-100' },
+        orange:  { softBg: 'bg-orange-50',  iconText: 'text-orange-600',  ring: 'ring-orange-100' },
+      };
+
+      function getPlatformColorClasses(platform) {
+        const key = (platform && platform.theme_color) || 'violet';
+        return PLATFORM_THEME_COLOR_MAP[key] || PLATFORM_THEME_COLOR_MAP.violet;
+      }
+
+      // 政見列表摘要：優先 summary，沒有則取 description 前 50 字
+      function getPlatformSummary(platform) {
+        if (!platform) return '';
+        const summary = String(platform.summary || '').trim();
+        if (summary) return summary;
+        const desc = String(platform.description || '').trim();
+        if (desc.length <= 50) return desc;
+        return desc.slice(0, 50) + '…';
+      }
+
+      // 政見詳情全文：優先 content，沒有則用 description
+      function getPlatformContent(platform) {
+        if (!platform) return '';
+        const content = String(platform.content || '').trim();
+        if (content) return content;
+        return String(platform.description || '').trim();
+      }
+
       const state = {
         activeTab: 'platforms',
         candidateName: DEFAULT_CANDIDATE_NAME,
@@ -1371,6 +1427,21 @@
             error: null,
             saving: false,
           },
+          platform: {
+            view: 'list',
+            items: [],
+            loading: false,
+            error: null,
+            refreshedAt: null,
+            edit: {
+              id: null,
+              loading: false,
+              data: null,
+              error: null,
+              saving: false,
+              uploadingCover: false,
+            },
+          },
         },
         wish: {
           view: 'form',
@@ -1400,6 +1471,7 @@
         closePrivacyModalButton: document.getElementById('closePrivacyModalButton'),
         privacyInfoButton: document.getElementById('privacyInfoButton'),
         modalIconWrap: document.getElementById('modalIconWrap'),
+        modalCoverWrap: document.getElementById('modalCoverWrap'),
         modalSubtitle: document.getElementById('modalSubtitle'),
         modalTitle: document.getElementById('modalTitle'),
         modalDescription: document.getElementById('modalDescription'),
@@ -1458,6 +1530,18 @@
         adminListBackButton: document.getElementById('adminListBackButton'),
         adminListView: document.getElementById('adminListView'),
         adminDetailView: document.getElementById('adminDetailView'),
+        adminPlatformListView: document.getElementById('adminPlatformListView'),
+        adminPlatformEditView: document.getElementById('adminPlatformEditView'),
+        adminPlatformListBackButton: document.getElementById('adminPlatformListBackButton'),
+        adminPlatformEditBackButton: document.getElementById('adminPlatformEditBackButton'),
+        adminPlatformListLoading: document.getElementById('adminPlatformListLoading'),
+        adminPlatformListEmpty: document.getElementById('adminPlatformListEmpty'),
+        adminPlatformListError: document.getElementById('adminPlatformListError'),
+        adminPlatformListContainer: document.getElementById('adminPlatformListContainer'),
+        adminPlatformEditTitle: document.getElementById('adminPlatformEditTitle'),
+        adminPlatformEditLoading: document.getElementById('adminPlatformEditLoading'),
+        adminPlatformEditError: document.getElementById('adminPlatformEditError'),
+        adminPlatformEditContainer: document.getElementById('adminPlatformEditContainer'),
         adminChipsRow: document.getElementById('adminChipsRow'),
         adminSearchInput: document.getElementById('adminSearchInput'),
         adminListLoading: document.getElementById('adminListLoading'),
@@ -1723,14 +1807,59 @@
             const module = card.dataset.adminModule;
             if (module === 'wish') {
               switchAdminView('list', { autoload: true });
-            } else if (module === 'platform' || module === 'schedule') {
-              const label = module === 'platform' ? '政見管理' : '行程管理';
-              showToast(`${label}功能規劃中，敬請期待。`);
+            } else if (module === 'platform') {
+              switchAdminPlatformView('list', { autoload: true });
+            } else if (module === 'schedule') {
+              showToast('行程管理功能規劃中，敬請期待。');
             }
           });
         }
         if (elements.adminListBackButton) {
           elements.adminListBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
+        // 政見管理事件
+        if (elements.adminPlatformListBackButton) {
+          elements.adminPlatformListBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
+        if (elements.adminPlatformEditBackButton) {
+          elements.adminPlatformEditBackButton.addEventListener('click', () => switchAdminPlatformView('list'));
+        }
+        const platformListRetry = document.getElementById('adminPlatformListRetryButton');
+        if (platformListRetry) {
+          platformListRetry.addEventListener('click', () => loadAdminPlatforms({ force: true }));
+        }
+        if (elements.adminPlatformListContainer) {
+          elements.adminPlatformListContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-platform-action]');
+            if (!btn) return;
+            const action = btn.dataset.platformAction;
+            const id = Number(btn.dataset.platformId);
+            if (action === 'edit') {
+              openAdminPlatformEdit(id);
+            } else if (action === 'up' || action === 'down') {
+              movePlatformOrder(id, action);
+            } else if (action === 'feature') {
+              togglePlatformFeatured(id);
+            }
+          });
+        }
+        if (elements.adminPlatformEditContainer) {
+          elements.adminPlatformEditContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-platform-edit-action]');
+            if (!btn) return;
+            const action = btn.dataset.platformEditAction;
+            if (action === 'save') {
+              saveAdminPlatform();
+            } else if (action === 'delete-cover') {
+              deletePlatformCover();
+            }
+          });
+          elements.adminPlatformEditContainer.addEventListener('change', (event) => {
+            const input = event.target.closest('[data-platform-edit-input="cover-file"]');
+            if (!input || !input.files || !input.files[0]) return;
+            uploadPlatformCover(input.files[0]);
+            input.value = '';
+          });
         }
         if (elements.adminChipsRow) {
           elements.adminChipsRow.addEventListener('click', (event) => {
@@ -2099,73 +2228,168 @@
       }
 
       function renderPlatformSkeletons() {
-        elements.platformList.innerHTML = Array.from({ length: 8 }, () => `
-          <div class="rounded-[1.5rem] border border-white/80 bg-white/45 p-4 shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md">
-            <div class="animate-pulse">
-              <div class="flex items-start justify-between gap-3">
-                <div class="h-12 w-12 rounded-full bg-slate-200/60"></div>
-                <div class="h-5 w-10 rounded-full bg-slate-200/60"></div>
+        elements.platformList.innerHTML = `
+          <div class="overflow-hidden rounded-[1.5rem] border border-violet-100/60 bg-white shadow-[0_8px_32px_rgba(31,38,135,0.06)]">
+            <div class="aspect-[16/9] w-full animate-pulse bg-gradient-to-br from-violet-100/60 to-rose-100/40"></div>
+            <div class="p-4">
+              <div class="flex items-center gap-2">
+                <div class="h-5 w-16 animate-pulse rounded-full bg-violet-100/70"></div>
+                <div class="h-5 w-10 animate-pulse rounded-full bg-slate-100"></div>
               </div>
-              <div class="mt-5 h-3 w-1/3 rounded bg-slate-200/60"></div>
-              <div class="mt-2 h-5 w-3/4 rounded bg-slate-200/60"></div>
+              <div class="mt-3 h-5 w-2/3 animate-pulse rounded bg-slate-200/70"></div>
+              <div class="mt-2 h-3 w-full animate-pulse rounded bg-slate-200/50"></div>
             </div>
           </div>
-        `).join('');
+          <div class="flex gap-3 rounded-[1.25rem] border border-violet-100/40 bg-white p-3 shadow-[0_6px_24px_rgba(31,38,135,0.05)]">
+            <div class="h-20 w-20 flex-shrink-0 animate-pulse rounded-xl bg-slate-200/60"></div>
+            <div class="flex-1 space-y-2 py-1">
+              <div class="h-3 w-1/3 animate-pulse rounded bg-slate-200/60"></div>
+              <div class="h-4 w-3/4 animate-pulse rounded bg-slate-200/70"></div>
+              <div class="h-3 w-full animate-pulse rounded bg-slate-200/50"></div>
+            </div>
+          </div>
+          <div class="flex gap-3 rounded-[1.25rem] border border-violet-100/40 bg-white p-3 shadow-[0_6px_24px_rgba(31,38,135,0.05)]">
+            <div class="h-20 w-20 flex-shrink-0 animate-pulse rounded-xl bg-slate-200/60"></div>
+            <div class="flex-1 space-y-2 py-1">
+              <div class="h-3 w-1/3 animate-pulse rounded bg-slate-200/60"></div>
+              <div class="h-4 w-3/4 animate-pulse rounded bg-slate-200/70"></div>
+              <div class="h-3 w-full animate-pulse rounded bg-slate-200/50"></div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 封面 fallback：沒圖時用 theme_color + icon 做色塊
+      function buildPlatformCoverHtml(platform, coverUrl, variant = 'card') {
+        const iconName = getPlatformIconName(platform);
+        const colorClasses = getPlatformColorClasses(platform);
+        const subtitle = escapeHtml(platform.subtitle || '核心政見');
+
+        if (coverUrl) {
+          if (variant === 'hero') {
+            return `
+              <div class="relative aspect-[16/9] w-full overflow-hidden">
+                <img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(platform.title || '政見封面')}" class="h-full w-full object-cover" loading="lazy" />
+                <div class="absolute inset-0 bg-gradient-to-t from-violet-950/40 via-transparent to-transparent"></div>
+              </div>
+            `;
+          }
+          return `
+            <div class="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl">
+              <img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(platform.title || '政見封面')}" class="h-full w-full object-cover" loading="lazy" />
+            </div>
+          `;
+        }
+
+        // fallback 色塊
+        if (variant === 'hero') {
+          return `
+            <div class="relative aspect-[16/9] w-full ${colorClasses.softBg}">
+              <div class="absolute inset-0 flex items-center justify-center">
+                <i data-lucide="${iconName}" class="h-16 w-16 ${colorClasses.iconText} opacity-70"></i>
+              </div>
+              <div class="absolute bottom-4 left-5 text-sm font-semibold ${colorClasses.iconText}">${subtitle}</div>
+            </div>
+          `;
+        }
+        return `
+          <div class="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl ${colorClasses.softBg} ring-1 ${colorClasses.ring}">
+            <div class="absolute inset-0 flex items-center justify-center">
+              <i data-lucide="${iconName}" class="h-8 w-8 ${colorClasses.iconText}"></i>
+            </div>
+          </div>
+        `;
       }
 
       function renderPlatforms() {
         if (!state.platforms.length) {
           elements.platformList.innerHTML = `
-            <div class="col-span-2 rounded-[1.5rem] border border-dashed border-violet-100/70 bg-white/60 px-4 py-10 text-center text-sm leading-7 text-slate-500 shadow-[0_12px_40px_rgba(15,23,42,0.05)] backdrop-blur-md">
+            <div class="rounded-[1.5rem] border border-dashed border-violet-100/70 bg-white/60 px-4 py-10 text-center text-sm leading-7 text-slate-500 shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
               目前尚未載入到政見資料，請確認 Supabase 的 <code class="rounded bg-slate-200 px-1 py-0.5 text-xs">campaign_platforms</code> 表內容與 API 設定。
             </div>
           `;
           return;
         }
 
-        elements.platformList.innerHTML = state.platforms
-          .map((platform) => {
-            const theme = getPlatformTheme();
-            const iconName = getPlatformIconName(platform);
-            const agreeCount = Number(platform.agree_count) || 0;
+        // 主打：is_featured = true 的第一筆（state.platforms 已依 sort_order 升序）
+        const featuredIndex = state.platforms.findIndex((p) => p.is_featured === true);
+        const featured = featuredIndex >= 0 ? state.platforms[featuredIndex] : null;
+        const rest = featured
+          ? state.platforms.filter((_, i) => i !== featuredIndex)
+          : state.platforms.slice();
 
-            return `
-              <button
-                type="button"
-                data-platform-open="${platform.id}"
-                class="group relative cursor-pointer overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/45 px-3 py-4 text-left shadow-[0_8px_32px_rgba(31,38,135,0.04)] ring-1 ring-violet-100/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:shadow-float active:scale-[0.97]"
-              >
-                <i
-                  data-lucide="${iconName}"
-                  class="pointer-events-none absolute -right-4 top-6 h-28 w-28 rotate-12 ${theme.watermark}"
-                ></i>
-                <div class="relative z-10 max-w-[calc(100%-2.5rem)] pr-7">
-                  <div class="mb-2 flex w-full items-center justify-between gap-2">
-                    <span class="whitespace-nowrap rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-600">
-                      ${escapeHtml(platform.subtitle || '核心政見')}
-                    </span>
-                    <span class="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-slate-400">
-                      <i
-                        data-lucide="heart"
-                        fill="currentColor"
-                        stroke-width="0"
-                        class="h-3 w-3 text-rose-500"
-                      ></i>
-                      <span>${agreeCount}</span>
-                    </span>
-                  </div>
-                  <h3 class="mt-2 text-sm font-bold leading-snug tracking-wide text-slate-800">
-                    ${escapeHtml(platform.title || '未命名政見')}
-                  </h3>
+        let html = '';
+
+        // A. 主打卡（全寬、大圖）
+        if (featured) {
+          const agreeCount = Number(featured.agree_count) || 0;
+          const summary = escapeHtml(getPlatformSummary(featured));
+          html += `
+            <button
+              type="button"
+              data-platform-open="${featured.id}"
+              class="group relative w-full cursor-pointer overflow-hidden rounded-[1.5rem] border border-violet-100/60 bg-white text-left shadow-[0_12px_40px_rgba(31,38,135,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_50px_rgba(31,38,135,0.12)] active:scale-[0.99]"
+            >
+              ${buildPlatformCoverHtml(featured, featured.cover_url, 'hero')}
+              <div class="border-l-4 border-violet-500 p-4">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700">
+                    <span class="inline-flex h-1.5 w-1.5 rounded-full bg-violet-500"></span>
+                    ${escapeHtml(featured.subtitle || '核心政見')}
+                  </span>
+                  <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
+                    <i data-lucide="star" class="h-3 w-3" fill="currentColor" stroke-width="0"></i>
+                    主打
+                  </span>
                 </div>
-                <span class="arrow-pulse-btn absolute bottom-4 right-4 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-gradient-to-r from-rose-400 to-pink-500 text-white shadow-md transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 active:scale-95">
-                  <i data-lucide="arrow-up-right" class="h-3.5 w-3.5 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-active:-translate-y-0.5 group-active:translate-x-0.5"></i>
-                </span>
-              </button>
-            `;
-          })
-          .join('');
+                <h3 class="mt-2 text-lg font-bold leading-snug tracking-tight text-violet-950">
+                  ${escapeHtml(featured.title || '未命名政見')}
+                </h3>
+                ${summary ? `<p class="mt-1.5 text-sm leading-6 text-slate-500">${summary}</p>` : ''}
+                <div class="mt-3 flex items-center justify-between">
+                  <span class="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600">
+                    <i data-lucide="heart" class="h-3.5 w-3.5" fill="currentColor" stroke-width="0"></i>
+                    <span>${agreeCount} 人支持</span>
+                  </span>
+                  <span class="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 transition group-hover:gap-1.5">
+                    <span>查看政見</span>
+                    <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+                  </span>
+                </div>
+              </div>
+            </button>
+          `;
+        }
 
+        // B. 其餘政見（單欄左圖右文卡）
+        rest.forEach((platform) => {
+          const agreeCount = Number(platform.agree_count) || 0;
+          const summary = escapeHtml(getPlatformSummary(platform));
+          html += `
+            <button
+              type="button"
+              data-platform-open="${platform.id}"
+              class="group relative flex w-full cursor-pointer gap-3 overflow-hidden rounded-[1.25rem] border border-violet-100/40 bg-white p-3 text-left shadow-[0_6px_24px_rgba(31,38,135,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_32px_rgba(31,38,135,0.09)] active:scale-[0.99]"
+            >
+              ${buildPlatformCoverHtml(platform, platform.cover_url, 'card')}
+              <div class="relative flex flex-1 flex-col border-l-2 border-violet-200/50 pl-3">
+                <span class="inline-flex w-fit items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                  ${escapeHtml(platform.subtitle || '核心政見')}
+                </span>
+                <h3 class="mt-1.5 text-sm font-bold leading-snug tracking-tight text-violet-950">
+                  ${escapeHtml(platform.title || '未命名政見')}
+                </h3>
+                ${summary ? `<p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">${summary}</p>` : ''}
+                <div class="mt-auto flex items-center gap-1 text-[11px] font-medium text-violet-600">
+                  <i data-lucide="heart" class="h-3 w-3" fill="currentColor" stroke-width="0"></i>
+                  <span>${agreeCount}</span>
+                </div>
+              </div>
+            </button>
+          `;
+        });
+
+        elements.platformList.innerHTML = html;
         renderIcons();
       }
 
@@ -2190,10 +2414,22 @@
         const iconName = getPlatformIconName(platform);
         const cooldown = getAgreeCooldownInfo(platform.id);
         const isSupporting = state.supportingIds.has(platform.id);
+        const content = getPlatformContent(platform);
+
+        // 封面圖（有圖才顯示）
+        if (elements.modalCoverWrap) {
+          if (platform.cover_url) {
+            elements.modalCoverWrap.innerHTML = `<img src="${escapeHtml(platform.cover_url)}" alt="${escapeHtml(platform.title || '政見封面')}" class="aspect-[16/9] w-full object-cover" />`;
+            elements.modalCoverWrap.classList.remove('hidden');
+          } else {
+            elements.modalCoverWrap.innerHTML = '';
+            elements.modalCoverWrap.classList.add('hidden');
+          }
+        }
 
         elements.modalSubtitle.textContent = platform.subtitle || '核心政見';
         elements.modalTitle.textContent = platform.title || '未命名政見';
-        elements.modalDescription.textContent = platform.description || '';
+        elements.modalDescription.textContent = content;
         elements.modalAgreeCount.textContent = String(Number(platform.agree_count) || 0);
         elements.modalIconWrap.className = `flex h-14 w-14 items-center justify-center rounded-2xl ring-1 ring-white/80 ${theme.modalIconWrap}`;
         elements.modalIconWrap.innerHTML = `<i data-lucide="${iconName}" class="h-7 w-7"></i>`;
@@ -2203,7 +2439,7 @@
           ? '送出中...'
           : cooldown.active
             ? '已支持，稍後可再投'
-            : '<span class="inline-flex items-center gap-2"><i data-lucide="heart" class="h-4 w-4 text-rose-500"></i><span>點擊支持</span></span>';
+            : '<span class="inline-flex items-center gap-2"><i data-lucide="heart" class="h-4 w-4 text-violet-600"></i><span>點擊支持</span></span>';
         elements.modalSupportHint.textContent = cooldown.active
           ? `您剛剛已支持過這項政見，約 ${cooldown.minutesLeft} 分鐘後可再次點擊。`
           : '每位里民的認同，都是推動正砂改變的重要力量。';
@@ -3433,6 +3669,14 @@
         if (elements.adminDetailView) {
           elements.adminDetailView.classList.toggle('hidden', targetView !== 'detail');
         }
+        // 政見管理子頁：僅在 admin home/list/detail 都不是時顯示
+        const showPlatform = targetView === 'platformList' || targetView === 'platformEdit';
+        if (elements.adminPlatformListView) {
+          elements.adminPlatformListView.classList.toggle('hidden', targetView !== 'platformList');
+        }
+        if (elements.adminPlatformEditView) {
+          elements.adminPlatformEditView.classList.toggle('hidden', targetView !== 'platformEdit');
+        }
 
         if (
           targetView === 'list' &&
@@ -3446,6 +3690,455 @@
           scrollContainer.scrollTop = 0;
         }
         renderIcons();
+      }
+
+      // 政見管理子頁切換（platformList / platformEdit）
+      function switchAdminPlatformView(view, options = {}) {
+        const targetView = ['list', 'edit'].includes(view) ? view : 'list';
+        state.admin.platform.view = targetView;
+
+        // 先隱藏許願管理相關 view
+        if (elements.adminHomeView) elements.adminHomeView.classList.add('hidden');
+        if (elements.adminListView) elements.adminListView.classList.add('hidden');
+        if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
+
+        if (elements.adminPlatformListView) {
+          elements.adminPlatformListView.classList.toggle('hidden', targetView !== 'list');
+        }
+        if (elements.adminPlatformEditView) {
+          elements.adminPlatformEditView.classList.toggle('hidden', targetView !== 'edit');
+        }
+
+        if (targetView === 'list' && options.autoload === true) {
+          loadAdminPlatforms({ force: true });
+        }
+
+        const scrollContainer = document.scrollingElement || document.documentElement || document.body;
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+        renderIcons();
+      }
+
+      async function loadAdminPlatforms(options = {}) {
+        if (state.admin.platform.loading && options.force !== true) return;
+        state.admin.platform.loading = true;
+        state.admin.platform.error = null;
+
+        if (elements.adminPlatformListLoading) elements.adminPlatformListLoading.classList.remove('hidden');
+        if (elements.adminPlatformListEmpty) elements.adminPlatformListEmpty.classList.add('hidden');
+        if (elements.adminPlatformListError) elements.adminPlatformListError.classList.add('hidden');
+        if (elements.adminPlatformListContainer) elements.adminPlatformListContainer.innerHTML = '';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch('/api/admin/platforms', {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '政見列表載入失敗');
+          }
+          state.admin.platform.items = Array.isArray(result.data) ? result.data : [];
+          state.admin.platform.refreshedAt = Date.now();
+          renderAdminPlatformList();
+        } catch (err) {
+          state.admin.platform.error = err.message || '政見列表載入失敗';
+          if (elements.adminPlatformListError) {
+            elements.adminPlatformListError.classList.remove('hidden');
+            const textEl = document.getElementById('adminPlatformListErrorText');
+            if (textEl) textEl.textContent = state.admin.platform.error;
+          }
+        } finally {
+          state.admin.platform.loading = false;
+          if (elements.adminPlatformListLoading) elements.adminPlatformListLoading.classList.add('hidden');
+          if (state.admin.platform.items.length === 0 && !state.admin.platform.error) {
+            if (elements.adminPlatformListEmpty) elements.adminPlatformListEmpty.classList.remove('hidden');
+          }
+          renderIcons();
+        }
+      }
+
+      function renderAdminPlatformList() {
+        const container = elements.adminPlatformListContainer;
+        if (!container) return;
+        const items = state.admin.platform.items;
+
+        if (!items.length) {
+          container.innerHTML = '';
+          return;
+        }
+
+        container.innerHTML = items.map((p) => {
+          const agreeCount = Number(p.agree_count) || 0;
+          const sortOrder = Number(p.sort_order) || 0;
+          const isFeatured = p.is_featured === true;
+          const isPublished = p.is_published !== false;
+          const coverThumb = p.cover_url
+            ? `<img src="${escapeHtml(p.cover_url)}" alt="" class="h-14 w-14 flex-shrink-0 rounded-lg object-cover" />`
+            : `<div class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-400"><i data-lucide="image" class="h-5 w-5"></i></div>`;
+
+          return `
+            <div class="flex items-center gap-3 rounded-[1.25rem] border border-violet-100/40 bg-white p-3 shadow-[0_6px_24px_rgba(31,38,135,0.05)]">
+              ${coverThumb}
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-semibold text-violet-600">#${sortOrder}</span>
+                  ${isFeatured ? `<span class="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600"><i data-lucide="star" class="h-2.5 w-2.5" fill="currentColor" stroke-width="0"></i>主打</span>` : ''}
+                  ${!isPublished ? `<span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">隱藏</span>` : ''}
+                </div>
+                <p class="mt-1 truncate text-sm font-semibold text-violet-950">${escapeHtml(p.title || '未命名')}</p>
+                <p class="mt-0.5 truncate text-xs text-slate-500">${escapeHtml(p.subtitle || '')} · ${agreeCount} 支持</p>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <button type="button" data-platform-action="up" data-platform-id="${p.id}" class="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 transition hover:text-violet-600 active:scale-95" aria-label="上移">
+                  <i data-lucide="chevron-up" class="h-3.5 w-3.5"></i>
+                </button>
+                <button type="button" data-platform-action="down" data-platform-id="${p.id}" class="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 transition hover:text-violet-600 active:scale-95" aria-label="下移">
+                  <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
+                </button>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <button type="button" data-platform-action="feature" data-platform-id="${p.id}" class="flex h-7 w-7 items-center justify-center rounded-lg ${isFeatured ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-200' : 'bg-white text-slate-400 ring-1 ring-slate-200'} transition hover:text-amber-600 active:scale-95" aria-label="設為主打">
+                  <i data-lucide="star" class="h-3.5 w-3.5" ${isFeatured ? 'fill="currentColor" stroke-width="0"' : ''}></i>
+                </button>
+                <button type="button" data-platform-action="edit" data-platform-id="${p.id}" class="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-100 active:scale-95" aria-label="跨輯">
+                  <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        renderIcons();
+      }
+
+      async function openAdminPlatformEdit(platformId) {
+        state.admin.platform.edit.id = platformId;
+        state.admin.platform.edit.loading = true;
+        state.admin.platform.edit.error = null;
+
+        switchAdminPlatformView('edit');
+
+        if (elements.adminPlatformEditLoading) elements.adminPlatformEditLoading.classList.remove('hidden');
+        if (elements.adminPlatformEditError) elements.adminPlatformEditError.classList.add('hidden');
+        if (elements.adminPlatformEditContainer) elements.adminPlatformEditContainer.classList.add('hidden');
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/platforms/${platformId}`, {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '政見資料載入失敗');
+          }
+          state.admin.platform.edit.data = result.data;
+          if (elements.adminPlatformEditTitle) {
+            elements.adminPlatformEditTitle.textContent = `跨輯：${result.data.title || '未命名政見'}`;
+          }
+          renderAdminPlatformEdit();
+        } catch (err) {
+          state.admin.platform.edit.error = err.message || '政見資料載入失敗';
+          if (elements.adminPlatformEditError) {
+            elements.adminPlatformEditError.classList.remove('hidden');
+            const textEl = document.getElementById('adminPlatformEditErrorText');
+            if (textEl) textEl.textContent = state.admin.platform.edit.error;
+          }
+        } finally {
+          state.admin.platform.edit.loading = false;
+          if (elements.adminPlatformEditLoading) elements.adminPlatformEditLoading.classList.add('hidden');
+          renderIcons();
+        }
+      }
+
+      function renderAdminPlatformEdit() {
+        const container = elements.adminPlatformEditContainer;
+        const data = state.admin.platform.edit.data;
+        if (!container || !data) return;
+
+        const coverPreview = data.cover_url
+          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="h-32 w-full rounded-[1rem] object-cover" />`
+          : `<div class="flex h-32 w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="image" class="h-8 w-8"></i><span class="ml-2 text-sm">尚無封面</span></div>`;
+
+        container.innerHTML = `
+          <div class="space-y-5">
+            <div>
+              <label class="text-xs font-semibold text-violet-700">封面圖</label>
+              <div class="mt-2 overflow-hidden rounded-[1rem] border border-violet-100/60">${coverPreview}</div>
+              <div class="mt-2 flex gap-2">
+                <label class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-500 active:scale-95">
+                  <i data-lucide="upload" class="h-3.5 w-3.5"></i>
+                  <span>${data.cover_url ? '更換封面' : '上傳封面'}</span>
+                  <input type="file" accept="image/*" class="hidden" data-platform-edit-input="cover-file" />
+                </label>
+                ${data.cover_url ? `
+                  <button type="button" data-platform-edit-action="delete-cover" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95">
+                    <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                    <span>刪除</span>
+                  </button>
+                ` : ''}
+                <span id="platformCoverUploadStatus" class="self-center text-xs text-slate-400"></span>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-violet-700">分類（subtitle）</label>
+              <input type="text" data-platform-edit-input="subtitle" value="${escapeHtml(data.subtitle || '')}" maxlength="20" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-violet-700">標題</label>
+              <input type="text" data-platform-edit-input="title" value="${escapeHtml(data.title || '')}" maxlength="30" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-violet-700">列表摘要</label>
+              <textarea data-platform-edit-input="summary" maxlength="80" rows="2" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100">${escapeHtml(data.summary || '')}</textarea>
+              <p class="mt-1 text-[11px] text-slate-400">里民列表顯示的一句話摘要，建議 50 字內。</p>
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-violet-700">完整內容</label>
+              <textarea data-platform-edit-input="content" rows="6" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-7 text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100">${escapeHtml(data.content || data.description || '')}</textarea>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" data-platform-edit-input="is_featured" ${data.is_featured ? 'checked' : ''} class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />
+                <span>設為主打</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" data-platform-edit-input="is_published" ${data.is_published !== false ? 'checked' : ''} class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />
+                <span>上架顯示</span>
+              </label>
+            </div>
+
+            <div class="flex items-center gap-3 pt-2">
+              <button type="button" data-platform-edit-action="save" class="inline-flex h-10 items-center gap-1.5 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:opacity-50">
+                <i data-lucide="save" class="h-4 w-4"></i>
+                <span>儲存變更</span>
+              </button>
+              <span id="platformSaveStatus" class="text-xs text-slate-400"></span>
+            </div>
+          </div>
+        `;
+        container.classList.remove('hidden');
+        renderIcons();
+      }
+
+      async function saveAdminPlatform() {
+        const edit = state.admin.platform.edit;
+        if (!edit.data || edit.saving) return;
+
+        const container = elements.adminPlatformEditContainer;
+        if (!container) return;
+
+        const getVal = (key) => {
+          const el = container.querySelector(`[data-platform-edit-input="${key}"]`);
+          if (!el) return undefined;
+          if (el.type === 'checkbox') return el.checked;
+          return el.value.trim();
+        };
+
+        const payload = {
+          subtitle: getVal('subtitle'),
+          title: getVal('title'),
+          summary: getVal('summary'),
+          content: getVal('content'),
+          is_featured: getVal('is_featured'),
+          is_published: getVal('is_published'),
+        };
+
+        edit.saving = true;
+        const saveBtn = container.querySelector('[data-platform-edit-action="save"]');
+        if (saveBtn) saveBtn.disabled = true;
+        const statusEl = document.getElementById('platformSaveStatus');
+        if (statusEl) statusEl.textContent = '儲存中...';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/platforms/${edit.id}`, {
+            method: 'PATCH',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '儲存失敗');
+          }
+          edit.data = result.data;
+          // 同步列表中該筆
+          state.admin.platform.items = state.admin.platform.items.map((p) =>
+            Number(p.id) === Number(edit.id) ? { ...p, ...result.data } : p
+          );
+          renderAdminPlatformEdit();
+          renderAdminPlatformList();
+          showToast('政見已儲存。');
+          if (statusEl) statusEl.textContent = '已儲存 ✓';
+          setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+        } catch (err) {
+          showToast(err.message || '儲存失敗');
+          if (statusEl) statusEl.textContent = '儲存失敗';
+        } finally {
+          edit.saving = false;
+          if (saveBtn) saveBtn.disabled = false;
+          renderIcons();
+        }
+      }
+
+      async function uploadPlatformCover(file) {
+        const edit = state.admin.platform.edit;
+        if (!edit.data || edit.uploadingCover) return;
+
+        const statusEl = document.getElementById('platformCoverUploadStatus');
+        if (statusEl) statusEl.textContent = '壓縮與上傳中...';
+
+        edit.uploadingCover = true;
+        try {
+          // 1. 壓縮圖片為 WebP
+          const compressed = await compressImageToWebp(file, { maxEdge: 1600, quality: 0.82 });
+          // 2. 取得 signed upload URL
+          const tokenBundle = await getIdentityToken();
+          const urlRes = await fetch(`/api/admin/platforms/${edit.id}/cover-upload-url`, {
+            method: 'POST',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+          });
+          const urlResult = await urlRes.json();
+          if (!urlRes.ok || !urlResult.success) {
+            throw new Error(urlResult.message || '封面上傳金鑰產生失敗');
+          }
+          const { storage_path, upload_url, expected_content_type } = urlResult.data;
+          // 3. PUT 直傳
+          const putRes = await fetch(upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': expected_content_type || 'image/webp' },
+            body: compressed.blob,
+          });
+          if (!putRes.ok) {
+            throw new Error('封面上傳失敗，請稍後再試。');
+          }
+          // 4. 回寫 storage_path
+          const patchRes = await fetch(`/api/admin/platforms/${edit.id}/cover`, {
+            method: 'PATCH',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storage_path }),
+          });
+          const patchResult = await patchRes.json();
+          if (!patchRes.ok || !patchResult.success) {
+            throw new Error(patchResult.message || '封面更新失敗');
+          }
+          // 更新 edit data
+          edit.data = { ...edit.data, cover_url: patchResult.data.cover_url, cover_image_path: patchResult.data.cover_image_path };
+          renderAdminPlatformEdit();
+          // 同步列表
+          state.admin.platform.items = state.admin.platform.items.map((p) =>
+            Number(p.id) === Number(edit.id) ? { ...p, cover_url: patchResult.data.cover_url } : p
+          );
+          renderAdminPlatformList();
+          if (statusEl) statusEl.textContent = '上傳成功 ✓';
+          setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+        } catch (err) {
+          showToast(err.message || '封面上傳失敗');
+          if (statusEl) statusEl.textContent = '上傳失敗';
+        } finally {
+          edit.uploadingCover = false;
+        }
+      }
+
+      async function deletePlatformCover() {
+        const edit = state.admin.platform.edit;
+        if (!edit.data) return;
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/platforms/${edit.id}/cover`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '封面刪除失敗');
+          }
+          edit.data = { ...edit.data, cover_url: null, cover_image_path: null };
+          renderAdminPlatformEdit();
+          state.admin.platform.items = state.admin.platform.items.map((p) =>
+            Number(p.id) === Number(edit.id) ? { ...p, cover_url: null } : p
+          );
+          renderAdminPlatformList();
+          showToast('封面已刪除。');
+        } catch (err) {
+          showToast(err.message || '封面刪除失敗');
+        }
+      }
+
+      async function movePlatformOrder(platformId, direction) {
+        const items = state.admin.platform.items;
+        const idx = items.findIndex((p) => Number(p.id) === Number(platformId));
+        if (idx < 0) return;
+        const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (swapIdx < 0 || swapIdx >= items.length) return;
+
+        const current = items[idx];
+        const target = items[swapIdx];
+        const currentSort = Number(current.sort_order);
+        const targetSort = Number(target.sort_order);
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          // 先把 target 移到 current 的 sort_order
+          const res1 = await fetch(`/api/admin/platforms/${target.id}`, {
+            method: 'PATCH',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sort_order: currentSort }),
+          });
+          if (!res1.ok) throw new Error('排序交換失敗');
+          // 再把 current 移到 target 的 sort_order
+          const res2 = await fetch(`/api/admin/platforms/${current.id}`, {
+            method: 'PATCH',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sort_order: targetSort }),
+          });
+          if (!res2.ok) throw new Error('排序交換失敗');
+          // 重新載入列表
+          await loadAdminPlatforms({ force: true });
+          showToast('排序已更新。');
+        } catch (err) {
+          showToast(err.message || '排序更新失敗');
+        }
+      }
+
+      async function togglePlatformFeatured(platformId) {
+        const items = state.admin.platform.items;
+        const item = items.find((p) => Number(p.id) === Number(platformId));
+        if (!item) return;
+        const nextFeatured = !item.is_featured;
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/platforms/${platformId}`, {
+            method: 'PATCH',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_featured: nextFeatured }),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '主打設定失敗');
+          }
+          state.admin.platform.items = state.admin.platform.items.map((p) =>
+            Number(p.id) === Number(platformId) ? { ...p, is_featured: nextFeatured, ...(!nextFeatured ? {} : { is_featured: false }) } : (nextFeatured ? { ...p, is_featured: false } : p)
+          );
+          // 確保只有一筆主打
+          if (nextFeatured) {
+            state.admin.platform.items = state.admin.platform.items.map((p) =>
+              Number(p.id) === Number(platformId) ? { ...p, is_featured: true } : { ...p, is_featured: false }
+            );
+          }
+          renderAdminPlatformList();
+          showToast(nextFeatured ? '已設為主打。' : '已取消主打。');
+        } catch (err) {
+          showToast(err.message || '主打設定失敗');
+        }
       }
 
       async function loadAdminList(options = {}) {

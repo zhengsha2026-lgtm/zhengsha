@@ -69,6 +69,7 @@ function isAdminLineUserId(lineUserId) {
 }
 
 const STORAGE_BUCKET_WISH_PHOTOS = 'wish-photos';
+const STORAGE_BUCKET_PLATFORM_COVERS = 'platform-covers';
 const SIGNED_UPLOAD_URL_EXPIRES_IN = 60 * 10;
 const SIGNED_READ_URL_EXPIRES_IN = 60 * 30;
 const LINE_ID_TOKEN_VERIFY_URL = 'https://api.line.me/oauth2/v2.1/verify';
@@ -126,7 +127,8 @@ app.get('/api/platforms', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('campaign_platforms')
-      .select('id, sort_order, subtitle, title, description, icon, theme_color, agree_count')
+      .select('id, sort_order, subtitle, title, description, icon, theme_color, agree_count, summary, cover_image_path, is_featured, is_published')
+      .eq('is_published', true)
       .order('sort_order', { ascending: true });
 
     if (error) {
@@ -137,12 +139,74 @@ app.get('/api/platforms', async (req, res) => {
       });
     }
 
+    // 為有封面的政見產生 signed read URL
+    const withCovers = await Promise.all((data || []).map(async (p) => {
+      const coverUrl = await getPlatformCoverSignedUrl(p.cover_image_path);
+      const { cover_image_path, ...rest } = p;
+      return { ...rest, cover_url: coverUrl };
+    }));
+
     return res.json({
       success: true,
-      data: data || [],
+      data: withCovers,
     });
   } catch (error) {
     console.error('Platforms API failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
+    });
+  }
+});
+
+// 里民端單筆政見詳情（含 content 全文）
+app.get('/api/platforms/:id', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase 尚未完成設定，請先檢查環境變數。',
+    });
+  }
+
+  const platformId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(platformId) || platformId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: '政見編號不正確。',
+    });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('campaign_platforms')
+      .select('id, sort_order, subtitle, title, description, icon, theme_color, agree_count, summary, content, cover_image_path, is_featured, is_published')
+      .eq('id', platformId)
+      .eq('is_published', true)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          message: '找不到這筆政見或尚未上架。',
+        });
+      }
+      console.error('Fetch platform detail failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '政見資料讀取失敗，請稍後再試。',
+      });
+    }
+
+    const coverUrl = await getPlatformCoverSignedUrl(data.cover_image_path);
+    const { cover_image_path, ...rest } = data;
+
+    return res.json({
+      success: true,
+      data: { ...rest, cover_url: coverUrl },
+    });
+  } catch (error) {
+    console.error('Platform detail API failed:', error);
     return res.status(500).json({
       success: false,
       message: '伺服器忙碌中，請稍後再試。',
@@ -1068,6 +1132,442 @@ app.patch('/api/admin/feedback/:id', async (req, res) => {
   }
 });
 
+// ============================================
+// 政見管理 API（管理員白名單）
+// ============================================
+
+// 取得政見列表（含未上架、含封面 signed URL）
+app.get('/api/admin/platforms', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('campaign_platforms')
+      .select('id, sort_order, subtitle, title, description, icon, theme_color, agree_count, summary, content, cover_image_path, is_featured, is_published, created_at')
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.error('admin platforms list failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '政見列表讀取失敗，請稍後再試。',
+      });
+    }
+
+    const withCovers = await Promise.all((data || []).map(async (p) => {
+      const coverUrl = await getPlatformCoverSignedUrl(p.cover_image_path);
+      const { cover_image_path, ...rest } = p;
+      return { ...rest, cover_url: coverUrl };
+    }));
+
+    return res.json({
+      success: true,
+      data: withCovers,
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin platforms list failed:');
+  }
+});
+
+// 取得單筆政見完整資料
+app.get('/api/admin/platforms/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const platformId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(platformId) || platformId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '政見編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('campaign_platforms')
+      .select('id, sort_order, subtitle, title, description, icon, theme_color, agree_count, summary, content, cover_image_path, is_featured, is_published, created_at')
+      .eq('id', platformId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          message: '找不到這筆政見。',
+        });
+      }
+      console.error('admin platform detail failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '政見資料讀取失敗，請稍後再試。',
+      });
+    }
+
+    const coverUrl = await getPlatformCoverSignedUrl(data.cover_image_path);
+    const { cover_image_path, ...rest } = data;
+
+    return res.json({
+      success: true,
+      data: { ...rest, cover_url: coverUrl },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin platform detail failed:');
+  }
+});
+
+// 更新政見（標題、分類、摘要、內文、排序、主打、上架狀態）
+app.patch('/api/admin/platforms/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const platformId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(platformId) || platformId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '政見編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const allowedFields = [
+      'subtitle', 'title', 'summary', 'content',
+      'sort_order', 'is_featured', 'is_published',
+    ];
+    const body = req.body || {};
+    const updatePayload = {};
+    for (const key of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, key)) {
+        if (key === 'sort_order') {
+          const v = Number(body[key]);
+          if (!Number.isInteger(v) || v < 0) {
+            return res.status(400).json({
+              success: false,
+              message: '排序須為非負整數。',
+            });
+          }
+          updatePayload[key] = v;
+        } else if (key === 'is_featured' || key === 'is_published') {
+          updatePayload[key] = Boolean(body[key]);
+        } else {
+          const v = String(body[key] || '').trim();
+          if (!v) {
+            return res.status(400).json({
+              success: false,
+              message: `${key} 不可為空。`,
+            });
+          }
+          updatePayload[key] = v;
+        }
+      }
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '沒有可更新的欄位。',
+      });
+    }
+
+    // 若要設為主打，先把其他主打取消（保證唯一性）
+    if (updatePayload.is_featured === true) {
+      const { error: unfeatureError } = await supabaseAdmin
+        .from('campaign_platforms')
+        .update({ is_featured: false })
+        .eq('is_featured', true)
+        .neq('id', platformId);
+      if (unfeatureError) {
+        console.error('unfeature others failed:', unfeatureError);
+      }
+    }
+
+    // 若要改 sort_order，需要與其他筆交換 sort_order（避免 unique 衝突）
+    if (Object.prototype.hasOwnProperty.call(updatePayload, 'sort_order')) {
+      const { data: target } = await supabaseAdmin
+        .from('campaign_platforms')
+        .select('id, sort_order')
+        .eq('id', platformId)
+        .single();
+      const oldSort = target && Number(target.sort_order);
+      const newSort = Number(updatePayload.sort_order);
+      if (Number.isInteger(oldSort) && oldSort !== newSort) {
+        // 找到目前佔用 newSort 的那筆，把它移到 oldSort（交換）
+        const { data: occupant } = await supabaseAdmin
+          .from('campaign_platforms')
+          .select('id, sort_order')
+          .eq('sort_order', newSort)
+          .neq('id', platformId)
+          .maybeSingle();
+        if (occupant) {
+          await supabaseAdmin
+            .from('campaign_platforms')
+            .update({ sort_order: oldSort })
+            .eq('id', occupant.id);
+        }
+      }
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('campaign_platforms')
+      .update(updatePayload)
+      .eq('id', platformId)
+      .select('id, sort_order, subtitle, title, summary, content, icon, theme_color, agree_count, cover_image_path, is_featured, is_published, created_at')
+      .single();
+
+    if (updateError || !updated) {
+      console.error('admin platform patch failed:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: '政見更新失敗，請稍後再試。',
+      });
+    }
+
+    const coverUrl = await getPlatformCoverSignedUrl(updated.cover_image_path);
+    const { cover_image_path, ...rest } = updated;
+
+    return res.json({
+      success: true,
+      message: '政見已儲存，里民端重新載入即可看到最新內容。',
+      data: { ...rest, cover_url: coverUrl },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin platform patch failed:');
+  }
+});
+
+// 取得政見封面 signed upload URL
+app.post('/api/admin/platforms/:id/cover-upload-url', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const platformId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(platformId) || platformId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '政見編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    // 確認政見存在
+    const { data: exist } = await supabaseAdmin
+      .from('campaign_platforms')
+      .select('id, cover_image_path')
+      .eq('id', platformId)
+      .single();
+    if (!exist) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆政見。',
+      });
+    }
+
+    const fileUuid = generateUuidSafe();
+    const storagePath = buildPlatformCoverStoragePath(platformId, fileUuid);
+    const { data, error } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET_PLATFORM_COVERS)
+      .createSignedUploadUrl(storagePath);
+
+    if (error || !data) {
+      console.error('Platform cover signed upload URL failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '封面上傳金鑰產生失敗，請稍後再試。',
+      });
+    }
+
+    // 上傳成功後前端會再 PATCH 回寫 storage_path
+    return res.json({
+      success: true,
+      message: '封面上傳金鑰已核發，請在 10 分鐘內完成上傳。',
+      data: {
+        storage_path: storagePath,
+        upload_url: data.signedUrl || data.url,
+        upload_token: data.token || null,
+        expires_in_seconds: SIGNED_UPLOAD_URL_EXPIRES_IN,
+        expected_content_type: 'image/webp',
+      },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin platform cover upload-url failed:');
+  }
+});
+
+// 回寫政見封面 storage_path（上傳完成後呼叫）
+app.patch('/api/admin/platforms/:id/cover', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const platformId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(platformId) || platformId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '政見編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const storagePath = req.body && req.body.storage_path;
+    if (!storagePath || typeof storagePath !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'storage_path 為必填。',
+      });
+    }
+
+    // 校驗路徑前綴必須是 {platformId}/
+    const expectedPrefix = `${platformId}/`;
+    if (!storagePath.startsWith(expectedPrefix) || !storagePath.endsWith('.webp')) {
+      return res.status(400).json({
+        success: false,
+        message: 'storage_path 格式不正確。',
+      });
+    }
+
+    // 先讀舊封面路徑（若有，之後刪除舊檔）
+    const { data: current } = await supabaseAdmin
+      .from('campaign_platforms')
+      .select('id, cover_image_path')
+      .eq('id', platformId)
+      .single();
+    const oldPath = current && current.cover_image_path;
+
+    const { data: updated, error } = await supabaseAdmin
+      .from('campaign_platforms')
+      .update({ cover_image_path: storagePath })
+      .eq('id', platformId)
+      .select('id, cover_image_path')
+      .single();
+
+    if (error || !updated) {
+      console.error('admin platform cover patch failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '封面更新失敗，請稍後再試。',
+      });
+    }
+
+    // 刪除舊封面（若與新路徑不同）
+    if (oldPath && oldPath !== storagePath) {
+      const { error: removeError } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET_PLATFORM_COVERS)
+        .remove([oldPath]);
+      if (removeError) {
+        console.error('Remove old platform cover failed:', removeError);
+      }
+    }
+
+    const coverUrl = await getPlatformCoverSignedUrl(updated.cover_image_path);
+
+    return res.json({
+      success: true,
+      message: '封面已更新。',
+      data: {
+        id: updated.id,
+        cover_image_path: updated.cover_image_path,
+        cover_url: coverUrl,
+      },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin platform cover patch failed:');
+  }
+});
+
+// 刪除政見封面
+app.delete('/api/admin/platforms/:id/cover', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const platformId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(platformId) || platformId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '政見編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: current } = await supabaseAdmin
+      .from('campaign_platforms')
+      .select('id, cover_image_path')
+      .eq('id', platformId)
+      .single();
+    const oldPath = current && current.cover_image_path;
+
+    if (!oldPath) {
+      return res.json({
+        success: true,
+        message: '本筆政見目前沒有封面。',
+        data: { id: platformId, cover_image_path: null, cover_url: null },
+      });
+    }
+
+    const { error: removeError } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET_PLATFORM_COVERS)
+      .remove([oldPath]);
+    if (removeError) {
+      console.error('Remove platform cover failed:', removeError);
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from('campaign_platforms')
+      .update({ cover_image_path: null })
+      .eq('id', platformId);
+
+    if (updateError) {
+      console.error('Clear platform cover path failed:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: '封面路徑清空失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: '封面已刪除。',
+      data: { id: platformId, cover_image_path: null, cover_url: null },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin platform cover delete failed:');
+  }
+});
+
 app.use((error, req, res, next) => {
   if (error instanceof line.SignatureValidationFailed) {
     console.error('LINE signature validation failed.');
@@ -1275,6 +1775,25 @@ function buildPhotoStoragePath(lineUserId, feedbackGroupId, fileUuid) {
   const safeGroup = String(feedbackGroupId).replace(/[^A-Za-z0-9_-]/g, '');
   const safeFile = String(fileUuid).replace(/[^A-Za-z0-9_-]/g, '');
   return `${safeUser}/${safeGroup}/${safeFile}.webp`;
+}
+
+function buildPlatformCoverStoragePath(platformId, fileUuid) {
+  const safeId = String(platformId).replace(/[^A-Za-z0-9_-]/g, '');
+  const safeFile = String(fileUuid).replace(/[^A-Za-z0-9_-]/g, '');
+  return `${safeId}/${safeFile}.webp`;
+}
+
+// 為單一政見封面產生 signed read URL；無封面回傳 null
+async function getPlatformCoverSignedUrl(coverPath) {
+  if (!coverPath || !supabaseAdmin) return null;
+  const { data, error } = await supabaseAdmin.storage
+    .from(STORAGE_BUCKET_PLATFORM_COVERS)
+    .createSignedUrl(coverPath, SIGNED_READ_URL_EXPIRES_IN);
+  if (error || !data) {
+    console.error('Platform cover signed URL failed:', error);
+    return null;
+  }
+  return data.signedUrl || data.url || null;
 }
 
 function buildExcerpt(text, maxLen = 60) {

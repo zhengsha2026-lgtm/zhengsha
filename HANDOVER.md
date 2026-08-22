@@ -35,7 +35,7 @@
 ## 3. 目前已完成的功能
 
 ### 頁面
-- 核心政見
+- 核心政見（單欄主打卡 + 左圖右文卡，有封面圖、摘要、支持數）
 - 候選人介紹
 - 里民許願池（表單）
 - 我的許願（列表 + 詳情）
@@ -55,13 +55,23 @@
 - 前端 LIFF 登入後呼叫 `/api/admin/me` 判斷是否為管理員
 - 管理入口：header 右上角盾牌圖示（僅管理員可見），點擊進入管理首頁
 - 底部導覽永遠維持 4 個 Tab（核心政見/候選人介紹/里民許願池/競選行程），不再有第 5 個管理 Tab
-- 管理首頁：模組列表（許願管理可用、政見管理/行程管理預留「規劃中」）
+- 管理首頁：模組列表（許願管理、政見管理可用、行程管理預留「規劃中」）
 - 許願管理為子頁：管理首頁 → 許願列表 → 詳情處理，各層級有返回按鈕
 - 許願列表頁：狀態 chips（全部/已收到/處理中/已回覆/已結案，含計數）、搜尋（姓名/電話/內容）、分頁
 - 許願詳情頁：案件摘要、里民資訊（含複製電話/撥打）、完整內容、照片、目前回覆、操作區（狀態變更 + 回覆填寫 + 儲存）、處理歷程時間軸
 - 變更狀態或回覆後，自動新增一筆 `user_feedback_status_logs`，`changed_by` 填入管理員 LINE user id
 - 儲存成功後自動同步詳情與列表計數
 - 管理 API 與里民 API 路徑與權限完全分隔
+
+### 政見管理（管理員專用）
+- 里民端政見改版：單欄主打卡（`is_featured` 筆，16:9 封面圖 + 摘要 + 支持數）+ 其餘左圖右文卡
+- 沒封面圖時用 `theme_color` + `icon` 做 fallback 色塊
+- 詳情 modal 頂部可顯示封面圖，全文改用 `content` 欄位（fallback `description`）
+- 政見管理列表：封面縮圖、標題、分類、支持數、排序、主打標記；可上移/下移、設為主打、進入編輯
+- 政見編輯頁：封面上傳（前端壓縮 WebP → signed URL 直傳）/更換/刪除、分類（subtitle）、標題、列表摘要、完整內容、是否主打、是否上架
+- 設為主打時自動取消其他筆主打（partial unique index 保證唯一性）
+- 排序交換：PATCH sort_order 時後端自動與佔用者交換
+- `is_published = false` 的政見里民端不顯示
 
 ---
 
@@ -145,6 +155,12 @@
 | GET | `/api/admin/feedback` | 全部許願列表，支援 `status` / `q` / `limit` / `offset`，並回傳各狀態計數 |
 | GET | `/api/admin/feedback/:id` | 單筆許願詳情（含照片 signed read URL、`status_logs` 含 `changed_by`、`reply_summary`） |
 | PATCH | `/api/admin/feedback/:id` | 變更狀態與/或回覆，body `{ status, reply_summary }`，自動寫入一筆狀態歷程（`changed_by` = 管理員 LINE user id） |
+| GET | `/api/admin/platforms` | 全部政見列表（含未上架），含封面 signed read URL |
+| GET | `/api/admin/platforms/:id` | 單筆政見完整資料 |
+| PATCH | `/api/admin/platforms/:id` | 更新標題/分類/摘要/內文/排序/主打/上架；設新主打時自動取消其他主打 |
+| POST | `/api/admin/platforms/:id/cover-upload-url` | 取得封面 signed upload URL |
+| PATCH | `/api/admin/platforms/:id/cover` | 回寫封面 storage_path（上傳後呼叫，自動刪舊封面） |
+| DELETE | `/api/admin/platforms/:id/cover` | 刪除封面圖 |
 
 ---
 
@@ -187,8 +203,9 @@
   - 401（未登入）→ 靜默隱藏管理圖示
 - 底部導覽永遠維持 4 個 Tab，不再動態切換 grid-cols
 - 點 header 圖示 → `switchTab('admin')` → 顯示 adminPanel → `switchAdminView('home')`
-- 管理首頁有三個模組卡：許願管理（可用）、政見管理/行程管理（預留，點擊 toast「規劃中」）
+- 管理首頁有三個模組卡：許願管理（可用）、政見管理（可用）、行程管理（預留，點擊 toast「規劃中」）
 - 許願管理流程：管理首頁 → 許願列表（返回管理首頁）→ 詳情處理（返回列表）
+- 政見管理流程：管理首頁 → 政見列表（返回管理首頁，可上移/下移/設主打/進入編輯）→ 編輯頁（返回列表）
 - 若 URL 帶有 `?tab=admin` 且確認為管理員，自動切換到管理面板
 - 若 URL 帶有 `?tab=admin` 但非管理員，自動導回 `platforms`
 - 非管理員無法透過任何方式（包含手動切換）進入管理面板：`switchTab('admin')` 會被導回 `platforms`
@@ -206,15 +223,21 @@
 - **許願池後台管理**（第一階段）
   - 管理員 LINE 白名單驗證
   - 管理入口：header 右上角盾牌圖示（僅管理員可見），底部永遠 4 個 Tab
-  - 管理首頁：模組列表（許願管理可用、政見管理/行程管理預留）
+  - 管理首頁：模組列表（許願管理、政見管理可用、行程管理預留）
   - 許願管理子頁：列表（含狀態 chips 計數、搜尋、分頁）+ 詳情（照片 signed URL、處理歷程時間軸、狀態變更/回覆填寫、自動寫入 `changed_by`）
+- **核心政見改版**
+  - 里民端：單欄主打卡（`is_featured`，16:9 封面 + 摘要 + 支持數）+ 其餘左圖右文卡；沒圖用 `theme_color` + `icon` fallback；詳情 modal 頂部加封面圖
+  - 管理端：政見管理列表（封面縮圖、排序上移/下移、設為主打）+ 編輯頁（封面上傳/更換/刪除、文案、主打、上架）
+  - 新增欄位：`summary`, `content`, `cover_image_path`, `is_featured`, `is_published`
+  - 新增 Storage bucket：`platform-covers`（private，RLS 拒絕 anon/authenticated）
+  - 政見管理 API：list / detail / patch / cover-upload-url / cover patch / cover delete
 
 ### 仍可優化 / 尚未完成
-- 競選行程頁仍為「規劃中」
-- 核心政見互動深度可再加強
+- 競選行程頁仍為「規劃中」，行程管理仍為預留入口
 - 許願案件狀態變更後的 **LINE 主動通知里民**（推播進度）尚未做
 - 後台管理的進階功能：批次變更狀態、匯出 CSV、依日期區間篩選
 - 後台管理員身分的**動態新增/移除**（目前需改環境變數重新部署）
+- 政見的新增/刪除功能（目前只能編輯既有的 8 筆）
 
 ---
 

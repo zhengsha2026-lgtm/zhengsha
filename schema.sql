@@ -41,7 +41,12 @@ create table if not exists public.campaign_platforms (
       'orange'
     )
   ),
-  agree_count integer not null default 0
+  agree_count integer not null default 0,
+  summary text,
+  content text,
+  cover_image_path text,
+  is_featured boolean not null default false,
+  is_published boolean not null default true
 );
 
 create unique index if not exists idx_campaign_platforms_sort_order
@@ -49,3 +54,8 @@ create unique index if not exists idx_campaign_platforms_sort_order
 
 create index if not exists idx_campaign_platforms_agree_count
   on public.campaign_platforms (agree_count desc);
+
+-- 主打唯一性：同一時間最多一筆 is_featured = true
+create unique index if not exists idx_campaign_platforms_featured_singleton
+  on public.campaign_platforms (is_featured)
+  where is_featured = true;
