@@ -2118,13 +2118,25 @@
               albumInput.value = '';
               return;
             }
-            // 開始時間一改，同步更新結束時間的 min 屬性（防呆：結束時間必須晚於開始時間）
+            // 開始時間一改，同步更新結束時間的 min 屬性 + 更新 24h 顯示文字
             const startInput = event.target.closest('[data-event-edit-input="start_at"]');
             if (startInput) {
               const endInput = elements.adminEventEditContainer.querySelector('[data-event-edit-input="end_at"]');
               if (endInput) {
                 endInput.min = startInput.value || '';
               }
+              updateEventTimeDisplayText();
+            }
+            const endInput2 = event.target.closest('[data-event-edit-input="end_at"]');
+            if (endInput2) {
+              updateEventTimeDisplayText();
+            }
+          });
+          // 即時更新 24h 顯示文字（input 事件在使用者改 picker 時即時觸發）
+          elements.adminEventEditContainer.addEventListener('input', (event) => {
+            if (event.target.closest('[data-event-edit-input="start_at"]') ||
+                event.target.closest('[data-event-edit-input="end_at"]')) {
+              updateEventTimeDisplayText();
             }
           });
         }
@@ -5063,11 +5075,13 @@
               <div>
                 <label class="text-xs font-semibold text-violet-700">開始時間</label>
                 <input type="datetime-local" data-event-edit-input="start_at" value="${formatEventDateTimeLocal(data.start_at)}" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+                <p id="eventStartDisplayText" class="mt-1 text-[11px] font-medium text-violet-700">${formatEventDateTimeDisplay(data.start_at)}</p>
               </div>
               <div>
                 <label class="text-xs font-semibold text-violet-700">結束時間（可空）</label>
                 <input type="datetime-local" data-event-edit-input="end_at" value="${formatEventDateTimeLocal(data.end_at)}" min="${formatEventDateTimeLocal(data.start_at)}" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
-                <p class="mt-1 text-[11px] text-slate-400">需晚於開始時間。</p>
+                <p id="eventEndDisplayText" class="mt-1 text-[11px] font-medium text-violet-700">${data.end_at ? formatEventDateTimeDisplay(data.end_at) : '尚未設定'}</p>
+                <p class="mt-0.5 text-[11px] text-slate-400">需晚於開始時間。</p>
               </div>
             </div>
 
@@ -5144,6 +5158,20 @@
         `;
         container.classList.remove('hidden');
         renderIcons();
+      }
+
+      // 同步更新編輯頁開始/結束時間下方的 24h 顯示文字（datetime-local 的顯示格式由系統控制，無法強制 24h）
+      function updateEventTimeDisplayText() {
+        const startInput = elements.adminEventEditContainer && elements.adminEventEditContainer.querySelector('[data-event-edit-input="start_at"]');
+        const endInput = elements.adminEventEditContainer && elements.adminEventEditContainer.querySelector('[data-event-edit-input="end_at"]');
+        const startText = document.getElementById('eventStartDisplayText');
+        const endText = document.getElementById('eventEndDisplayText');
+        if (startText) {
+          startText.textContent = startInput && startInput.value ? formatEventDateTimeDisplay(startInput.value) : '尚未設定';
+        }
+        if (endText) {
+          endText.textContent = endInput && endInput.value ? formatEventDateTimeDisplay(endInput.value) : '尚未設定';
+        }
       }
 
       // 只重繪封面區塊（上傳/刪除封面時使用，不動其他已填欄位）
