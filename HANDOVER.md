@@ -40,7 +40,7 @@
 - 里民許願池（表單層次優化：身分卡縮為一列、切換加強、內容框為主體、送出鈕紫色）
 - 我的許願列表（依狀態分組、卡片層次、時間精簡、身分列隱藏）
 - 我的許願（列表 + 詳情）
-- 競選行程（里民端：主打卡 + 即將到來/過往足跡分組 + 詳情 modal + 報名/取消報名）
+- 競選行程（里民端：主打 hero 卡 + 即將到來/過往足跡分組 + 詳情 modal + 16:9 封面與相簿 + 影片外連 + 報名/取消報名；管理端可看到報名人數）
 
 ### 許願相關（重點）
 - 里民可填寫並送出許願
@@ -56,7 +56,7 @@
 - 前端 LIFF 登入後呼叫 `/api/admin/me` 判斷是否為管理員
 - 管理入口：header 右上角盾牌圖示（僅管理員可見），點擊進入管理首頁
 - 底部導覽永遠維持 4 個 Tab（核心政見/候選人介紹/里民許願池/競選行程），不再有第 5 個管理 Tab
-- 管理首頁：模組列表（許願管理、政見管理可用、行程管理預留「規劃中」）
+- 管理首頁：模組列表（許願管理、政見管理可用、行程管理可用）
 - 許願管理為子頁：管理首頁 → 許願列表 → 詳情處理，各層級有返回按鈕
 - 許願列表頁：狀態 chips（全部/已收到/處理中/已回覆/已結案，含計數）、搜尋（姓名/電話/內容）、分頁
 - 許願詳情頁：案件摘要、里民資訊（含複製電話/撥打）、完整內容、照片、目前回覆、操作區（狀態變更 + 回覆填寫 + 儲存）、處理歷程時間軸
@@ -84,8 +84,19 @@
   - 報名後同步更新詳情與列表的 `rsvp_count`
 - 行程管理（管理員專用）：管理首頁「行程管理」模組卡片（可用）
   - 行程列表：標題、時間、上架狀態、報名人數；可新增、進入編輯、刪除
-  - 行程編輯頁：標題、`description`（列表摘要）、`content`（完整內容）、`start_at`/`end_at`、`location`、`video_url`、封面上傳/更換/刪除、相簿上傳/刪除、`is_published` 上架、刪除此行程
-  - 通知功能（後端文案寫死）：`POST /api/admin/events/:id/notify-rsvp`（發訊給已報名里民）、`POST /api/admin/events/:id/notify-wish-pool`（發訊給許願池里民）
+  - 行程編輯頁：標題、`description`（列表摘要）、`content`（完整內容）、`start_at`/`end_at`（**結束時間必須晚於開始時間，前端+後端都會檢查**）、`location`、`video_url`、封面上傳/更換/刪除、相簿上傳/刪除、`is_published` 上架、刪除此行程
+  - 通知功能（後端文案寫死，**兩顆手動按鈕，上架不會自動群發**）：
+    - `POST /api/admin/events/:id/notify-rsvp`（發 LINE 訊息給已報名里民）
+    - `POST /api/admin/events/:id/notify-wish-pool`（發 LINE 訊息給曾使用許願池的里民）
+    - 兩則通知都會消耗 LINE 官方帳號推播則數，建議謹慎使用
+  - 行程時間顯示：畫面上一律 `YYYY/MM/DD HH:mm`（24 小時制，小時補零）；編輯頁的 `datetime-local` 系統挑選器可能仍是 12 小時，**下方另附 24 小時制可見文字**避免混淆
+  - 上傳封面 / 相簿照片成功後，**只更新該區塊 DOM，不會重置表單其他已填欄位**（title、description、content、時間、地點、影片、上架等都保留）
+- **圖文選單入口**：
+  - 網址格式：`https://liff.line.me/{LIFF_ID}?tab=platforms|intro|wish|schedule`（可用 search 或 hash 兩種）
+  - 初始 Tab 規則：HTML 預設 4 個底部 Tab 的 panel 全部 `hidden`；**若 URL 讀不到 tab，不先顯示核心政見**
+  - LIFF 啟動流程：頁面解析到 `</nav>` 時先用 inline script 把 search/hash 的 tab 提前打開（命中才顯示）；`liff.init()` 完成後再用 `location.search` → `location.hash` → `liff.permanentLink.createUrl()` 的順序重新解析一次，最後才 fallback platforms；目的是避免從 LINE 圖文選單進非政見頁時，**先閃核心政見再跳走**
+  - 進哪個 Tab 才載該 Tab 的 API 資料（platforms/intro/wish/schedule），intro 以靜態為主，其餘 Tab 第一次進去時載入並快取，切回來不重抓
+  - 政見封面、行程封面、相簿、管理列表縮圖全部 `loading="lazy"`，非當前 Tab 不急著載
 
 ---
 
@@ -112,9 +123,12 @@
 
 4. **開發原則**
    - 在現有架構上迭代，不要重寫整個專案
-   - 保持現有視覺風格一致
+   - 保持現有視覺風格一致（暖白背景 + 白色卡片 + 紫色主色 + 柔和陰影，避免深色與螢光粉）
    - 重要變更需更新本 HANDOVER.md
    - 管理 API 與里民 API 路徑與權限必須完全分隔，不可混用
+   - 圖文選單 deep-link 優先序：`location.search` → `location.hash` → `liff.permanentLink.createUrl()`；URL 無 tab 時**決不可**在 `liff.init()` 前預設顯示核心政見
+   - 頁面資料載入遵循「進哪個 Tab 才載哪個」：platforms/wish/schedule 皆為第一次切到該 Tab 才打 API，並做快取；intro 以靜態為主，不觸發額外 API
+   - 所有政見/行程封面、相簿、列表縮圖皆使用 `loading="lazy"`，非當前畫面不急著載
 
 ---
 
@@ -242,7 +256,9 @@
 - 管理首頁有三個模組卡：許願管理（可用）、政見管理（可用）、行程管理（可用）
 - 許願管理流程：管理首頁 → 許願列表（返回管理首頁）→ 詳情處理（返回列表）
 - 政見管理流程：管理首頁 → 政見列表（返回管理首頁，可上移/下移/設主打/進入編輯）→ 編輯頁（返回列表）
-- 行程管理流程：管理首頁 → 行程列表（返回管理首頁，可新增/編輯/刪除）→ 編輯頁（返回列表，封面/相簿/文案/上架/通知）
+- 行程管理流程：管理首頁 → 行程列表（返回管理首頁，可新增/編輯/刪除）→ 編輯頁（返回列表，封面/相簿/時間/影片/文案/上架/通知；**封面/相簿上傳後只更新自己那塊 DOM，不會清空其他已填欄位**）
+- 行程通知兩顆手動按鈕：`notify-rsvp`（已報名里民）、`notify-wish-pool`（許願池里民），不會自動發，會消耗 LINE 官方帳號推播則數
+- 行程時間 24 小時制統一顯示；編輯頁 `datetime-local` 之下另附 `YYYY/MM/DD HH:mm` 文字；**結束時間必須晚於開始時間，前後端雙重檢查**
 - 若 URL 帶有 `?tab=admin` 且確認為管理員，自動切換到管理面板
 - 若 URL 帶有 `?tab=admin` 但非管理員，自動導回 `platforms`
 - 非管理員無法透過任何方式（包含手動切換）進入管理面板：`switchTab('admin')` 會被導回 `platforms`
@@ -260,7 +276,7 @@
 - **許願池後台管理**（第一階段）
   - 管理員 LINE 白名單驗證
   - 管理入口：header 右上角盾牌圖示（僅管理員可見），底部永遠 4 個 Tab
-  - 管理首頁：模組列表（許願管理、政見管理可用、行程管理預留）
+  - 管理首頁：模組列表（許願管理可用、政見管理可用、行程管理可用）
   - 許願管理子頁：列表（含狀態 chips 計數、搜尋、分頁）+ 詳情（照片 signed URL、處理歷程時間軸、狀態變更/回覆填寫、自動寫入 `changed_by`）
 - **核心政見改版**
   - 里民端：單欄主打卡（`is_featured`，16:9 封面 + 摘要 + 支持數）+ 其餘左圖右文卡；沒圖用 `theme_color` + `icon` fallback；詳情 modal 頂部加封面圖
@@ -268,20 +284,29 @@
   - 新增欄位：`summary`, `content`, `cover_image_path`, `is_featured`, `is_published`
   - 新增 Storage bucket：`platform-covers`（private，RLS 拒絕 anon/authenticated）
   - 政見管理 API：list / detail / patch / cover-upload-url / cover patch / cover delete
-- **競選行程模組**
-  - 里民端：底部第 4 個 Tab「競選行程」，主打卡（upcoming 第一筆）+ 即將到來/過往足跡分組 + 詳情 modal + 報名/取消（已結束擋新增、不擋取消）
-  - 管理端：行程管理列表 + 跨輯頁（封面/相簿/影片/文案/上架/刪除）+ 通知（notify-rsvp、notify-wish-pool，文案後端寫死）
+- **競選行程模組（已上線）**
+  - 里民端：底部第 4 個 Tab「競選行程」；主打 hero 卡（`upcoming` 第一筆，列表不重複）+ 即將到來/過往足跡分組（兩者只看 `start_at`）+ 詳情 modal（16:9 封面 contain 預覽、`description` 為列表摘要、`content` 為完整內文）+ 相簿縮圖 + 影片外連 + 報名/取消（已結束 `start_at < now` 擋**新**報名、不擋取消報名）
+  - 管理端：管理首頁「行程管理」已可用；行程列表（標題/時間/上架/報名人數）+ 編輯頁（標題、description/content、start_at/end_at 結束必須晚於開始前後端都查、location、video_url、封面、相簿、is_published 上架、刪除）
+  - LINE 通知：兩顆管理員手動按鈕（`notify-rsvp` 提醒已報名者、`notify-wish-pool` 通知曾使用許願池的里民）；上架**不會自動群發**；文案後端寫死；會消耗 LINE 官方帳號推播則數
+  - 行程時間：畫面顯示統一 `YYYY/MM/DD HH:mm`（24 小時制，小時補零）；編輯頁 `datetime-local` 系統挑選器可能仍是 12 小時，下方另附 24 小時制文字避免誤判
+  - 上傳封面 / 相簿成功後只更新該區塊 DOM，不清空 title/description/content/時間/地點/影片/上架等已填欄位
   - 新增資料表：`campaign_events`、`campaign_event_photos`、`event_rsvps`（`UNIQUE(event_id, line_user_id)`）
   - 新增 Storage bucket：`event-covers`（private，RLS 拒絕 anon/authenticated）
   - 行程 API：里民 list/detail/rsvp join/rsvp cancel；管理 list/detail/create/patch/delete/cover/album/notify-rsvp/notify-wish-pool
-  - upcoming/past 只看 `start_at`；主打 = upcoming 第一筆，列表不重複；`description` 當列表摘要，`content` 為完整內容
+- **LIFF 啟動與載入速度優化（防閃政見 + 分頁載入）**
+  - 圖文選單網址：`https://liff.line.me/{LIFF_ID}?tab=platforms|intro|wish|schedule`（search 或 hash 兩種都支援）
+  - HTML 預設 4 個底部 Tab panel 全部 `hidden`；頁面解析到 `</nav>` 後立即執行一段 inline script，先以 search+hash 命中的 tab 開啟對應頁面，**若沒讀到 tab 就全部保持 hidden，不落回 platforms**
+  - `liff.init()` 成功後再解析一次：來源優先序 `location.search` → `location.hash` → `liff.permanentLink.createUrl()`（圖文選單參數常藏在這），最後才 fallback platforms
+  - 深度連結非政見 tab 時，第一眼不再出現核心政見列表或政見骨架
+  - 進哪個 Tab 才載該 Tab API：platforms/wish/schedule 第一次進去時載入並快取，切回來不重抓；intro 以靜態為主
+  - 政見封面、行程封面、相簿、管理列表縮圖：全部 `loading="lazy"`
 
 ### 仍可優化 / 尚未完成
 - 許願案件狀態變更後的 **LINE 主動通知里民**（推播進度）尚未做
 - 後台管理的進階功能：批次變更狀態、匯出 CSV、依日期區間篩選
 - 後台管理員身分的**動態新增/移除**（目前需改環境變數重新部署）
 - 政見的新增/刪除功能（目前只能編輯既有的 8 筆）
-- 行程通知目前為管理員手動觸發（notify-rsvp / notify-wish-pool），尚未支援行程新增/修改時自動通知
+- 行程通知現為手動觸發（notify-rsvp / notify-wish-pool），未來可視需求加行程上架/即將到來前自動提醒（需注意 LINE 官方帳號推播則數成本）
 
 ---
 
