@@ -1429,78 +1429,75 @@
       </nav>
 
       <!-- 第一幀防閃：緊接底部導覽立即執行，在超長 <script> 解析完就先決定 panel / Tab 可見狀態 -->
+      <!-- 規則：URL 有 tab 且是公開 tab → 先打開那一頁；讀不到就「全部保持 hidden」，等 LIFF init 後再用 permanentLink 重解 -->
       <script>
         (function () {
+          function extractTabFromQueryString(qstr) {
+            if (!qstr) return '';
+            try {
+              var q = new URLSearchParams(qstr);
+              var t = q.get('tab');
+              if (t) return t;
+            } catch (e) {}
+            var m = qstr.match(/(?:^|[?&])tab=([a-zA-Z0-9_-]+)/);
+            return m ? m[1] : '';
+          }
           function readTabFromUrl() {
             try {
-              var search = window.location.search || '';
-              var hash = window.location.hash || '';
-              // 1) query: ?tab=xxx
-              if (search.indexOf('tab=') >= 0) {
-                try {
-                  var q = new URLSearchParams(search);
-                  var t = q.get('tab');
-                  if (t) return t;
-                } catch (e) {}
-              }
-              // 2) hash: #tab=xxx / #?tab=xxx / #/?tab=xxx
-              if (hash.length > 1) {
-                var clean = hash.charAt(0) === '#' ? hash.slice(1) : hash;
-                try {
-                  var s = clean;
-                  if (s.charAt(0) === '/') s = s.slice(1);
-                  if (s.charAt(0) !== '?') s = '?' + s;
-                  var q2 = new URLSearchParams(s.slice(1));
-                  var t2 = q2.get('tab');
-                  if (t2) return t2;
-                } catch (e) {}
-                var m = clean.match(/(?:^|[?&])tab=([a-zA-Z0-9_-]+)/);
-                if (m) return m[1];
+              var search = (window.location.search || '').replace(/^\?/, '');
+              var hash = (window.location.hash || '').replace(/^#/, '');
+              // 1) query (?tab=xxx)
+              var t1 = extractTabFromQueryString(search);
+              if (t1) return t1;
+              // 2) hash 內容可能是 ?tab=xxx 或 tab=xxx 或 /?tab=xxx
+              if (hash) {
+                var cleanHash = hash;
+                if (cleanHash.charAt(0) === '/') cleanHash = cleanHash.slice(1);
+                var t2 = extractTabFromQueryString(cleanHash);
+                if (t2) return t2;
               }
             } catch (e) {}
             return '';
           }
-
-          // 只允許公開 4 個 tab；admin 在這個階段一律擋下（身份確認後由主 script 再處理）
-          var PUBLIC_TABS = { platforms: 1, intro: 1, wish: 1, schedule: 1 };
-          var raw = readTabFromUrl();
-          var initialTab = PUBLIC_TABS[raw] ? raw : 'platforms';
-
-          // 1) Panel：只顯示目標，其他保持 hidden（HTML 現在預設全部都是 hidden）
-          try {
-            var panels = document.querySelectorAll('[data-tab-panel]');
-            for (var i = 0; i < panels.length; i++) {
-              if (panels[i].getAttribute('data-tab-panel') === initialTab) {
-                panels[i].classList.remove('hidden');
-              } else {
-                panels[i].classList.add('hidden');
+          function applyTabUi(tabOrEmpty) {
+            var PUBLIC_TABS = { platforms: 1, intro: 1, wish: 1, schedule: 1 };
+            var tab = PUBLIC_TABS[tabOrEmpty] ? tabOrEmpty : '';
+            // 1) Panels：命中才顯示；沒命中就「全部維持 hidden」（HTML 預設全 hidden），決不落回 platforms
+            try {
+              var panels = document.querySelectorAll('[data-tab-panel]');
+              for (var i = 0; i < panels.length; i++) {
+                if (tab && panels[i].getAttribute('data-tab-panel') === tab) {
+                  panels[i].classList.remove('hidden');
+                } else {
+                  panels[i].classList.add('hidden');
+                }
               }
-            }
-          } catch (e) {}
-
-          // 2) 底部 4 個 Tab 選中狀態同步
-          try {
-            var btns = document.querySelectorAll('[data-tab-button]');
-            for (var j = 0; j < btns.length; j++) {
-              var isActive = btns[j].getAttribute('data-tab-button') === initialTab;
-              btns[j].className = isActive
-                ? 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full bg-violet-50/80 px-2 py-2 text-violet-950 transition'
-                : 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full px-2 py-2 text-slate-400 transition';
-            }
-            var inds = document.querySelectorAll('[data-tab-indicator]');
-            for (var k = 0; k < inds.length; k++) {
-              if (inds[k].getAttribute('data-tab-indicator') === initialTab) {
-                inds[k].classList.remove('opacity-0');
-                inds[k].classList.add('opacity-100');
-              } else {
-                inds[k].classList.add('opacity-0');
-                inds[k].classList.remove('opacity-100');
+            } catch (e) {}
+            // 2) 底部 4 個 Tab 選中狀態同步（沒命中就全部不選）
+            try {
+              var btns = document.querySelectorAll('[data-tab-button]');
+              for (var j = 0; j < btns.length; j++) {
+                var isActive = tab && btns[j].getAttribute('data-tab-button') === tab;
+                btns[j].className = isActive
+                  ? 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full bg-violet-50/80 px-2 py-2 text-violet-950 transition'
+                  : 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full px-2 py-2 text-slate-400 transition';
               }
-            }
-          } catch (e) {}
-
-          // 把初始 tab 暫存，讓後續主 script 知道（避免 LIFF ready 後 tab 不穩時，仍可對比是否要再切）
-          try { window.__zhengshaInitialTab = initialTab; } catch (e) {}
+              var inds = document.querySelectorAll('[data-tab-indicator]');
+              for (var k = 0; k < inds.length; k++) {
+                var indActive = tab && inds[k].getAttribute('data-tab-indicator') === tab;
+                if (indActive) {
+                  inds[k].classList.remove('opacity-0');
+                  inds[k].classList.add('opacity-100');
+                } else {
+                  inds[k].classList.add('opacity-0');
+                  inds[k].classList.remove('opacity-100');
+                }
+              }
+            } catch (e) {}
+            return tab;
+          }
+          var resolved = applyTabUi(readTabFromUrl());
+          try { window.__zhengshaInitialTab = resolved; } catch (e) {}
         })();
       </script>
     </div>
@@ -1803,12 +1800,12 @@
 
       async function bootstrap() {
         bindEvents();
-        // 1) 初始先切到正確 Tab（讀 query+hash），避免先畫 platforms 再跳
-        const initialTab = getInitialTab();
-        switchTab(initialTab, { updateHistory: false, skipHydrate: true, autoload: false });
+        // 注意：第一幀 panel 可見態已由「底部導覽後的 inline script」處理。
+        // 這裡**不再**先 switchTab(getInitialTab())，避免在 LIFF 還沒 init 前就把空 URL 落到 platforms。
+        state.activeTab = window.__zhengshaInitialTab || '';
         renderIcons();
 
-        // 許願池：只顯示載入中狀態文字，先不打 API
+        // 許願池：先不打 API（保持 inline script 載入時的空白狀態，不預設 platforms 訊息）
         setWishStatus('已就緒，進入許願池即可載入。', 'info');
 
         try {
@@ -1820,26 +1817,78 @@
           syncCandidateName();
           await initializeIdentity(config);
 
-          // LIFF 導向後 query 有時在 init 後才穩定（尤其是 LINE iOS 版），
-          // 這裡再讀一次 tab；若與第一幀 inline script 決定的不一樣，才補一次切換
-          try {
-            const tabAfterInit = getInitialTab();
-            if (tabAfterInit && tabAfterInit !== state.activeTab) {
-              switchTab(tabAfterInit, { updateHistory: false, autoload: false, skipHydrate: false });
-            }
-          } catch (_) {}
+          // LIFF init 完成，這時候才能穩定解析 tab（圖文選單參數常藏在 permanentLink）
+          // 來源優先序：location.search → location.hash → liff.permanentLink.createUrl() → fallback platforms
+          const resolvedTab = await resolveTabAfterLiffInit();
+          if (resolvedTab !== state.activeTab) {
+            switchTab(resolvedTab, { updateHistory: false, autoload: false, skipHydrate: false });
+          } else if (!state.activeTab) {
+            // inline script 沒找到 tab 時 state.activeTab 為空，仍需補一次切換（設定 state/UI）
+            switchTab(resolvedTab, { updateHistory: false, autoload: false, skipHydrate: false });
+          }
 
           await checkAdminIdentity();
         } catch (error) {
           console.error('Bootstrap config failed:', error);
           syncCandidateName();
           enableTestMode('載入前端設定失敗，已切換為測試模式。');
+          // 失敗時仍要給一個預設 tab，避免畫面全空
+          if (!state.activeTab) {
+            switchTab('platforms', { updateHistory: false, autoload: false });
+          }
         }
 
         // 2) 只針對初始 Tab 載入該 Tab 需要的資料（其他 Tab 留給使用者切過去時才載）
         hydrateStoredPhone();
         await loadTabDataForCurrentTab();
         renderPhotoGrid();
+      }
+
+      // LIFF init 後解析 tab：來源依序是 search / hash / liff.permanentLink.createUrl()，最後才 fallback platforms
+      async function resolveTabAfterLiffInit() {
+        const PUBLIC = { platforms: 1, intro: 1, wish: 1, schedule: 1 };
+        // 1 & 2: search + hash — 用底層 readTabFromUrl() 真實值，不提前 fallback
+        let tab = '';
+        try { tab = readTabFromUrl() || ''; } catch (_) { tab = ''; }
+        tab = PUBLIC[tab] ? tab : '';
+
+        if (!tab && state.mode === 'liff' && typeof window.liff !== 'undefined') {
+          // 3) liff.permanentLink.createUrl()：圖文選單參數常藏在這裡的 query
+          try {
+            if (typeof liff.permanentLink !== 'undefined' && typeof liff.permanentLink.createUrl === 'function') {
+              const pUrl = await liff.permanentLink.createUrl();
+              if (pUrl) {
+                // 從 permanentLink 的 URL 裡解析 search & hash
+                try {
+                  const u = new URL(pUrl);
+                  const fromPSearch = u.searchParams ? u.searchParams.get('tab') : '';
+                  if (fromPSearch && PUBLIC[fromPSearch]) { tab = fromPSearch; }
+                  if (!tab) {
+                    let hash = u.hash || '';
+                    if (hash.charAt(0) === '#') hash = hash.slice(1);
+                    if (hash) {
+                      if (hash.charAt(0) === '/') hash = hash.slice(1);
+                      try {
+                        const q = new URLSearchParams(hash.charAt(0) === '?' ? hash.slice(1) : hash);
+                        const ht = q.get('tab');
+                        if (ht && PUBLIC[ht]) tab = ht;
+                      } catch (_) {
+                        const mm = hash.match(/(?:^|[?&])tab=([a-zA-Z0-9_-]+)/);
+                        if (mm && PUBLIC[mm[1]]) tab = mm[1];
+                      }
+                    }
+                  }
+                } catch (_) { /* invalid url, skip */ }
+              }
+            }
+          } catch (err) {
+            console.warn('liff.permanentLink.createUrl() failed (silent):', err);
+          }
+        }
+
+        // 最後都沒有才用 platforms（確保在 LIFF init 完成後才落回）
+        if (!tab) tab = 'platforms';
+        return tab;
       }
 
       // 依當前 state.activeTab，載入對應 Tab 需要的 API 資料（已載入過則快取跳過）
