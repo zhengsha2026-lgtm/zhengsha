@@ -3774,8 +3774,8 @@
           const isFeatured = p.is_featured === true;
           const isPublished = p.is_published !== false;
           const coverThumb = p.cover_url
-            ? `<img src="${escapeHtml(p.cover_url)}" alt="" class="h-14 w-14 flex-shrink-0 rounded-lg object-cover" />`
-            : `<div class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-400"><i data-lucide="image" class="h-5 w-5"></i></div>`;
+            ? `<div class="flex-shrink-0 overflow-hidden rounded-lg"><img src="${escapeHtml(p.cover_url)}" alt="" class="h-14 w-24 object-cover" /></div>`
+            : `<div class="flex h-14 w-24 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-400"><i data-lucide="image" class="h-5 w-5"></i></div>`;
 
           return `
             <div class="flex items-center gap-3 rounded-[1.25rem] border border-violet-100/40 bg-white p-3 shadow-[0_6px_24px_rgba(31,38,135,0.05)]">
@@ -3858,8 +3858,8 @@
         if (!container || !data) return;
 
         const coverPreview = data.cover_url
-          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="h-32 w-full rounded-[1rem] object-cover" />`
-          : `<div class="flex h-32 w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="image" class="h-8 w-8"></i><span class="ml-2 text-sm">尚無封面</span></div>`;
+          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" />`
+          : `<div class="flex aspect-[16/9] w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="image" class="h-8 w-8"></i><span class="ml-2 text-sm">尚無封面</span></div>`;
 
         container.innerHTML = `
           <div class="space-y-5">
@@ -3878,7 +3878,7 @@
                     <span>刪除</span>
                   </button>
                 ` : ''}
-                <span id="platformCoverUploadStatus" class="self-center text-xs text-slate-400"></span>
+                <span id="platformCoverUploadStatus" class="self-center text-xs text-slate-400">建議使用橫式 16:9 照片</span>
               </div>
             </div>
 
@@ -4037,10 +4037,10 @@
           );
           renderAdminPlatformList();
           if (statusEl) statusEl.textContent = '上傳成功 ✓';
-          setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+          setTimeout(() => { if (statusEl) statusEl.textContent = '建議使用橫式 16:9 照片'; }, 2000);
         } catch (err) {
           showToast(err.message || '封面上傳失敗');
-          if (statusEl) statusEl.textContent = '上傳失敗';
+          if (statusEl) { statusEl.textContent = '上傳失敗'; setTimeout(() => { statusEl.textContent = '建議使用橫式 16:9 照片'; }, 2000); }
         } finally {
           edit.uploadingCover = false;
         }
@@ -4081,26 +4081,18 @@
 
         const current = items[idx];
         const target = items[swapIdx];
-        const currentSort = Number(current.sort_order);
-        const targetSort = Number(target.sort_order);
 
         try {
           const tokenBundle = await getIdentityToken();
-          // 先把 target 移到 current 的 sort_order
-          const res1 = await fetch(`/api/admin/platforms/${target.id}`, {
-            method: 'PATCH',
+          const res = await fetch('/api/admin/platforms/swap-order', {
+            method: 'POST',
             headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sort_order: currentSort }),
+            body: JSON.stringify({ a_id: Number(current.id), b_id: Number(target.id) }),
           });
-          if (!res1.ok) throw new Error('排序交換失敗');
-          // 再把 current 移到 target 的 sort_order
-          const res2 = await fetch(`/api/admin/platforms/${current.id}`, {
-            method: 'PATCH',
-            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sort_order: targetSort }),
-          });
-          if (!res2.ok) throw new Error('排序交換失敗');
-          // 重新載入列表
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '排序交換失敗');
+          }
           await loadAdminPlatforms({ force: true });
           showToast('排序已更新。');
         } catch (err) {

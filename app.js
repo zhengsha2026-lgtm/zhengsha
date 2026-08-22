@@ -1300,6 +1300,7 @@ app.patch('/api/admin/platforms/:id', async (req, res) => {
     }
 
     // 若要改 sort_order，需要與其他筆交換 sort_order（避免 unique 衝突）
+    // 用 temp 負值避開 unique index：當前→temp → 佔用者補到舊位 → 當前→新位
     if (Object.prototype.hasOwnProperty.call(updatePayload, 'sort_order')) {
       const { data: target } = await supabaseAdmin
         .from('campaign_platforms')
@@ -1309,7 +1310,10 @@ app.patch('/api/admin/platforms/:id', async (req, res) => {
       const oldSort = target && Number(target.sort_order);
       const newSort = Number(updatePayload.sort_order);
       if (Number.isInteger(oldSort) && oldSort !== newSort) {
-        // 找到目前佔用 newSort 的那筆，把它移到 oldSort（交換）
+        const tempVal = -Number(platformId);
+        // step1: 當前 → temp
+        await supabaseAdmin.from('campaign_platforms').update({ sort_order: tempVal }).eq('id', platformId);
+        // step2: 佔用者補到 oldSort
         const { data: occupant } = await supabaseAdmin
           .from('campaign_platforms')
           .select('id, sort_order')
@@ -1317,11 +1321,9 @@ app.patch('/api/admin/platforms/:id', async (req, res) => {
           .neq('id', platformId)
           .maybeSingle();
         if (occupant) {
-          await supabaseAdmin
-            .from('campaign_platforms')
-            .update({ sort_order: oldSort })
-            .eq('id', occupant.id);
+          await supabaseAdmin.from('campaign_platforms').update({ sort_order: oldSort }).eq('id', occupant.id);
         }
+        // step3: 當前(temp) → newSort（這已經是 updatePayload.sort_order，主 update 會做）
       }
     }
 
@@ -1500,6 +1502,103 @@ app.patch('/api/admin/platforms/:id/cover', async (req, res) => {
     });
   } catch (error) {
     return handleAuthOrServerError(res, error, 'admin platform cover patch failed:');
+  }
+});
+
+// 交換兩筆政見的 sort_order（避免 unique index 衝突）
+// 步驟：A → temp(-A_id) → B 補 A 舊位 → A 補 B 舊位
+app.post('/api/admin/platforms/swap-order', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const { a_id, b_id } = req.body || {};
+    if (!Number.isInteger(a_id) || !Number.isInteger(b_id) || a_id === b_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'a_id 與 b_id 必填且不可相同。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: aRow } = await supabaseAdmin
+      .from('campaign_platforms')
+      .select('id, sort_order')
+      .eq('id', a_id)
+      .single();
+    const { data: bRow } = await supabaseAdmin
+      .from('campaign_platforms')
+      .select('id, sort_order')
+      .eq('id', b_id)
+      .single();
+
+    if (!aRow || !bRow) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到其中一筆政見。',
+      });
+    }
+
+    const aSort = Number(aRow.sort_order);
+    const bSort = Number(bRow.sort_order);
+    if (aSort === bSort) {
+      return res.json({
+        success: true,
+        message: '兩筆排序相同，無需交換。',
+      });
+    }
+
+    // 用負 id 作 temp（既有資料 sort_order 都是正整數，不會衝突）
+    const tempA = -Number(a_id);
+    const step1 = await supabaseAdmin
+      .from('campaign_platforms')
+      .update({ sort_order: tempA })
+      .eq('id', a_id);
+    if (step1.error) {
+      console.error('swap step1 failed:', step1.error);
+      return res.status(500).json({
+        success: false,
+        message: '排序交換失敗（步驟 1）。',
+      });
+    }
+
+    const step2 = await supabaseAdmin
+      .from('campaign_platforms')
+      .update({ sort_order: aSort })
+      .eq('id', b_id);
+    if (step2.error) {
+      console.error('swap step2 failed:', step2.error);
+      // 回滾 A 到原位
+      await supabaseAdmin.from('campaign_platforms').update({ sort_order: aSort }).eq('id', a_id);
+      return res.status(500).json({
+        success: false,
+        message: '排序交換失敗（步驟 2）。',
+      });
+    }
+
+    const step3 = await supabaseAdmin
+      .from('campaign_platforms')
+      .update({ sort_order: bSort })
+      .eq('id', a_id);
+    if (step3.error) {
+      console.error('swap step3 failed:', step3.error);
+      return res.status(500).json({
+        success: false,
+        message: '排序交換失敗（步驟 3）。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: '排序已交換。',
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin platform swap-order failed:');
   }
 });
 
