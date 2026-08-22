@@ -4837,8 +4837,8 @@
         const d = new Date(isoStr);
         if (Number.isNaN(d.getTime())) return '待公佈';
         const pad = (n) => String(n).padStart(2, '0');
-        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-        return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}(${weekdays[d.getDay()]}) ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        // 統一格式 YYYY/MM/DD HH:mm（24 小時制，小時補零）
+        return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       }
 
       async function loadAdminEvents(options = {}) {
