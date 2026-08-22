@@ -2258,7 +2258,32 @@ app.patch('/api/admin/events/:id', async (req, res) => {
       });
     }
 
-    const updatePayload = buildEventUpdatePayload(req.body || {});
+    const body = req.body || {};
+    // 若只帶 end_at 沒帶 start_at，需先取現存 start_at 做前後端一致的時間順序驗證
+    let existingStartAt = null;
+    const hasEndAt = Object.prototype.hasOwnProperty.call(body, 'end_at');
+    const hasStartAt = Object.prototype.hasOwnProperty.call(body, 'start_at');
+    if (hasEndAt && !hasStartAt) {
+      const { data: existingRow } = await supabaseAdmin
+        .from('campaign_events')
+        .select('start_at')
+        .eq('id', eventId)
+        .maybeSingle();
+      if (existingRow && existingRow.start_at) {
+        existingStartAt = existingRow.start_at;
+      }
+    }
+
+    let updatePayload;
+    try {
+      updatePayload = buildEventUpdatePayload(body, existingStartAt);
+    } catch (err) {
+      const status = err.status || 400;
+      return res.status(status).json({
+        success: false,
+        message: err.message || '欄位格式不正確。',
+      });
+    }
     if (Object.keys(updatePayload).length === 0) {
       return res.status(400).json({
         success: false,
@@ -3314,8 +3339,8 @@ function normalizeEventPayload(body = {}) {
   if (endAt && Number.isNaN(new Date(endAt).getTime())) {
     return { success: false, message: '結束時間格式不正確。' };
   }
-  if (endAt && new Date(endAt) < new Date(startAt)) {
-    return { success: false, message: '結束時間不可早於開始時間。' };
+  if (endAt && new Date(endAt) <= new Date(startAt)) {
+    return { success: false, message: '結束時間必須晚於開始時間。' };
   }
   if (title.length > 100) {
     return { success: false, message: '行程名稱過長，請精簡至 100 字內。' };
@@ -3347,7 +3372,8 @@ function normalizeEventPayload(body = {}) {
 }
 
 // 跨輯行程 payload（選擇性欄位都允許）
-function buildEventUpdatePayload(body = {}) {
+// existingStartAt：當 body 只含 end_at 但不含 start_at 時，用來對比驗證的現存 start_at（ISO 字串）
+function buildEventUpdatePayload(body = {}, existingStartAt = null) {
   const payload = {};
 
   if (Object.prototype.hasOwnProperty.call(body, 'title')) {
@@ -3391,9 +3417,10 @@ function buildEventUpdatePayload(body = {}) {
       if (Number.isNaN(new Date(endAt).getTime())) {
         throw Object.assign(new Error('結束時間格式不正確。'), { status: 400 });
       }
-      const startAt = payload.start_at || null;
-      if (startAt && new Date(endAt) < new Date(startAt)) {
-        throw Object.assign(new Error('結束時間不可早於開始時間。'), { status: 400 });
+      // 取得對比用的 start_at：優先使用本次 payload 的，否則用現存值
+      const startAtForCompare = payload.start_at || existingStartAt || null;
+      if (startAtForCompare && new Date(endAt) <= new Date(startAtForCompare)) {
+        throw Object.assign(new Error('結束時間必須晚於開始時間。'), { status: 400 });
       }
       payload.end_at = new Date(endAt).toISOString();
     } else {

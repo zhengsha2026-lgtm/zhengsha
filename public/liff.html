@@ -2116,6 +2116,15 @@
             if (albumInput && albumInput.files && albumInput.files[0]) {
               uploadEventAlbumPhoto(albumInput.files[0]);
               albumInput.value = '';
+              return;
+            }
+            // 開始時間一改，同步更新結束時間的 min 屬性（防呆：結束時間必須晚於開始時間）
+            const startInput = event.target.closest('[data-event-edit-input="start_at"]');
+            if (startInput) {
+              const endInput = elements.adminEventEditContainer.querySelector('[data-event-edit-input="end_at"]');
+              if (endInput) {
+                endInput.min = startInput.value || '';
+              }
             }
           });
         }
@@ -5020,7 +5029,7 @@
 
         container.innerHTML = `
           <div class="space-y-5">
-            <div>
+            <div id="eventCoverSection">
               <label class="text-xs font-semibold text-violet-700">封面圖（16:9）</label>
               <div class="mt-2 overflow-hidden rounded-[1rem] border border-violet-100/60">${coverPreview}</div>
               <div class="mt-2 flex flex-wrap gap-2">
@@ -5057,7 +5066,8 @@
               </div>
               <div>
                 <label class="text-xs font-semibold text-violet-700">結束時間（可空）</label>
-                <input type="datetime-local" data-event-edit-input="end_at" value="${formatEventDateTimeLocal(data.end_at)}" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+                <input type="datetime-local" data-event-edit-input="end_at" value="${formatEventDateTimeLocal(data.end_at)}" min="${formatEventDateTimeLocal(data.start_at)}" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+                <p class="mt-1 text-[11px] text-slate-400">需晚於開始時間。</p>
               </div>
             </div>
 
@@ -5076,12 +5086,12 @@
               <input type="url" data-event-edit-input="video_url" value="${escapeHtml(data.video_url || '')}" maxlength="500" placeholder="https://..." class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
             </div>
 
-            <div>
+            <div id="eventAlbumSection">
               <div class="flex items-center justify-between">
                 <label class="text-xs font-semibold text-violet-700">相簿（最多 6 張）</label>
-                <span class="text-[11px] text-slate-400">${albumCount}/6</span>
+                <span id="eventAlbumCountLabel" class="text-[11px] text-slate-400">${albumCount}/6</span>
               </div>
-              <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+              <div id="eventAlbumGrid" class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
                 ${albumHtml}
                 ${albumUpload}
               </div>
@@ -5136,6 +5146,73 @@
         renderIcons();
       }
 
+      // 只重繪封面區塊（上傳/刪除封面時使用，不動其他已填欄位）
+      function renderEventCoverSection() {
+        const data = state.admin.event.edit.data;
+        const section = document.getElementById('eventCoverSection');
+        if (!section || !data) return;
+        const coverPreview = data.cover_url
+          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" />`
+          : `<div class="flex aspect-[16/9] w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="image" class="h-8 w-8"></i><span class="ml-2 text-sm">尚無封面</span></div>`;
+        section.innerHTML = `
+          <label class="text-xs font-semibold text-violet-700">封面圖（16:9）</label>
+          <div class="mt-2 overflow-hidden rounded-[1rem] border border-violet-100/60">${coverPreview}</div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <label class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-500 active:scale-95">
+              <i data-lucide="upload" class="h-3.5 w-3.5"></i>
+              <span>${data.cover_url ? '更換封面' : '上傳封面'}</span>
+              <input type="file" accept="image/*" class="hidden" data-event-edit-input="cover-file" />
+            </label>
+            ${data.cover_url ? `
+              <button type="button" data-event-edit-action="delete-cover" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95">
+                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                <span>刪除封面</span>
+              </button>
+            ` : ''}
+            <span id="eventCoverUploadStatus" class="self-center text-xs text-slate-400">建議使用橫式 16:9 照片</span>
+          </div>
+        `;
+        renderIcons();
+      }
+
+      // 只重繪相簿區塊（上傳/刪除相簿照片時使用，不動其他已填欄位）
+      function renderEventAlbumSection() {
+        const data = state.admin.event.edit.data;
+        const section = document.getElementById('eventAlbumSection');
+        if (!section || !data) return;
+        const albumPhotos = Array.isArray(data.album) ? data.album : [];
+        const albumCount = albumPhotos.length;
+        const albumHtml = albumPhotos.map((p) => `
+          <div class="group relative overflow-hidden rounded-lg">
+            <img src="${escapeHtml(p.signed_url || '')}" alt="" class="aspect-square w-full object-cover" />
+            <button type="button" data-event-edit-action="delete-album" data-photo-id="${p.id}" class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600/90 text-white opacity-0 transition group-hover:opacity-100 active:scale-95" aria-label="刪除相簿照片">
+              <i data-lucide="x" class="h-3 w-3"></i>
+            </button>
+          </div>
+        `).join('');
+        const albumUpload = albumCount < 6
+          ? `<label class="flex aspect-square cursor-pointer items-center justify-center rounded-lg border border-dashed border-violet-200 bg-violet-50/50 text-violet-400 transition hover:bg-violet-50 active:scale-95">
+              <div class="text-center">
+                <i data-lucide="plus" class="mx-auto h-5 w-5"></i>
+                <span class="mt-1 block text-[10px] font-semibold">新增照片</span>
+              </div>
+              <input type="file" accept="image/*" class="hidden" data-event-edit-input="album-file" />
+            </label>`
+          : `<div class="flex aspect-square items-center justify-center rounded-lg bg-slate-100 text-[10px] font-semibold text-slate-400">已達 6 張上限</div>`;
+        section.innerHTML = `
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-violet-700">相簿（最多 6 張）</label>
+            <span id="eventAlbumCountLabel" class="text-[11px] text-slate-400">${albumCount}/6</span>
+          </div>
+          <div id="eventAlbumGrid" class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+            ${albumHtml}
+            ${albumUpload}
+          </div>
+          <p id="eventAlbumUploadStatus" class="mt-1 text-[11px] text-slate-400">上傳後即立即儲存。</p>
+        `;
+        renderIcons();
+      }
+
       async function saveAdminEvent() {
         const edit = state.admin.event.edit;
         if (!edit.data || edit.saving) return;
@@ -5161,6 +5238,12 @@
           video_url: getVal('video_url'),
           is_published: getVal('is_published'),
         };
+
+        // 前端防呆：結束時間必須晚於開始時間（後端也會再驗一次）
+        if (payload.start_at && payload.end_at && new Date(payload.end_at) <= new Date(payload.start_at)) {
+          showToast('結束時間必須晚於開始時間。');
+          return;
+        }
 
         edit.saving = true;
         const saveBtn = container.querySelector('[data-event-edit-action="save"]');
@@ -5236,7 +5319,8 @@
             throw new Error(patchResult.message || '封面更新失敗');
           }
           edit.data = { ...edit.data, cover_url: patchResult.data.cover_url, cover_image_path: patchResult.data.cover_image_path };
-          renderAdminEventEdit();
+          // 只更新封面區塊，避免重繪整份表單導致已填欄位被清空
+          renderEventCoverSection();
           state.admin.event.items = state.admin.event.items.map((e) =>
             Number(e.id) === Number(edit.id) ? { ...e, cover_url: patchResult.data.cover_url } : e
           );
@@ -5265,7 +5349,8 @@
             throw new Error(result.message || '封面刪除失敗');
           }
           edit.data = { ...edit.data, cover_url: null, cover_image_path: null };
-          renderAdminEventEdit();
+          // 只更新封面區塊，避免重繪整份表單
+          renderEventCoverSection();
           state.admin.event.items = state.admin.event.items.map((e) =>
             Number(e.id) === Number(edit.id) ? { ...e, cover_url: null } : e
           );
@@ -5313,8 +5398,11 @@
           if (!postRes.ok || !postResult.success) {
             throw new Error(postResult.message || '相簿照片建立失敗');
           }
-          // 重新載入詳情以取得最新 album（含新 signed URL）
-          await openAdminEventEdit(edit.id);
+          // 將新照片 append 到 edit.data.album，只更新相簿區塊（不重繪整份表單，避免已填欄位被清空）
+          const newPhoto = postResult.data || {};
+          const currentAlbum = Array.isArray(edit.data.album) ? edit.data.album : [];
+          edit.data = { ...edit.data, album: [...currentAlbum, newPhoto] };
+          renderEventAlbumSection();
           if (statusEl) { statusEl.textContent = '上傳成功 ✓'; setTimeout(() => { if (statusEl) statusEl.textContent = '上傳後即立即儲存。'; }, 2000); }
         } catch (err) {
           showToast(err.message || '相簿上傳失敗');
@@ -5338,7 +5426,13 @@
           if (!res.ok || !result.success) {
             throw new Error(result.message || '相簿照片刪除失敗');
           }
-          await openAdminEventEdit(edit.id);
+          // 只從 edit.data.album 移除該筆，並更新相簿區塊（不重繪整份表單）
+          const currentAlbum = Array.isArray(edit.data.album) ? edit.data.album : [];
+          edit.data = {
+            ...edit.data,
+            album: currentAlbum.filter((p) => Number(p.id) !== Number(photoId)),
+          };
+          renderEventAlbumSection();
           showToast('相簿照片已刪除。');
         } catch (err) {
           showToast(err.message || '相簿照片刪除失敗');
