@@ -257,6 +257,27 @@
       </div>
 
       <div
+        id="eventDetailModal"
+        class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
+      >
+        <div
+          class="glass-modal relative max-h-[88vh] w-full max-w-md overflow-y-auto overflow-x-hidden rounded-[2rem] border border-white/55 bg-white/90 shadow-2xl shadow-slate-900/20"
+        >
+          <div class="relative p-5 sm:p-6">
+            <div id="eventDetailContainer" class="space-y-5"></div>
+            <button
+              id="closeEventDetailButton"
+              type="button"
+              class="absolute right-4 top-4 rounded-full bg-white/75 p-2 text-slate-500 shadow-sm ring-1 ring-slate-200 transition hover:text-slate-900"
+              aria-label="關閉行程詳情"
+            >
+              <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
         id="privacyModal"
         class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
       >
@@ -929,15 +950,54 @@
             class="hidden space-y-5"
           >
             <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
-              <div class="overflow-hidden rounded-[1.75rem] border border-violet-100 bg-slate-900 px-6 py-8 text-white">
-                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-rose-200">
-                  Campaign Schedule
-                </p>
-                <h2 class="mt-3 text-3xl font-semibold tracking-tight">行程規劃中，敬請期待</h2>
-                <p class="mt-4 max-w-2xl text-sm leading-8 text-slate-300">
-                  我們正在整理社區拜訪、座談交流與服務站點的公開行程，讓每一次見面都更有效率，也讓資訊傳遞更透明。
-                </p>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-violet-600">競選行程</p>
+                  <h2 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">
+                    一起到現場相見
+                  </h2>
+                  <p class="mt-2 text-sm leading-7 text-slate-500">
+                    社區拜訪、座談交流與服務站點的公開行程，歡迎報名參加。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  id="eventsRefreshButton"
+                  class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                >
+                  <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                  <span>重整</span>
+                </button>
               </div>
+
+              <div id="eventsLoading" class="mt-5 space-y-3">
+                <div class="aspect-[16/9] w-full animate-pulse rounded-[1.5rem] bg-slate-200/70"></div>
+                <div class="h-[80px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                <div class="h-[80px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+              </div>
+
+              <div id="eventsEmpty" class="hidden mt-5 rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                  <i data-lucide="calendar-off" class="h-6 w-6"></i>
+                </div>
+                <p class="mt-4 text-base font-semibold text-violet-950">目前尚無公開行程</p>
+                <p class="mt-2 text-sm leading-7 text-slate-500">行程陸續整理中，歡迎稍後再回來查看。</p>
+              </div>
+
+              <div id="eventsError" class="hidden mt-5 rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                <p class="font-semibold text-rose-700">行程載入失敗</p>
+                <p id="eventsErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                <button
+                  type="button"
+                  id="eventsRetryButton"
+                  class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                >
+                  <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                  <span>再試一次</span>
+                </button>
+              </div>
+
+              <div id="eventsContainer" class="mt-5 hidden space-y-6"></div>
             </div>
           </section>
 
@@ -1015,18 +1075,18 @@
                   <button
                     type="button"
                     data-admin-module="schedule"
-                    class="group relative overflow-hidden rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50/60 p-5 text-left shadow-[0_12px_34px_-34px_rgba(100,116,139,0.3)] transition hover:-translate-y-0.5 active:scale-[0.995]"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/50 p-5 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] active:scale-[0.995]"
                   >
-                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 ring-1 ring-slate-200">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
                       <i data-lucide="calendar-days" class="h-5 w-5"></i>
                     </div>
-                    <p class="mt-4 text-base font-semibold text-slate-700">行程管理</p>
-                    <p class="mt-2 text-xs leading-6 text-slate-400">
-                      維護競選行程與服務站點
+                    <p class="mt-4 text-base font-semibold text-violet-950">行程管理</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-500">
+                      維護競選行程、封面、相簿與報名通知
                     </p>
-                    <span class="mt-4 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
-                      <span class="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-                      <span>規劃中</span>
+                    <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
+                      <span>進入</span>
+                      <i data-lucide="chevron-right" class="h-3 w-3"></i>
                     </span>
                   </button>
                 </div>
@@ -1224,6 +1284,88 @@
 
                 <div id="adminPlatformEditContainer" class="hidden space-y-5"></div>
               </div>
+
+              <!-- 行程管理列表 -->
+              <div id="adminEventListView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    id="adminEventListBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回管理首頁</span>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="adminEventCreateButton"
+                      class="inline-flex h-9 items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-500 active:scale-95"
+                    >
+                      <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+                      <span>新增行程</span>
+                    </button>
+                    <p class="text-sm font-semibold text-violet-950">行程管理</p>
+                  </div>
+                </div>
+
+                <div id="adminEventListLoading" class="space-y-3">
+                  <div class="h-[88px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[88px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[88px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminEventListEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                    <i data-lucide="calendar-off" class="h-6 w-6"></i>
+                  </div>
+                  <p class="mt-4 text-base font-semibold text-violet-950">尚無行程</p>
+                  <p class="mt-2 text-sm leading-7 text-slate-500">點擊右上「新增行程」建立第一筆。</p>
+                </div>
+
+                <div id="adminEventListError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入行程列表失敗</p>
+                  <p id="adminEventListErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    id="adminEventListRetryButton"
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminEventListContainer" class="space-y-3"></div>
+              </div>
+
+              <!-- 行程編輯 -->
+              <div id="adminEventEditView" class="hidden mt-6 space-y-5">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminEventEditBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回行程列表</span>
+                  </button>
+                  <p id="adminEventEditTitle" class="text-sm font-semibold text-violet-950">跨輯行程</p>
+                </div>
+
+                <div id="adminEventEditLoading" class="space-y-4">
+                  <div class="h-8 w-1/3 animate-pulse rounded-full bg-slate-200/70"></div>
+                  <div class="h-28 animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[120px] animate-pulse rounded-[1.25rem] bg-slate-200/55"></div>
+                </div>
+
+                <div id="adminEventEditError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入行程失敗</p>
+                  <p id="adminEventEditErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                </div>
+
+                <div id="adminEventEditContainer" class="hidden space-y-5"></div>
+              </div>
             </div>
           </section>
         </section>
@@ -1408,12 +1550,36 @@
               uploadingCover: false,
             },
           },
+          event: {
+            view: 'list',
+            items: [],
+            loading: false,
+            error: null,
+            refreshedAt: null,
+            edit: {
+              id: null,
+              loading: false,
+              data: null,
+              error: null,
+              saving: false,
+              uploadingCover: false,
+              uploadingAlbum: false,
+              creating: false,
+            },
+          },
         },
         wish: {
           view: 'form',
           list: [],
           listMeta: { loading: false, error: null, refreshedAt: null },
           detail: { id: null, loading: false, data: null, error: null },
+        },
+        events: {
+          loading: false,
+          error: null,
+          refreshedAt: null,
+          data: { next: null, upcoming: [], past: [] },
+          detail: { id: null, loading: false, data: null, error: null, rsvpBusy: false },
         },
       };
 
@@ -1489,6 +1655,16 @@
         wishDetailError: document.getElementById('wishDetailError'),
         wishDetailErrorText: document.getElementById('wishDetailErrorText'),
         wishDetailContainer: document.getElementById('wishDetailContainer'),
+        eventsLoading: document.getElementById('eventsLoading'),
+        eventsEmpty: document.getElementById('eventsEmpty'),
+        eventsError: document.getElementById('eventsError'),
+        eventsErrorText: document.getElementById('eventsErrorText'),
+        eventsContainer: document.getElementById('eventsContainer'),
+        eventsRefreshButton: document.getElementById('eventsRefreshButton'),
+        eventsRetryButton: document.getElementById('eventsRetryButton'),
+        eventDetailModal: document.getElementById('eventDetailModal'),
+        eventDetailContainer: document.getElementById('eventDetailContainer'),
+        closeEventDetailButton: document.getElementById('closeEventDetailButton'),
         adminPanel: document.getElementById('adminPanel'),
         adminStatus: document.getElementById('adminStatus'),
         adminHomeView: document.getElementById('adminHomeView'),
@@ -1508,6 +1684,19 @@
         adminPlatformEditLoading: document.getElementById('adminPlatformEditLoading'),
         adminPlatformEditError: document.getElementById('adminPlatformEditError'),
         adminPlatformEditContainer: document.getElementById('adminPlatformEditContainer'),
+        adminEventListView: document.getElementById('adminEventListView'),
+        adminEventEditView: document.getElementById('adminEventEditView'),
+        adminEventListBackButton: document.getElementById('adminEventListBackButton'),
+        adminEventEditBackButton: document.getElementById('adminEventEditBackButton'),
+        adminEventCreateButton: document.getElementById('adminEventCreateButton'),
+        adminEventListLoading: document.getElementById('adminEventListLoading'),
+        adminEventListEmpty: document.getElementById('adminEventListEmpty'),
+        adminEventListError: document.getElementById('adminEventListError'),
+        adminEventListContainer: document.getElementById('adminEventListContainer'),
+        adminEventEditTitle: document.getElementById('adminEventEditTitle'),
+        adminEventEditLoading: document.getElementById('adminEventEditLoading'),
+        adminEventEditError: document.getElementById('adminEventEditError'),
+        adminEventEditContainer: document.getElementById('adminEventEditContainer'),
         adminChipsRow: document.getElementById('adminChipsRow'),
         adminSearchInput: document.getElementById('adminSearchInput'),
         adminListLoading: document.getElementById('adminListLoading'),
@@ -1652,12 +1841,52 @@
               closePlatformModal();
             } else if (!elements.privacyModal.classList.contains('hidden')) {
               closePrivacyModal();
+            } else if (elements.eventDetailModal && !elements.eventDetailModal.classList.contains('hidden')) {
+              closeEventDetail();
             }
           }
         });
 
         if (elements.privacyInfoButton) {
           elements.privacyInfoButton.addEventListener('click', openPrivacyModal);
+        }
+        if (elements.eventsRefreshButton) {
+          elements.eventsRefreshButton.addEventListener('click', () => loadEvents({ force: true }));
+        }
+        if (elements.eventsRetryButton) {
+          elements.eventsRetryButton.addEventListener('click', () => loadEvents({ force: true }));
+        }
+        if (elements.eventsContainer) {
+          elements.eventsContainer.addEventListener('click', (event) => {
+            const card = event.target.closest('[data-event-id]');
+            if (!card) return;
+            const id = Number(card.dataset.eventId);
+            if (id) openEventDetail(id);
+          });
+        }
+        if (elements.closeEventDetailButton) {
+          elements.closeEventDetailButton.addEventListener('click', closeEventDetail);
+        }
+        if (elements.eventDetailModal) {
+          elements.eventDetailModal.addEventListener('click', (event) => {
+            if (event.target === elements.eventDetailModal) {
+              closeEventDetail();
+            }
+          });
+        }
+        if (elements.eventDetailContainer) {
+          elements.eventDetailContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-event-rsvp-action]');
+            if (!btn) return;
+            const action = btn.dataset.eventRsvpAction;
+            const id = Number(btn.dataset.eventId);
+            if (!id) return;
+            if (action === 'join') {
+              submitEventRsvp(id);
+            } else if (action === 'cancel') {
+              cancelEventRsvp(id);
+            }
+          });
         }
         if (elements.closePrivacyModalButton) {
           elements.closePrivacyModalButton.addEventListener('click', closePrivacyModal);
@@ -1776,7 +2005,7 @@
             } else if (module === 'platform') {
               switchAdminPlatformView('list', { autoload: true });
             } else if (module === 'schedule') {
-              showToast('行程管理功能規劃中，敬請期待。');
+              switchAdminEventView('list', { autoload: true });
             }
           });
         }
@@ -1825,6 +2054,69 @@
             if (!input || !input.files || !input.files[0]) return;
             uploadPlatformCover(input.files[0]);
             input.value = '';
+          });
+        }
+
+        // 行程管理事件
+        if (elements.adminEventListBackButton) {
+          elements.adminEventListBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
+        if (elements.adminEventEditBackButton) {
+          elements.adminEventEditBackButton.addEventListener('click', () => switchAdminEventView('list'));
+        }
+        if (elements.adminEventCreateButton) {
+          elements.adminEventCreateButton.addEventListener('click', () => createAdminEvent());
+        }
+        const eventListRetry = document.getElementById('adminEventListRetryButton');
+        if (eventListRetry) {
+          eventListRetry.addEventListener('click', () => loadAdminEvents({ force: true }));
+        }
+        if (elements.adminEventListContainer) {
+          elements.adminEventListContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-event-action]');
+            if (!btn) return;
+            const action = btn.dataset.eventAction;
+            const id = Number(btn.dataset.eventId);
+            if (action === 'edit') {
+              openAdminEventEdit(id);
+            } else if (action === 'delete') {
+              deleteAdminEvent(id);
+            }
+          });
+        }
+        if (elements.adminEventEditContainer) {
+          elements.adminEventEditContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-event-edit-action]');
+            if (!btn) return;
+            const action = btn.dataset.eventEditAction;
+            if (action === 'save') {
+              saveAdminEvent();
+            } else if (action === 'delete-cover') {
+              deleteEventCover();
+            } else if (action === 'delete-album') {
+              const photoId = Number(btn.dataset.photoId);
+              if (photoId) deleteEventAlbumPhoto(photoId);
+            } else if (action === 'notify-rsvp') {
+              notifyEventRsvp();
+            } else if (action === 'notify-wish-pool') {
+              notifyEventWishPool();
+            } else if (action === 'delete-event') {
+              const id = Number(btn.dataset.eventId);
+              if (id) deleteAdminEvent(id);
+            }
+          });
+          elements.adminEventEditContainer.addEventListener('change', (event) => {
+            const coverInput = event.target.closest('[data-event-edit-input="cover-file"]');
+            if (coverInput && coverInput.files && coverInput.files[0]) {
+              uploadEventCover(coverInput.files[0]);
+              coverInput.value = '';
+              return;
+            }
+            const albumInput = event.target.closest('[data-event-edit-input="album-file"]');
+            if (albumInput && albumInput.files && albumInput.files[0]) {
+              uploadEventAlbumPhoto(albumInput.files[0]);
+              albumInput.value = '';
+            }
           });
         }
         if (elements.adminChipsRow) {
@@ -2049,6 +2341,10 @@
 
         if (nextTab === 'wish') {
           hydrateStoredPhone();
+        }
+
+        if (nextTab === 'schedule') {
+          loadEvents();
         }
 
         if (nextTab === ADMIN_TAB_KEY) {
@@ -2434,6 +2730,368 @@
         if (!elements.privacyModal) return;
         elements.privacyModal.classList.add('hidden');
         elements.privacyModal.classList.remove('flex');
+      }
+
+      // ============================================
+      // 里民端競選行程
+      // ============================================
+
+      async function loadEvents(options = {}) {
+        if (state.events.loading && options.force !== true) return;
+        state.events.loading = true;
+        state.events.error = null;
+
+        if (elements.eventsLoading) elements.eventsLoading.classList.remove('hidden');
+        if (elements.eventsEmpty) elements.eventsEmpty.classList.add('hidden');
+        if (elements.eventsError) elements.eventsError.classList.add('hidden');
+        if (elements.eventsContainer) {
+          elements.eventsContainer.classList.add('hidden');
+          elements.eventsContainer.innerHTML = '';
+        }
+
+        try {
+          const res = await fetch('/api/events');
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '行程載入失敗');
+          }
+          const d = result.data || {};
+          state.events.data = {
+            next: d.next || null,
+            upcoming: Array.isArray(d.upcoming) ? d.upcoming : [],
+            past: Array.isArray(d.past) ? d.past : [],
+          };
+          state.events.refreshedAt = Date.now();
+          renderEvents();
+        } catch (err) {
+          state.events.error = err.message || '行程載入失敗';
+          if (elements.eventsError) {
+            elements.eventsError.classList.remove('hidden');
+            if (elements.eventsErrorText) elements.eventsErrorText.textContent = state.events.error;
+          }
+        } finally {
+          state.events.loading = false;
+          if (elements.eventsLoading) elements.eventsLoading.classList.add('hidden');
+          const { next, upcoming, past } = state.events.data;
+          const total = (next ? 1 : 0) + upcoming.length + past.length;
+          if (total === 0 && !state.events.error) {
+            if (elements.eventsEmpty) elements.eventsEmpty.classList.remove('hidden');
+          }
+          renderIcons();
+        }
+      }
+
+      function buildEventCoverHtml(coverUrl, title, variant = 'hero') {
+        if (coverUrl) {
+          if (variant === 'hero') {
+            return `
+              <div class="relative aspect-[16/9] w-full overflow-hidden">
+                <img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(title || '行程封面')}" class="h-full w-full object-cover" loading="lazy" />
+                <div class="absolute inset-0 bg-gradient-to-t from-violet-950/35 via-transparent to-transparent"></div>
+              </div>
+            `;
+          }
+          return `
+            <div class="relative h-16 w-24 flex-shrink-0 overflow-hidden rounded-xl">
+              <img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(title || '行程封面')}" class="h-full w-full object-cover" loading="lazy" />
+            </div>
+          `;
+        }
+        if (variant === 'hero') {
+          return `
+            <div class="relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-br from-violet-100/70 to-rose-100/40">
+              <div class="absolute inset-0 flex items-center justify-center">
+                <i data-lucide="calendar-days" class="h-16 w-16 text-violet-400 opacity-70"></i>
+              </div>
+            </div>
+          `;
+        }
+        return `
+          <div class="relative flex h-16 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-violet-50 text-violet-400 ring-1 ring-violet-100">
+            <i data-lucide="calendar-days" class="h-6 w-6"></i>
+          </div>
+        `;
+      }
+
+      function buildEventCardHtml(e, opts = {}) {
+        const variant = opts.variant || 'list';
+        const coverHtml = buildEventCoverHtml(e.cover_url, e.title, variant);
+        const startStr = formatEventDateTimeDisplay(e.start_at);
+        const rsvpCount = Number(e.rsvp_count) || 0;
+
+        if (variant === 'hero') {
+          return `
+            <button type="button" data-event-id="${e.id}" class="block w-full overflow-hidden rounded-[1.5rem] border border-violet-100/60 bg-white text-left shadow-[0_12px_40px_rgba(31,38,135,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_54px_rgba(31,38,135,0.12)] active:scale-[0.995]">
+              ${coverHtml}
+              <div class="p-4 sm:p-5">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-0.5 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600"><span class="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400"></span>下一場</span>
+                  <span class="inline-flex items-center gap-0.5 text-[11px] font-medium text-slate-500"><i data-lucide="users" class="h-3 w-3"></i>${rsvpCount} 人已報名</span>
+                </div>
+                <h3 class="mt-2 text-xl font-bold tracking-tight text-violet-950">${escapeHtml(e.title || '未命名行程')}</h3>
+                <p class="mt-2 text-sm leading-7 text-slate-600">${escapeHtml(e.description || '歡迎到現場相見。')}</p>
+                <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                  <span class="inline-flex items-center gap-1"><i data-lucide="calendar" class="h-3 w-3"></i>${escapeHtml(startStr)}</span>
+                  ${e.location ? `<span class="inline-flex items-center gap-1"><i data-lucide="map-pin" class="h-3 w-3"></i>${escapeHtml(e.location)}</span>` : ''}
+                </div>
+              </div>
+            </button>
+          `;
+        }
+
+        return `
+          <button type="button" data-event-id="${e.id}" class="flex w-full items-center gap-3 rounded-[1.25rem] border border-violet-100/40 bg-white p-3 text-left shadow-[0_6px_24px_rgba(31,38,135,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(31,38,135,0.1)] active:scale-[0.995]">
+            ${coverHtml}
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-semibold text-violet-950">${escapeHtml(e.title || '未命名行程')}</p>
+              <p class="mt-0.5 truncate text-xs text-slate-500">${escapeHtml(startStr)}</p>
+              ${e.location ? `<p class="mt-0.5 truncate text-xs text-slate-400"><i data-lucide="map-pin" class="mr-0.5 inline h-2.5 w-2.5"></i>${escapeHtml(e.location)}</p>` : ''}
+            </div>
+            <i data-lucide="chevron-right" class="h-4 w-4 flex-shrink-0 text-slate-300"></i>
+          </button>
+        `;
+      }
+
+      function renderEvents() {
+        const container = elements.eventsContainer;
+        if (!container) return;
+        const { next, upcoming, past } = state.events.data;
+
+        if (!next && upcoming.length === 0 && past.length === 0) {
+          container.innerHTML = '';
+          container.classList.add('hidden');
+          return;
+        }
+
+        const sections = [];
+
+        if (next) {
+          sections.push(buildEventCardHtml(next, { variant: 'hero' }));
+        }
+
+        if (upcoming.length > 0) {
+          sections.push(`
+            <div class="space-y-3">
+              <div class="flex items-center gap-2">
+                <i data-lucide="calendar-clock" class="h-4 w-4 text-violet-500"></i>
+                <h3 class="text-sm font-semibold text-violet-950">即將到來</h3>
+              </div>
+              ${upcoming.map((e) => buildEventCardHtml(e, { variant: 'list' })).join('')}
+            </div>
+          `);
+        }
+
+        if (past.length > 0) {
+          sections.push(`
+            <div class="space-y-3">
+              <div class="flex items-center gap-2">
+                <i data-lucide="history" class="h-4 w-4 text-slate-400"></i>
+                <h3 class="text-sm font-semibold text-slate-500">過往足跡</h3>
+              </div>
+              <div class="space-y-2">
+                ${past.map((e) => buildEventCardHtml(e, { variant: 'list' })).join('')}
+              </div>
+            </div>
+          `);
+        }
+
+        container.innerHTML = sections.join('');
+        container.classList.remove('hidden');
+        renderIcons();
+      }
+
+      function closeEventDetail() {
+        if (!elements.eventDetailModal) return;
+        elements.eventDetailModal.classList.add('hidden');
+        elements.eventDetailModal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+        state.events.detail.id = null;
+        state.events.detail.data = null;
+      }
+
+      async function openEventDetail(eventId) {
+        if (!eventId || !elements.eventDetailModal) return;
+
+        state.events.detail.id = eventId;
+        state.events.detail.loading = true;
+        state.events.detail.error = null;
+
+        elements.eventDetailModal.classList.remove('hidden');
+        elements.eventDetailModal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+        elements.eventDetailContainer.innerHTML = `
+          <div class="space-y-4">
+            <div class="h-8 w-1/3 animate-pulse rounded-full bg-slate-200/70"></div>
+            <div class="aspect-[16/9] w-full animate-pulse rounded-[1rem] bg-slate-200/60"></div>
+            <div class="h-4 w-full animate-pulse rounded bg-slate-200/50"></div>
+            <div class="h-4 w-2/3 animate-pulse rounded bg-slate-200/50"></div>
+          </div>
+        `;
+        renderIcons();
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/events/${eventId}`, {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '行程詳情載入失敗');
+          }
+          state.events.detail.data = result.data;
+          renderEventDetail();
+        } catch (err) {
+          state.events.detail.error = err.message || '行程詳情載入失敗';
+          elements.eventDetailContainer.innerHTML = `
+            <div class="rounded-[1rem] border border-rose-200 bg-rose-50/80 px-4 py-6 text-sm leading-7 text-rose-700">
+              <p class="font-semibold">行程詳情載入失敗</p>
+              <p class="mt-1 text-rose-700/90">${escapeHtml(state.events.detail.error)}</p>
+            </div>
+          `;
+        } finally {
+          state.events.detail.loading = false;
+          renderIcons();
+        }
+      }
+
+      function renderEventDetail() {
+        const container = elements.eventDetailContainer;
+        const data = state.events.detail.data;
+        if (!container || !data) return;
+
+        const coverHtml = data.cover_url
+          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" />`
+          : `<div class="flex aspect-[16/9] w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="calendar-days" class="h-10 w-10"></i></div>`;
+
+        const startStr = formatEventDateTimeDisplay(data.start_at);
+        const endStr = data.end_at ? formatEventDateTimeDisplay(data.end_at) : null;
+        const rsvpCount = Number(data.rsvp_count) || 0;
+        const myRsvp = data.my_rsvp === true;
+        const album = Array.isArray(data.album) ? data.album : [];
+
+        // 報名按鈕：已結束不顯示（start_at < now）
+        const isEnded = new Date(data.start_at) < new Date();
+        const rsvpBtnHtml = isEnded
+          ? `<p class="text-xs text-slate-400">行程已結束。</p>`
+          : myRsvp
+            ? `<button type="button" data-event-rsvp-action="cancel" data-event-id="${data.id}" class="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-6 text-sm font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95 disabled:opacity-50"><i data-lucide="user-x" class="h-4 w-4"></i><span>取消參加</span></button>`
+            : `<button type="button" data-event-rsvp-action="join" data-event-id="${data.id}" class="inline-flex h-10 items-center gap-1.5 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:opacity-50"><i data-lucide="user-check" class="h-4 w-4"></i><span>我要參加</span></button>`;
+
+        const albumHtml = album.length > 0
+          ? `<div class="grid grid-cols-3 gap-2 sm:grid-cols-4">${album.map((p) => `<img src="${escapeHtml(p.signed_url || '')}" alt="" class="aspect-square w-full rounded-lg object-cover" loading="lazy" />`).join('')}</div>`
+          : '';
+
+        const videoHtml = data.video_url
+          ? `<a href="${escapeHtml(data.video_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-violet-700 ring-1 ring-violet-200 transition hover:bg-violet-50 active:scale-95"><i data-lucide="play-circle" class="h-3.5 w-3.5"></i><span>觀看影片</span></a>`
+          : '';
+
+        container.innerHTML = `
+          <div class="space-y-5">
+            ${coverHtml}
+            <div>
+              <h3 class="text-xl font-bold tracking-tight text-violet-950">${escapeHtml(data.title || '未命名行程')}</h3>
+              <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span class="inline-flex items-center gap-1"><i data-lucide="calendar" class="h-3 w-3"></i>${escapeHtml(startStr)}${endStr ? ' ~ ' + escapeHtml(endStr) : ''}</span>
+                ${data.location ? `<span class="inline-flex items-center gap-1"><i data-lucide="map-pin" class="h-3 w-3"></i>${escapeHtml(data.location)}</span>` : ''}
+              </div>
+            </div>
+            ${data.description ? `<p class="text-sm font-medium text-violet-700">${escapeHtml(data.description)}</p>` : ''}
+            ${data.content ? `<div class="whitespace-pre-line text-sm leading-7 text-slate-600">${escapeHtml(data.content)}</div>` : ''}
+            ${albumHtml ? `<div><p class="mb-2 text-xs font-semibold text-violet-700">相簿</p>${albumHtml}</div>` : ''}
+            ${videoHtml ? `<div>${videoHtml}</div>` : ''}
+            <div class="rounded-[1rem] border border-violet-100/60 bg-violet-50/40 p-4">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-xs font-semibold text-violet-700">報名人數</p>
+                  <p class="mt-1 text-2xl font-bold text-violet-950">${rsvpCount}<span class="ml-1 text-sm font-medium text-slate-500">人</span></p>
+                </div>
+                <div>${rsvpBtnHtml}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        renderIcons();
+      }
+
+      async function submitEventRsvp(eventId) {
+        if (state.events.detail.rsvpBusy) return;
+        state.events.detail.rsvpBusy = true;
+        const btn = elements.eventDetailContainer.querySelector('[data-event-rsvp-action="join"]');
+        if (btn) btn.disabled = true;
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請先從 LINE 開啟 LIFF 再報名。');
+            return;
+          }
+          const res = await fetch(`/api/events/${eventId}/rsvp`, {
+            method: 'POST',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '報名失敗');
+          }
+          if (state.events.detail.data) {
+            state.events.detail.data.my_rsvp = true;
+            state.events.detail.data.rsvp_count = result.data.rsvp_count;
+            renderEventDetail();
+          }
+          // 同步列表中的 rsvp_count（若該筆在列表中）
+          syncEventRsvpCountInList(eventId, result.data.rsvp_count);
+          showToast('報名成功，期待與您相見。');
+        } catch (err) {
+          showToast(err.message || '報名失敗');
+        } finally {
+          state.events.detail.rsvpBusy = false;
+          renderIcons();
+        }
+      }
+
+      async function cancelEventRsvp(eventId) {
+        if (state.events.detail.rsvpBusy) return;
+        state.events.detail.rsvpBusy = true;
+        const btn = elements.eventDetailContainer.querySelector('[data-event-rsvp-action="cancel"]');
+        if (btn) btn.disabled = true;
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請先從 LINE 開啟 LIFF 再操作。');
+            return;
+          }
+          const res = await fetch(`/api/events/${eventId}/rsvp`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '取消報名失敗');
+          }
+          if (state.events.detail.data) {
+            state.events.detail.data.my_rsvp = false;
+            state.events.detail.data.rsvp_count = result.data.rsvp_count;
+            renderEventDetail();
+          }
+          syncEventRsvpCountInList(eventId, result.data.rsvp_count);
+          showToast('已取消報名。');
+        } catch (err) {
+          showToast(err.message || '取消報名失敗');
+        } finally {
+          state.events.detail.rsvpBusy = false;
+          renderIcons();
+        }
+      }
+
+      function syncEventRsvpCountInList(eventId, rsvpCount) {
+        const { next, upcoming, past } = state.events.data;
+        const updateOne = (e) => Number(e.id) === Number(eventId) ? { ...e, rsvp_count: rsvpCount } : e;
+        state.events.data.next = next ? updateOne(next) : null;
+        state.events.data.upcoming = upcoming.map(updateOne);
+        state.events.data.past = past.map(updateOne);
+        renderEvents();
       }
 
       async function supportPlatform(platformId) {
@@ -3664,6 +4322,9 @@
         if (elements.adminPlatformEditView) {
           elements.adminPlatformEditView.classList.toggle('hidden', targetView !== 'platformEdit');
         }
+        // 行程管理子頁也一併隱藏（避免跨模組殘留）
+        if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
+        if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
 
         if (
           targetView === 'list' &&
@@ -3684,10 +4345,12 @@
         const targetView = ['list', 'edit'].includes(view) ? view : 'list';
         state.admin.platform.view = targetView;
 
-        // 先隱藏許願管理相關 view
+        // 先隱藏許願管理與行程管理相關 view
         if (elements.adminHomeView) elements.adminHomeView.classList.add('hidden');
         if (elements.adminListView) elements.adminListView.classList.add('hidden');
         if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
+        if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
+        if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
 
         if (elements.adminPlatformListView) {
           elements.adminPlatformListView.classList.toggle('hidden', targetView !== 'list');
@@ -3698,6 +4361,34 @@
 
         if (targetView === 'list' && options.autoload === true) {
           loadAdminPlatforms({ force: true });
+        }
+
+        const scrollContainer = document.scrollingElement || document.documentElement || document.body;
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+        renderIcons();
+      }
+
+      // 行程管理子頁切換（eventList / eventEdit）
+      function switchAdminEventView(view, options = {}) {
+        const targetView = ['list', 'edit'].includes(view) ? view : 'list';
+        state.admin.event.view = targetView;
+
+        // 先隱藏許願管理與政見管理相關 view
+        if (elements.adminHomeView) elements.adminHomeView.classList.add('hidden');
+        if (elements.adminListView) elements.adminListView.classList.add('hidden');
+        if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
+        if (elements.adminPlatformListView) elements.adminPlatformListView.classList.add('hidden');
+        if (elements.adminPlatformEditView) elements.adminPlatformEditView.classList.add('hidden');
+
+        if (elements.adminEventListView) {
+          elements.adminEventListView.classList.toggle('hidden', targetView !== 'list');
+        }
+        if (elements.adminEventEditView) {
+          elements.adminEventEditView.classList.toggle('hidden', targetView !== 'edit');
+        }
+
+        if (targetView === 'list' && options.autoload === true) {
+          loadAdminEvents({ force: true });
         }
 
         const scrollContainer = document.scrollingElement || document.documentElement || document.body;
@@ -4117,6 +4808,618 @@
           showToast(nextFeatured ? '已設為主打。' : '已取消主打。');
         } catch (err) {
           showToast(err.message || '主打設定失敗');
+        }
+      }
+
+      // ============================================
+      // 行程管理（管理員）
+      // ============================================
+
+      function formatEventDateTimeLocal(isoStr) {
+        if (!isoStr) return '';
+        const d = new Date(isoStr);
+        if (Number.isNaN(d.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+
+      function formatEventDateTimeDisplay(isoStr) {
+        if (!isoStr) return '待公佈';
+        const d = new Date(isoStr);
+        if (Number.isNaN(d.getTime())) return '待公佈';
+        const pad = (n) => String(n).padStart(2, '0');
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}(${weekdays[d.getDay()]}) ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+
+      async function loadAdminEvents(options = {}) {
+        if (state.admin.event.loading && options.force !== true) return;
+        state.admin.event.loading = true;
+        state.admin.event.error = null;
+
+        if (elements.adminEventListLoading) elements.adminEventListLoading.classList.remove('hidden');
+        if (elements.adminEventListEmpty) elements.adminEventListEmpty.classList.add('hidden');
+        if (elements.adminEventListError) elements.adminEventListError.classList.add('hidden');
+        if (elements.adminEventListContainer) elements.adminEventListContainer.innerHTML = '';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch('/api/admin/events', {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '行程列表載入失敗');
+          }
+          state.admin.event.items = Array.isArray(result.data) ? result.data : [];
+          state.admin.event.refreshedAt = Date.now();
+          renderAdminEventList();
+        } catch (err) {
+          state.admin.event.error = err.message || '行程列表載入失敗';
+          if (elements.adminEventListError) {
+            elements.adminEventListError.classList.remove('hidden');
+            const textEl = document.getElementById('adminEventListErrorText');
+            if (textEl) textEl.textContent = state.admin.event.error;
+          }
+        } finally {
+          state.admin.event.loading = false;
+          if (elements.adminEventListLoading) elements.adminEventListLoading.classList.add('hidden');
+          if (state.admin.event.items.length === 0 && !state.admin.event.error) {
+            if (elements.adminEventListEmpty) elements.adminEventListEmpty.classList.remove('hidden');
+          }
+          renderIcons();
+        }
+      }
+
+      function renderAdminEventList() {
+        const container = elements.adminEventListContainer;
+        if (!container) return;
+        const items = state.admin.event.items;
+
+        if (!items.length) {
+          container.innerHTML = '';
+          return;
+        }
+
+        container.innerHTML = items.map((e) => {
+          const isPublished = e.is_published !== false;
+          const rsvpCount = Number(e.rsvp_count) || 0;
+          const coverThumb = e.cover_url
+            ? `<img src="${escapeHtml(e.cover_url)}" alt="" class="h-14 w-24 flex-shrink-0 object-cover rounded-lg" />`
+            : `<div class="flex h-14 w-24 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-400"><i data-lucide="image" class="h-5 w-5"></i></div>`;
+          const startStr = formatEventDateTimeDisplay(e.start_at);
+
+          return `
+            <div class="flex items-center gap-3 rounded-[1.25rem] border border-violet-100/40 bg-white p-3 shadow-[0_6px_24px_rgba(31,38,135,0.05)]">
+              ${coverThumb}
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  ${!isPublished ? `<span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">未上架</span>` : `<span class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">上架</span>`}
+                  <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold text-violet-600"><i data-lucide="users" class="h-2.5 w-2.5"></i>${rsvpCount}</span>
+                </div>
+                <p class="mt-1 truncate text-sm font-semibold text-violet-950">${escapeHtml(e.title || '未命名')}</p>
+                <p class="mt-0.5 truncate text-xs text-slate-500">${escapeHtml(startStr)}${e.location ? ' · ' + escapeHtml(e.location) : ''}</p>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <button type="button" data-event-action="edit" data-event-id="${e.id}" class="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-100 active:scale-95" aria-label="跨輯">
+                  <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
+                </button>
+                <button type="button" data-event-action="delete" data-event-id="${e.id}" class="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-rose-500 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95" aria-label="刪除">
+                  <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        renderIcons();
+      }
+
+      async function createAdminEvent() {
+        if (state.admin.event.edit.creating) return;
+        state.admin.event.edit.creating = true;
+
+        // 先以最基本的 payload 建立一筆未上架行程，再跳到編輯頁
+        const defaultStart = new Date();
+        defaultStart.setDate(defaultStart.getDate() + 7);
+        defaultStart.setHours(19, 0, 0, 0);
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch('/api/admin/events', {
+            method: 'POST',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: '新行程',
+              start_at: defaultStart.toISOString(),
+            }),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '新增行程失敗');
+          }
+          await loadAdminEvents({ force: true });
+          openAdminEventEdit(result.data.id);
+          showToast('已建立新行程，請跨輯內容。');
+        } catch (err) {
+          showToast(err.message || '新增行程失敗');
+        } finally {
+          state.admin.event.edit.creating = false;
+        }
+      }
+
+      async function openAdminEventEdit(eventId) {
+        state.admin.event.edit.id = eventId;
+        state.admin.event.edit.loading = true;
+        state.admin.event.edit.error = null;
+
+        switchAdminEventView('edit');
+
+        if (elements.adminEventEditLoading) elements.adminEventEditLoading.classList.remove('hidden');
+        if (elements.adminEventEditError) elements.adminEventEditError.classList.add('hidden');
+        if (elements.adminEventEditContainer) elements.adminEventEditContainer.classList.add('hidden');
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/events/${eventId}`, {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '行程資料載入失敗');
+          }
+          state.admin.event.edit.data = result.data;
+          if (elements.adminEventEditTitle) {
+            elements.adminEventEditTitle.textContent = `跨輯：${result.data.title || '未命名行程'}`;
+          }
+          renderAdminEventEdit();
+        } catch (err) {
+          state.admin.event.edit.error = err.message || '行程資料載入失敗';
+          if (elements.adminEventEditError) {
+            elements.adminEventEditError.classList.remove('hidden');
+            const textEl = document.getElementById('adminEventEditErrorText');
+            if (textEl) textEl.textContent = state.admin.event.edit.error;
+          }
+        } finally {
+          state.admin.event.edit.loading = false;
+          if (elements.adminEventEditLoading) elements.adminEventEditLoading.classList.add('hidden');
+          renderIcons();
+        }
+      }
+
+      function renderAdminEventEdit() {
+        const container = elements.adminEventEditContainer;
+        const data = state.admin.event.edit.data;
+        if (!container || !data) return;
+
+        const coverPreview = data.cover_url
+          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" />`
+          : `<div class="flex aspect-[16/9] w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="image" class="h-8 w-8"></i><span class="ml-2 text-sm">尚無封面</span></div>`;
+
+        const albumPhotos = Array.isArray(data.album) ? data.album : [];
+        const albumCount = albumPhotos.length;
+        const albumHtml = albumPhotos.map((p) => `
+          <div class="group relative overflow-hidden rounded-lg">
+            <img src="${escapeHtml(p.signed_url || '')}" alt="" class="aspect-square w-full object-cover" />
+            <button type="button" data-event-edit-action="delete-album" data-photo-id="${p.id}" class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600/90 text-white opacity-0 transition group-hover:opacity-100 active:scale-95" aria-label="刪除相簿照片">
+              <i data-lucide="x" class="h-3 w-3"></i>
+            </button>
+          </div>
+        `).join('');
+        const albumUpload = albumCount < 6
+          ? `<label class="flex aspect-square cursor-pointer items-center justify-center rounded-lg border border-dashed border-violet-200 bg-violet-50/50 text-violet-400 transition hover:bg-violet-50 active:scale-95">
+              <div class="text-center">
+                <i data-lucide="plus" class="mx-auto h-5 w-5"></i>
+                <span class="mt-1 block text-[10px] font-semibold">新增照片</span>
+              </div>
+              <input type="file" accept="image/*" class="hidden" data-event-edit-input="album-file" />
+            </label>`
+          : `<div class="flex aspect-square items-center justify-center rounded-lg bg-slate-100 text-[10px] font-semibold text-slate-400">已達 6 張上限</div>`;
+
+        container.innerHTML = `
+          <div class="space-y-5">
+            <div>
+              <label class="text-xs font-semibold text-violet-700">封面圖（16:9）</label>
+              <div class="mt-2 overflow-hidden rounded-[1rem] border border-violet-100/60">${coverPreview}</div>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <label class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-500 active:scale-95">
+                  <i data-lucide="upload" class="h-3.5 w-3.5"></i>
+                  <span>${data.cover_url ? '更換封面' : '上傳封面'}</span>
+                  <input type="file" accept="image/*" class="hidden" data-event-edit-input="cover-file" />
+                </label>
+                ${data.cover_url ? `
+                  <button type="button" data-event-edit-action="delete-cover" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95">
+                    <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                    <span>刪除封面</span>
+                  </button>
+                ` : ''}
+                <span id="eventCoverUploadStatus" class="self-center text-xs text-slate-400">建議使用橫式 16:9 照片</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-violet-700">行程名稱</label>
+              <input type="text" data-event-edit-input="title" value="${escapeHtml(data.title || '')}" maxlength="100" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-violet-700">列表摘要（description）</label>
+              <textarea data-event-edit-input="description" maxlength="300" rows="2" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100">${escapeHtml(data.description || '')}</textarea>
+              <p class="mt-1 text-[11px] text-slate-400">列表/主打卡顯示的一句話說明。</p>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="text-xs font-semibold text-violet-700">開始時間</label>
+                <input type="datetime-local" data-event-edit-input="start_at" value="${formatEventDateTimeLocal(data.start_at)}" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-violet-700">結束時間（可空）</label>
+                <input type="datetime-local" data-event-edit-input="end_at" value="${formatEventDateTimeLocal(data.end_at)}" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-violet-700">地點</label>
+              <input type="text" data-event-edit-input="location" value="${escapeHtml(data.location || '')}" maxlength="200" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-violet-700">說明內容</label>
+              <textarea data-event-edit-input="content" rows="6" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-7 text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100">${escapeHtml(data.content || '')}</textarea>
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-violet-700">影片外連網址</label>
+              <input type="url" data-event-edit-input="video_url" value="${escapeHtml(data.video_url || '')}" maxlength="500" placeholder="https://..." class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-violet-700">相簿（最多 6 張）</label>
+                <span class="text-[11px] text-slate-400">${albumCount}/6</span>
+              </div>
+              <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                ${albumHtml}
+                ${albumUpload}
+              </div>
+              <p id="eventAlbumUploadStatus" class="mt-1 text-[11px] text-slate-400">上傳後即立即儲存。</p>
+            </div>
+
+            <div class="rounded-[1rem] border border-violet-100/60 bg-violet-50/40 p-4">
+              <p class="text-xs font-semibold text-violet-700">報名人數</p>
+              <p class="mt-1 text-2xl font-bold text-violet-950">${Number(data.rsvp_count) || 0}<span class="ml-1 text-sm font-medium text-slate-500">人</span></p>
+            </div>
+
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" data-event-edit-input="is_published" ${data.is_published ? 'checked' : ''} class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />
+              <span>上架顯示</span>
+            </label>
+
+            <div class="flex items-center gap-3 pt-2">
+              <button type="button" data-event-edit-action="save" class="inline-flex h-10 items-center gap-1.5 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:opacity-50">
+                <i data-lucide="save" class="h-4 w-4"></i>
+                <span>儲存變更</span>
+              </button>
+              <span id="eventSaveStatus" class="text-xs text-slate-400"></span>
+            </div>
+
+            <div class="rounded-[1rem] border border-amber-200/70 bg-amber-50/40 p-4">
+              <p class="text-xs font-semibold text-amber-700">LINE 通知（管理員手動發送）</p>
+              <p class="mt-1 text-[11px] leading-5 text-slate-500">不會在上架時自動群發。點擊後後端以 pushMessage 發送。</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button type="button" data-event-edit-action="notify-rsvp" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-violet-700 ring-1 ring-violet-200 transition hover:bg-violet-50 active:scale-95">
+                  <i data-lucide="bell" class="h-3.5 w-3.5"></i>
+                  <span>提醒已報名者</span>
+                </button>
+                <button type="button" data-event-edit-action="notify-wish-pool" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-50 active:scale-95">
+                  <i data-lucide="megaphone" class="h-3.5 w-3.5"></i>
+                  <span>通知曾使用許願池的里民</span>
+                </button>
+              </div>
+              <p id="eventNotifyStatus" class="mt-2 text-[11px] text-slate-400"></p>
+            </div>
+
+            <div class="rounded-[1rem] border border-rose-200/70 bg-rose-50/30 p-4">
+              <p class="text-xs font-semibold text-rose-700">危險區</p>
+              <p class="mt-1 text-[11px] leading-5 text-slate-500">刪除行程將一併移除封面、相簿與報名紀錄，無法復原。</p>
+              <button type="button" data-event-edit-action="delete-event" data-event-id="${data.id}" class="mt-3 inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95">
+                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                <span>刪除此行程</span>
+              </button>
+            </div>
+          </div>
+        `;
+        container.classList.remove('hidden');
+        renderIcons();
+      }
+
+      async function saveAdminEvent() {
+        const edit = state.admin.event.edit;
+        if (!edit.data || edit.saving) return;
+
+        const container = elements.adminEventEditContainer;
+        if (!container) return;
+
+        const getVal = (key) => {
+          const el = container.querySelector(`[data-event-edit-input="${key}"]`);
+          if (!el) return undefined;
+          if (el.type === 'checkbox') return el.checked;
+          const v = el.value.trim();
+          return v === '' ? null : v;
+        };
+
+        const payload = {
+          title: getVal('title'),
+          description: getVal('description'),
+          content: getVal('content'),
+          start_at: getVal('start_at'),
+          end_at: getVal('end_at'),
+          location: getVal('location'),
+          video_url: getVal('video_url'),
+          is_published: getVal('is_published'),
+        };
+
+        edit.saving = true;
+        const saveBtn = container.querySelector('[data-event-edit-action="save"]');
+        if (saveBtn) saveBtn.disabled = true;
+        const statusEl = document.getElementById('eventSaveStatus');
+        if (statusEl) statusEl.textContent = '儲存中...';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/events/${edit.id}`, {
+            method: 'PATCH',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '儲存失敗');
+          }
+          edit.data = result.data;
+          // 同步列表中該筆
+          state.admin.event.items = state.admin.event.items.map((e) =>
+            Number(e.id) === Number(edit.id) ? { ...e, ...result.data } : e
+          );
+          renderAdminEventEdit();
+          renderAdminEventList();
+          showToast('行程已儲存。');
+          if (statusEl) { statusEl.textContent = '已儲存 ✓'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
+        } catch (err) {
+          showToast(err.message || '儲存失敗');
+          if (statusEl) statusEl.textContent = '儲存失敗';
+        } finally {
+          edit.saving = false;
+          if (saveBtn) saveBtn.disabled = false;
+          renderIcons();
+        }
+      }
+
+      async function uploadEventCover(file) {
+        const edit = state.admin.event.edit;
+        if (!edit.data || edit.uploadingCover) return;
+
+        const statusEl = document.getElementById('eventCoverUploadStatus');
+        if (statusEl) statusEl.textContent = '壓縮與上傳中...';
+
+        edit.uploadingCover = true;
+        try {
+          const compressed = await compressImageToWebp(file, { maxEdge: 1600, quality: 0.82 });
+          const tokenBundle = await getIdentityToken();
+          const urlRes = await fetch(`/api/admin/events/${edit.id}/cover-upload-url`, {
+            method: 'POST',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+          });
+          const urlResult = await urlRes.json();
+          if (!urlRes.ok || !urlResult.success) {
+            throw new Error(urlResult.message || '封面上傳金鑰產生失敗');
+          }
+          const { storage_path, upload_url, expected_content_type } = urlResult.data;
+          const putRes = await fetch(upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': expected_content_type || 'image/webp' },
+            body: compressed.blob,
+          });
+          if (!putRes.ok) {
+            throw new Error('封面上傳失敗，請稍後再試。');
+          }
+          const patchRes = await fetch(`/api/admin/events/${edit.id}/cover`, {
+            method: 'PATCH',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storage_path }),
+          });
+          const patchResult = await patchRes.json();
+          if (!patchRes.ok || !patchResult.success) {
+            throw new Error(patchResult.message || '封面更新失敗');
+          }
+          edit.data = { ...edit.data, cover_url: patchResult.data.cover_url, cover_image_path: patchResult.data.cover_image_path };
+          renderAdminEventEdit();
+          state.admin.event.items = state.admin.event.items.map((e) =>
+            Number(e.id) === Number(edit.id) ? { ...e, cover_url: patchResult.data.cover_url } : e
+          );
+          renderAdminEventList();
+          if (statusEl) { statusEl.textContent = '上傳成功 ✓'; setTimeout(() => { if (statusEl) statusEl.textContent = '建議使用橫式 16:9 照片'; }, 2000); }
+        } catch (err) {
+          showToast(err.message || '封面上傳失敗');
+          if (statusEl) { statusEl.textContent = '上傳失敗'; setTimeout(() => { if (statusEl) statusEl.textContent = '建議使用橫式 16:9 照片'; }, 2000); }
+        } finally {
+          edit.uploadingCover = false;
+        }
+      }
+
+      async function deleteEventCover() {
+        const edit = state.admin.event.edit;
+        if (!edit.data) return;
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/events/${edit.id}/cover`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '封面刪除失敗');
+          }
+          edit.data = { ...edit.data, cover_url: null, cover_image_path: null };
+          renderAdminEventEdit();
+          state.admin.event.items = state.admin.event.items.map((e) =>
+            Number(e.id) === Number(edit.id) ? { ...e, cover_url: null } : e
+          );
+          renderAdminEventList();
+          showToast('封面已刪除。');
+        } catch (err) {
+          showToast(err.message || '封面刪除失敗');
+        }
+      }
+
+      async function uploadEventAlbumPhoto(file) {
+        const edit = state.admin.event.edit;
+        if (!edit.data || edit.uploadingAlbum) return;
+
+        const statusEl = document.getElementById('eventAlbumUploadStatus');
+        if (statusEl) statusEl.textContent = '壓縮與上傳中...';
+
+        edit.uploadingAlbum = true;
+        try {
+          const compressed = await compressImageToWebp(file, { maxEdge: 1600, quality: 0.8 });
+          const tokenBundle = await getIdentityToken();
+          const urlRes = await fetch(`/api/admin/events/${edit.id}/album-upload-url`, {
+            method: 'POST',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+          });
+          const urlResult = await urlRes.json();
+          if (!urlRes.ok || !urlResult.success) {
+            throw new Error(urlResult.message || '相簿上傳金鑰產生失敗');
+          }
+          const { storage_path, upload_url, expected_content_type } = urlResult.data;
+          const putRes = await fetch(upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': expected_content_type || 'image/webp' },
+            body: compressed.blob,
+          });
+          if (!putRes.ok) {
+            throw new Error('相簿上傳失敗，請稍後再試。');
+          }
+          const postRes = await fetch(`/api/admin/events/${edit.id}/album`, {
+            method: 'POST',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storage_path }),
+          });
+          const postResult = await postRes.json();
+          if (!postRes.ok || !postResult.success) {
+            throw new Error(postResult.message || '相簿照片建立失敗');
+          }
+          // 重新載入詳情以取得最新 album（含新 signed URL）
+          await openAdminEventEdit(edit.id);
+          if (statusEl) { statusEl.textContent = '上傳成功 ✓'; setTimeout(() => { if (statusEl) statusEl.textContent = '上傳後即立即儲存。'; }, 2000); }
+        } catch (err) {
+          showToast(err.message || '相簿上傳失敗');
+          if (statusEl) { statusEl.textContent = '上傳失敗'; setTimeout(() => { if (statusEl) statusEl.textContent = '上傳後即立即儲存。'; }, 2000); }
+        } finally {
+          edit.uploadingAlbum = false;
+        }
+      }
+
+      async function deleteEventAlbumPhoto(photoId) {
+        const edit = state.admin.event.edit;
+        if (!edit.data) return;
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/events/${edit.id}/album/${photoId}`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '相簿照片刪除失敗');
+          }
+          await openAdminEventEdit(edit.id);
+          showToast('相簿照片已刪除。');
+        } catch (err) {
+          showToast(err.message || '相簿照片刪除失敗');
+        }
+      }
+
+      async function notifyEventRsvp() {
+        const edit = state.admin.event.edit;
+        if (!edit.data) return;
+
+        const statusEl = document.getElementById('eventNotifyStatus');
+        if (statusEl) statusEl.textContent = '發送中...';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/events/${edit.id}/notify-rsvp`, {
+            method: 'POST',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '通知發送失敗');
+          }
+          const d = result.data || {};
+          showToast(`提醒已報名者：嘗試 ${d.attempted || 0} 人，成功 ${d.succeeded || 0} 人，失敗 ${d.failed || 0} 人。`);
+          if (statusEl) { statusEl.textContent = `已報名者：嘗試 ${d.attempted || 0} / 成功 ${d.succeeded || 0} / 失敗 ${d.failed || 0}`; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 5000); }
+        } catch (err) {
+          showToast(err.message || '通知發送失敗');
+          if (statusEl) { statusEl.textContent = '發送失敗'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000); }
+        }
+      }
+
+      async function notifyEventWishPool() {
+        const edit = state.admin.event.edit;
+        if (!edit.data) return;
+
+        const statusEl = document.getElementById('eventNotifyStatus');
+        if (statusEl) statusEl.textContent = '發送中...（對象：曾使用許願池的里民，非全體里民）';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/events/${edit.id}/notify-wish-pool`, {
+            method: 'POST',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '通知發送失敗');
+          }
+          const d = result.data || {};
+          showToast(`通知許願池里民：嘗試 ${d.attempted || 0} 人，成功 ${d.succeeded || 0} 人，失敗 ${d.failed || 0} 人。`);
+          if (statusEl) { statusEl.textContent = `許願池里民：嘗試 ${d.attempted || 0} / 成功 ${d.succeeded || 0} / 失敗 ${d.failed || 0}`; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 5000); }
+        } catch (err) {
+          showToast(err.message || '通知發送失敗');
+          if (statusEl) { statusEl.textContent = '發送失敗'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000); }
+        }
+      }
+
+      async function deleteAdminEvent(eventId) {
+        if (!eventId) return;
+        if (!window.confirm('確定要刪除這筆行程？封面、相簿與報名紀錄將一併移除，無法復原。')) return;
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/events/${eventId}`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '行程刪除失敗');
+          }
+          state.admin.event.items = state.admin.event.items.filter((e) => Number(e.id) !== Number(eventId));
+          renderAdminEventList();
+          // 若目前在編輯頁刪除，回到列表
+          if (Number(state.admin.event.edit.id) === Number(eventId)) {
+            switchAdminEventView('list');
+          }
+          showToast('行程已刪除。');
+        } catch (err) {
+          showToast(err.message || '行程刪除失敗');
         }
       }
 

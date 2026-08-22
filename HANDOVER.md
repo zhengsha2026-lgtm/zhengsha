@@ -25,7 +25,7 @@
 | 前端 | 單一主要檔案 `public/liff.html`（LINE LIFF） |
 | 後端 | `app.js`（Node.js） |
 | 資料庫 | Supabase Postgres |
-| 檔案儲存 | Supabase Storage（private bucket: `wish-photos`） |
+| 檔案儲存 | Supabase Storage（private bucket: `wish-photos`、`platform-covers`、`event-covers`） |
 | 身分驗證 | LINE LIFF ID Token（後端驗證） |
 | 管理員驗證 | LINE 白名單（環境變數 `ADMIN_LINE_USER_IDS`） |
 | 部署 | GitHub → Vercel 自動部署 |
@@ -40,7 +40,7 @@
 - 里民許願池（表單層次優化：身分卡縮為一列、切換加強、內容框為主體、送出鈕紫色）
 - 我的許願列表（依狀態分組、卡片層次、時間精簡、身分列隱藏）
 - 我的許願（列表 + 詳情）
-- 競選行程（目前仍為「規劃中」狀態）
+- 競選行程（里民端：主打卡 + 即將到來/過往足跡分組 + 詳情 modal + 報名/取消報名）
 
 ### 許願相關（重點）
 - 里民可填寫並送出許願
@@ -73,6 +73,19 @@
 - 設為主打時自動取消其他筆主打（partial unique index 保證唯一性）
 - 排序交換：PATCH sort_order 時後端自動與佔用者交換
 - `is_published = false` 的政見里民端不顯示
+
+### 競選行程（里民端 + 管理端）
+- 里民端行程頁：底部第 4 個 Tab「競選行程」
+  - `GET /api/events` 回傳 `{ next, upcoming, past }`：主打 `next` 為 upcoming 第一筆（start_at >= now），列表中**不重複**；`upcoming` 為其餘即將到來、`past` 為過往足跡（upcoming/past **只看 `start_at`**）
+  - 主打 hero 卡（16:9 封面 + 標題 + 描述摘要 + 時間 + 地點 + 報名人數）
+  - 即將到來/過往足跡分組，過往足跡視覺層次較低
+  - 詳情 modal：封面（16:9 contain 預覽）、標題、時間區間、地點、`description`（列表摘要）、`content`（完整內容）、相簿縮圖、影片連結、報名人數 + 報名/取消按鈕
+  - **報名規則**：已結束（`start_at < now`）不可「新」報名；但**已結束不擋取消報名**
+  - 報名後同步更新詳情與列表的 `rsvp_count`
+- 行程管理（管理員專用）：管理首頁「行程管理」模組卡片（可用）
+  - 行程列表：標題、時間、上架狀態、報名人數；可新增、進入編輯、刪除
+  - 行程編輯頁：標題、`description`（列表摘要）、`content`（完整內容）、`start_at`/`end_at`、`location`、`video_url`、封面上傳/更換/刪除、相簿上傳/刪除、`is_published` 上架、刪除此行程
+  - 通知功能（後端文案寫死）：`POST /api/admin/events/:id/notify-rsvp`（發訊給已報名里民）、`POST /api/admin/events/:id/notify-wish-pool`（發訊給許願池里民）
 
 ---
 
@@ -123,13 +136,18 @@
 - `user_feedback`：許願主表
 - `user_feedback_photos`：照片紀錄
 - `user_feedback_status_logs`：狀態歷程
+- `campaign_platforms`：核心政見
+- `campaign_events`：競選行程主表（title/description/content/start_at/end_at/location/cover_image_path/video_url/rsvp_count/is_published）
+- `campaign_event_photos`：行程相簿照片
+- `event_rsvps`：行程報名紀錄（`UNIQUE(event_id, line_user_id)`）
 
 ### 狀態值
 `已收到` / `處理中` / `已回覆` / `已結案`
 
 ### Storage
-- Bucket 名稱：`wish-photos`（private）
-- 路徑格式：`{line_user_id}/{feedback_id 或 temp}/{uuid}.webp`
+- Bucket 名稱：`wish-photos`（private）— 路徑格式 `{line_user_id}/{feedback_id 或 temp}/{uuid}.webp`
+- Bucket 名稱：`platform-covers`（private）— 政見封面
+- Bucket 名稱：`event-covers`（private）— 行程封面，路徑格式 `{event_id}/{uuid}.webp`
 
 ---
 
@@ -145,6 +163,10 @@
 | POST | `/api/feedback` | 建立許願（含照片關聯） |
 | GET | `/api/my-feedback` | 我的許願列表 |
 | GET | `/api/my-feedback/:id` | 我的許願詳情（含照片 signed URL、狀態時間軸） |
+| GET | `/api/events` | 公開行程列表（`is_published = true`），回傳 `{ next, upcoming, past }` |
+| GET | `/api/events/:id` | 單筆行程詳情（含封面 signed URL、相簿 signed URL、`my_rsvp`） |
+| POST | `/api/events/:id/rsvp` | 報名行程（已結束 `start_at < now` 擋新增） |
+| DELETE | `/api/events/:id/rsvp` | 取消報名（**不擋已結束**） |
 
 ### 管理員端 API（許願池後台管理）
 
@@ -162,6 +184,19 @@
 | POST | `/api/admin/platforms/:id/cover-upload-url` | 取得封面 signed upload URL |
 | PATCH | `/api/admin/platforms/:id/cover` | 回寫封面 storage_path（上傳後呼叫，自動刪舊封面） |
 | DELETE | `/api/admin/platforms/:id/cover` | 刪除封面圖 |
+| GET | `/api/admin/events` | 全部行程列表（含未上架），含封面 signed URL |
+| GET | `/api/admin/events/:id` | 單筆行程完整資料（含封面、相簿 signed URL） |
+| POST | `/api/admin/events` | 新增行程（最小 payload 建立未上架草稿） |
+| PATCH | `/api/admin/events/:id` | 更新標題/description/content/start_at/end_at/location/video_url/is_published |
+| DELETE | `/api/admin/events/:id` | 刪除行程（一併移除封面、相簿、報名紀錄） |
+| POST | `/api/admin/events/:id/cover-upload-url` | 取得封面 signed upload URL |
+| PATCH | `/api/admin/events/:id/cover` | 回寫封面 storage_path（自動刪舊封面） |
+| DELETE | `/api/admin/events/:id/cover` | 刪除封面 |
+| POST | `/api/admin/events/:id/album-upload-url` | 取得相簿照片 signed upload URL |
+| POST | `/api/admin/events/:id/album` | 回寫相簿照片 storage_path |
+| DELETE | `/api/admin/events/:id/album/:photoId` | 刪除單張相簿照片 |
+| POST | `/api/admin/events/:id/notify-rsvp` | 發訊給已報名里民（文案後端寫死） |
+| POST | `/api/admin/events/:id/notify-wish-pool` | 發訊給許願池里民（文案後端寫死） |
 
 ---
 
@@ -204,9 +239,10 @@
   - 401（未登入）→ 靜默隱藏管理圖示
 - 底部導覽永遠維持 4 個 Tab，不再動態切換 grid-cols
 - 點 header 圖示 → `switchTab('admin')` → 顯示 adminPanel → `switchAdminView('home')`
-- 管理首頁有三個模組卡：許願管理（可用）、政見管理（可用）、行程管理（預留，點擊 toast「規劃中」）
+- 管理首頁有三個模組卡：許願管理（可用）、政見管理（可用）、行程管理（可用）
 - 許願管理流程：管理首頁 → 許願列表（返回管理首頁）→ 詳情處理（返回列表）
 - 政見管理流程：管理首頁 → 政見列表（返回管理首頁，可上移/下移/設主打/進入編輯）→ 編輯頁（返回列表）
+- 行程管理流程：管理首頁 → 行程列表（返回管理首頁，可新增/編輯/刪除）→ 編輯頁（返回列表，封面/相簿/文案/上架/通知）
 - 若 URL 帶有 `?tab=admin` 且確認為管理員，自動切換到管理面板
 - 若 URL 帶有 `?tab=admin` 但非管理員，自動導回 `platforms`
 - 非管理員無法透過任何方式（包含手動切換）進入管理面板：`switchTab('admin')` 會被導回 `platforms`
@@ -232,13 +268,20 @@
   - 新增欄位：`summary`, `content`, `cover_image_path`, `is_featured`, `is_published`
   - 新增 Storage bucket：`platform-covers`（private，RLS 拒絕 anon/authenticated）
   - 政見管理 API：list / detail / patch / cover-upload-url / cover patch / cover delete
+- **競選行程模組**
+  - 里民端：底部第 4 個 Tab「競選行程」，主打卡（upcoming 第一筆）+ 即將到來/過往足跡分組 + 詳情 modal + 報名/取消（已結束擋新增、不擋取消）
+  - 管理端：行程管理列表 + 跨輯頁（封面/相簿/影片/文案/上架/刪除）+ 通知（notify-rsvp、notify-wish-pool，文案後端寫死）
+  - 新增資料表：`campaign_events`、`campaign_event_photos`、`event_rsvps`（`UNIQUE(event_id, line_user_id)`）
+  - 新增 Storage bucket：`event-covers`（private，RLS 拒絕 anon/authenticated）
+  - 行程 API：里民 list/detail/rsvp join/rsvp cancel；管理 list/detail/create/patch/delete/cover/album/notify-rsvp/notify-wish-pool
+  - upcoming/past 只看 `start_at`；主打 = upcoming 第一筆，列表不重複；`description` 當列表摘要，`content` 為完整內容
 
 ### 仍可優化 / 尚未完成
-- 競選行程頁仍為「規劃中」，行程管理仍為預留入口
 - 許願案件狀態變更後的 **LINE 主動通知里民**（推播進度）尚未做
 - 後台管理的進階功能：批次變更狀態、匯出 CSV、依日期區間篩選
 - 後台管理員身分的**動態新增/移除**（目前需改環境變數重新部署）
 - 政見的新增/刪除功能（目前只能編輯既有的 8 筆）
+- 行程通知目前為管理員手動觸發（notify-rsvp / notify-wish-pool），尚未支援行程新增/修改時自動通知
 
 ---
 

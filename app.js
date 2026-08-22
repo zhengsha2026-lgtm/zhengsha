@@ -70,8 +70,11 @@ function isAdminLineUserId(lineUserId) {
 
 const STORAGE_BUCKET_WISH_PHOTOS = 'wish-photos';
 const STORAGE_BUCKET_PLATFORM_COVERS = 'platform-covers';
+const STORAGE_BUCKET_EVENT_COVERS = 'event-covers';
 const SIGNED_UPLOAD_URL_EXPIRES_IN = 60 * 10;
 const SIGNED_READ_URL_EXPIRES_IN = 60 * 30;
+const EVENT_ALBUM_MAX_PHOTOS = 6;
+const EVENT_NOTIFY_RECIPIENT_HARD_LIMIT = 500;
 const LINE_ID_TOKEN_VERIFY_URL = 'https://api.line.me/oauth2/v2.1/verify';
 
 const lineClient = hasLineCredentials
@@ -252,6 +255,389 @@ app.post('/api/platforms/:id/agree', async (req, res) => {
         error.code === 'NOT_FOUND'
           ? '找不到指定的政見資料。'
           : '支持票數更新失敗，請稍後再試。',
+    });
+  }
+});
+
+// ============================================================================
+// 競選行程 API（里民端）
+//   - 列表：upcoming 第一筆為主打，列表不重複；upcoming/past 只看 start_at
+//   - 詳情：含封面、相簿（最多 6 張 signed URL）、video_url、rsvp_count、my_rsvp
+//   - RSVP：報名 INSERT / 取消 DELETE；未上架不可報名；已結束不可「新」報名，
+//           但已報名者結束後仍可取消（不擋取消）
+//   - 未上架行程對非管理員回 404
+// ============================================================================
+
+// 撈取並組成行程列表：{ next, upcoming[], past[] }
+app.get('/api/events', async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase Service Role 尚未完成設定。',
+    });
+  }
+
+  try {
+    const nowIso = new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin
+      .from('campaign_events')
+      .select(
+        'id, title, description, start_at, end_at, location, cover_image_path, rsvp_count, is_published'
+      )
+      .eq('is_published', true)
+      .order('start_at', { ascending: true });
+
+    if (error) {
+      console.error('events list fetch failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '行程列表讀取失敗，請稍後再試。',
+      });
+    }
+
+    const all = data || [];
+    const upcomingRaw = all.filter((e) => new Date(e.start_at) >= new Date(nowIso));
+    const pastRaw = all.filter((e) => new Date(e.start_at) < new Date(nowIso));
+
+    // upcoming 第一筆為主打，列表不重複
+    const nextItem = upcomingRaw.length > 0 ? upcomingRaw[0] : null;
+    const upcomingRest = upcomingRaw.slice(1);
+
+    // past 由近到遠（start_at desc）
+    const pastSorted = pastRaw.slice().sort((a, b) => new Date(b.start_at) - new Date(a.start_at));
+
+    const decorate = async (e) => {
+      const coverUrl = await getEventCoverSignedUrl(e.cover_image_path);
+      const { cover_image_path, is_published, ...rest } = e;
+      return { ...rest, cover_url: coverUrl };
+    };
+
+    const [nextDecorated, upcomingDecor, pastDecor] = await Promise.all([
+      nextItem ? decorate(nextItem) : Promise.resolve(null),
+      Promise.all(upcomingRest.map(decorate)),
+      Promise.all(pastSorted.map(decorate)),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        next: nextDecorated,
+        upcoming: upcomingDecor,
+        past: pastDecor,
+      },
+    });
+  } catch (error) {
+    console.error('events list failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
+    });
+  }
+});
+
+// 行程詳情（含相簿 signed URL、my_rsvp、rsvp_count）
+app.get('/api/events/:id', async (req, res) => {
+  let identity;
+  try {
+    identity = await authenticateLineIdentity(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'event detail auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase Service Role 尚未完成設定。',
+    });
+  }
+
+  const eventId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(eventId) || eventId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: '行程編號不正確。',
+    });
+  }
+
+  try {
+    const { data: eventRow, error: fetchError } = await supabaseAdmin
+      .from('campaign_events')
+      .select(
+        'id, title, description, content, start_at, end_at, location, cover_image_path, video_url, rsvp_count, is_published'
+      )
+      .eq('id', eventId)
+      .single();
+
+    if (fetchError || !eventRow) {
+      const code = fetchError && fetchError.code;
+      if (code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          message: '找不到這筆行程或尚未上架。',
+        });
+      }
+      console.error('event detail fetch failed:', fetchError);
+      return res.status(500).json({
+        success: false,
+        message: '行程內容讀取失敗，請稍後再試。',
+      });
+    }
+
+    // 未上架行程對非管理員回 404
+    if (!eventRow.is_published && !isAdminLineUserId(identity.lineUserId)) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆行程或尚未上架。',
+      });
+    }
+
+    const [coverUrl, albumResult, myRsvpResult] = await Promise.all([
+      getEventCoverSignedUrl(eventRow.cover_image_path),
+      supabaseAdmin
+        .from('campaign_event_photos')
+        .select('id, storage_path, sort_order')
+        .eq('event_id', eventId)
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true }),
+      supabaseAdmin
+        .from('event_rsvps')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('line_user_id', identity.lineUserId)
+        .maybeSingle(),
+    ]);
+
+    if (albumResult.error) {
+      console.error('event album fetch failed:', albumResult.error);
+    }
+    if (myRsvpResult.error) {
+      console.error('my rsvp check failed:', myRsvpResult.error);
+    }
+
+    const albumPhotos = [];
+    for (const photo of (albumResult.data || [])) {
+      let signedUrl = null;
+      if (photo.storage_path) {
+        try {
+          const { data, error } = await supabaseAdmin.storage
+            .from(STORAGE_BUCKET_EVENT_COVERS)
+            .createSignedUrl(photo.storage_path, SIGNED_READ_URL_EXPIRES_IN);
+          if (!error && data) {
+            signedUrl = data.signedUrl;
+          }
+        } catch (err) {
+          console.error('event album signed URL error:', err.message);
+        }
+      }
+      albumPhotos.push({
+        id: photo.id,
+        sort_order: photo.sort_order,
+        signed_url: signedUrl,
+      });
+    }
+
+    const { cover_image_path, is_published, ...rest } = eventRow;
+
+    return res.json({
+      success: true,
+      data: {
+        ...rest,
+        cover_url: coverUrl,
+        album: albumPhotos,
+        rsvp_count: Number(eventRow.rsvp_count) || 0,
+        my_rsvp: Boolean(myRsvpResult.data),
+      },
+    });
+  } catch (error) {
+    console.error('event detail failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
+    });
+  }
+});
+
+// 報名 RSVP：INSERT；未上架 / 已結束不可新報名
+app.post('/api/events/:id/rsvp', async (req, res) => {
+  let identity;
+  try {
+    identity = await authenticateLineIdentity(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'event rsvp auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase Service Role 尚未完成設定。',
+    });
+  }
+
+  const eventId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(eventId) || eventId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: '行程編號不正確。',
+    });
+  }
+
+  try {
+    const { data: eventRow, error: fetchError } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id, start_at, is_published')
+      .eq('id', eventId)
+      .single();
+
+    if (fetchError || !eventRow) {
+      const code = fetchError && fetchError.code;
+      if (code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          message: '找不到這筆行程。',
+        });
+      }
+      console.error('event rsvp fetch failed:', fetchError);
+      return res.status(500).json({
+        success: false,
+        message: '報名處理失敗，請稍後再試。',
+      });
+    }
+
+    if (!eventRow.is_published) {
+      return res.status(400).json({
+        success: false,
+        message: '此行程尚未上架，無法報名。',
+      });
+    }
+
+    // 已結束不可「新」報名（start_at < now）
+    const nowIso = new Date().toISOString();
+    if (new Date(eventRow.start_at) < new Date(nowIso)) {
+      return res.status(400).json({
+        success: false,
+        message: '此行程已結束，無法報名。',
+      });
+    }
+
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('event_rsvps')
+      .insert([
+        {
+          event_id: eventId,
+          line_user_id: identity.lineUserId,
+        },
+      ])
+      .select('id')
+      .maybeSingle();
+
+    if (insertError) {
+      // UNIQUE 衝突 = 已報名
+      if (insertError.code === '23505') {
+        return res.status(409).json({
+          success: false,
+          message: '您已經報名此行程。',
+        });
+      }
+      console.error('event rsvp insert failed:', insertError);
+      return res.status(500).json({
+        success: false,
+        message: '報名失敗，請稍後再試。',
+      });
+    }
+
+    if (!inserted) {
+      // maybeSingle 回傳 null 也代表已存在（INSERT ... ON CONFLICT 不適用，這裡用直插）
+      return res.status(409).json({
+        success: false,
+        message: '您已經報名此行程。',
+      });
+    }
+
+    // rsvp_count 由 trigger 維護，回讀最新值
+    const { data: fresh } = await supabaseAdmin
+      .from('campaign_events')
+      .select('rsvp_count')
+      .eq('id', eventId)
+      .single();
+
+    return res.status(201).json({
+      success: true,
+      message: '報名成功，期待與您相見。',
+      data: {
+        event_id: eventId,
+        my_rsvp: true,
+        rsvp_count: Number(fresh && fresh.rsvp_count) || 0,
+      },
+    });
+  } catch (error) {
+    console.error('event rsvp failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
+    });
+  }
+});
+
+// 取消報名 RSVP：DELETE；已結束「不擋」取消
+app.delete('/api/events/:id/rsvp', async (req, res) => {
+  let identity;
+  try {
+    identity = await authenticateLineIdentity(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'event rsvp cancel auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase Service Role 尚未完成設定。',
+    });
+  }
+
+  const eventId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(eventId) || eventId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: '行程編號不正確。',
+    });
+  }
+
+  try {
+    const { error: deleteError } = await supabaseAdmin
+      .from('event_rsvps')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('line_user_id', identity.lineUserId);
+
+    if (deleteError) {
+      console.error('event rsvp cancel failed:', deleteError);
+      return res.status(500).json({
+        success: false,
+        message: '取消報名失敗，請稍後再試。',
+      });
+    }
+
+    const { data: fresh } = await supabaseAdmin
+      .from('campaign_events')
+      .select('rsvp_count')
+      .eq('id', eventId)
+      .single();
+
+    return res.json({
+      success: true,
+      message: '已取消報名。',
+      data: {
+        event_id: eventId,
+        my_rsvp: false,
+        rsvp_count: Number(fresh && fresh.rsvp_count) || 0,
+      },
+    });
+  } catch (error) {
+    console.error('event rsvp cancel failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
     });
   }
 });
@@ -1667,6 +2053,991 @@ app.delete('/api/admin/platforms/:id/cover', async (req, res) => {
   }
 });
 
+// ============================================================================
+// 行程管理 API（管理員白名單）
+//   - 列表/詳情/新增/編輯/刪除
+//   - 封面上傳 URL / 回寫 / 刪除
+//   - 相簿上傳 URL / 回寫 / 刪除（每場最多 6 張，應用層限制）
+//   - 影片只存外連 URL
+//   - 通知：notify-rsvp（已報名者）/ notify-wish-pool（許願池里民）
+//   - 通知文案後端寫死；未設 LINE token 回明確錯誤；> 500 人第一版拒絕
+// ============================================================================
+
+// 取得行程列表（含未上架，含封面 signed URL、rsvp_count）
+app.get('/api/admin/events', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id, title, description, start_at, end_at, location, cover_image_path, video_url, rsvp_count, is_published, created_at')
+      .order('start_at', { ascending: true });
+
+    if (error) {
+      console.error('admin events list failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '行程列表讀取失敗，請稍後再試。',
+      });
+    }
+
+    const decorated = await Promise.all((data || []).map(async (e) => {
+      const coverUrl = await getEventCoverSignedUrl(e.cover_image_path);
+      const { cover_image_path, ...rest } = e;
+      return { ...rest, cover_url: coverUrl };
+    }));
+
+    return res.json({
+      success: true,
+      data: decorated,
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin events list failed:');
+  }
+});
+
+// 取得單筆行程完整資料（含相簿 signed URL）
+app.get('/api/admin/events/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: eventRow, error: fetchError } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id, title, description, content, start_at, end_at, location, cover_image_path, video_url, rsvp_count, is_published, created_at')
+      .eq('id', eventId)
+      .single();
+
+    if (fetchError || !eventRow) {
+      const code = fetchError && fetchError.code;
+      if (code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          message: '找不到這筆行程。',
+        });
+      }
+      console.error('admin event detail failed:', fetchError);
+      return res.status(500).json({
+        success: false,
+        message: '行程資料讀取失敗，請稍後再試。',
+      });
+    }
+
+    const { data: albumRows, error: albumError } = await supabaseAdmin
+      .from('campaign_event_photos')
+      .select('id, storage_path, sort_order, created_at')
+      .eq('event_id', eventId)
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true });
+
+    if (albumError) {
+      console.error('admin event album fetch failed:', albumError);
+    }
+
+    const album = [];
+    for (const photo of (albumRows || [])) {
+      let signedUrl = null;
+      if (photo.storage_path) {
+        try {
+          const { data, error } = await supabaseAdmin.storage
+            .from(STORAGE_BUCKET_EVENT_COVERS)
+            .createSignedUrl(photo.storage_path, SIGNED_READ_URL_EXPIRES_IN);
+          if (!error && data) {
+            signedUrl = data.signedUrl;
+          }
+        } catch (err) {
+          console.error('admin event album signed URL error:', err.message);
+        }
+      }
+      album.push({
+        id: photo.id,
+        storage_path: photo.storage_path,
+        sort_order: photo.sort_order,
+        signed_url: signedUrl,
+        created_at: photo.created_at,
+      });
+    }
+
+    const coverUrl = await getEventCoverSignedUrl(eventRow.cover_image_path);
+    const { cover_image_path, ...rest } = eventRow;
+
+    return res.json({
+      success: true,
+      data: { ...rest, cover_url: coverUrl, album },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event detail failed:');
+  }
+});
+
+// 新增行程（預設未上架）
+app.post('/api/admin/events', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const normalized = normalizeEventPayload(req.body || {});
+    if (!normalized.success) {
+      return res.status(400).json(normalized);
+    }
+
+    const insertRow = {
+      ...normalized.data,
+      is_published: false, // 新增預設未上架
+      rsvp_count: 0,
+    };
+
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('campaign_events')
+      .insert([insertRow])
+      .select('id, title, start_at, is_published')
+      .single();
+
+    if (insertError || !inserted) {
+      console.error('admin event insert failed:', insertError);
+      return res.status(500).json({
+        success: false,
+        message: '行程新增失敗，請稍後再試。',
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: '行程已建立，預設為未上架。',
+      data: inserted,
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event insert failed:');
+  }
+});
+
+// 編輯行程（文案/時間/地點/影片/上架狀態）
+app.patch('/api/admin/events/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const updatePayload = buildEventUpdatePayload(req.body || {});
+    if (Object.keys(updatePayload).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '沒有可更新的欄位。',
+      });
+    }
+
+    // 編輯時不得經本端點改動 rsvp_count（由 trigger 維護）
+    delete updatePayload.rsvp_count;
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('campaign_events')
+      .update(updatePayload)
+      .eq('id', eventId)
+      .select('id, title, description, content, start_at, end_at, location, cover_image_path, video_url, rsvp_count, is_published, created_at')
+      .single();
+
+    if (updateError || !updated) {
+      const code = updateError && updateError.code;
+      if (code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          message: '找不到這筆行程。',
+        });
+      }
+      console.error('admin event patch failed:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: '行程更新失敗，請稍後再試。',
+      });
+    }
+
+    const coverUrl = await getEventCoverSignedUrl(updated.cover_image_path);
+    const { cover_image_path, ...rest } = updated;
+
+    return res.json({
+      success: true,
+      message: '行程已儲存。',
+      data: { ...rest, cover_url: coverUrl },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event patch failed:');
+  }
+});
+
+// 刪除行程（cascade 相簿 + RSVP）
+app.delete('/api/admin/events/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    // 先撈封面與相簿路徑，刪列後清 storage
+    const { data: eventRow } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id, cover_image_path')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    const { data: albumRows } = await supabaseAdmin
+      .from('campaign_event_photos')
+      .select('storage_path')
+      .eq('event_id', eventId);
+
+    if (!eventRow) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆行程。',
+      });
+    }
+
+    const { error: deleteError } = await supabaseAdmin
+      .from('campaign_events')
+      .delete()
+      .eq('id', eventId);
+
+    if (deleteError) {
+      console.error('admin event delete failed:', deleteError);
+      return res.status(500).json({
+        success: false,
+        message: '行程刪除失敗，請稍後再試。',
+      });
+    }
+
+    // 清 storage：封面 + 相簿（失敗只記錄，不阻擋）
+    const pathsToRemove = [];
+    if (eventRow.cover_image_path) pathsToRemove.push(eventRow.cover_image_path);
+    for (const p of (albumRows || [])) {
+      if (p.storage_path) pathsToRemove.push(p.storage_path);
+    }
+    if (pathsToRemove.length > 0) {
+      const { error: removeError } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET_EVENT_COVERS)
+        .remove(pathsToRemove);
+      if (removeError) {
+        console.error('Remove event storage files failed:', removeError);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: '行程已刪除。',
+      data: { id: eventId },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event delete failed:');
+  }
+});
+
+// 取得封面上傳 URL
+app.post('/api/admin/events/:id/cover-upload-url', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: exist } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id')
+      .eq('id', eventId)
+      .maybeSingle();
+    if (!exist) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆行程。',
+      });
+    }
+
+    const fileUuid = generateUuidSafe();
+    const storagePath = buildEventCoverStoragePath(eventId, fileUuid);
+    const { data, error } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET_EVENT_COVERS)
+      .createSignedUploadUrl(storagePath);
+
+    if (error || !data) {
+      console.error('Event cover signed upload URL failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '封面上傳金鑰產生失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: '封面上傳金鑰已核發，請在 10 分鐘內完成上傳。',
+      data: {
+        storage_path: storagePath,
+        upload_url: data.signedUrl || data.url,
+        upload_token: data.token || null,
+        expires_in_seconds: SIGNED_UPLOAD_URL_EXPIRES_IN,
+        expected_content_type: 'image/webp',
+      },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event cover upload-url failed:');
+  }
+});
+
+// 回寫封面 storage_path（上傳完成後呼叫，刪舊封面）
+app.patch('/api/admin/events/:id/cover', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const storagePath = req.body && req.body.storage_path;
+    if (!storagePath || typeof storagePath !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'storage_path 為必填。',
+      });
+    }
+
+    // 校驗路徑前綴必須是 covers/{eventId}/
+    const expectedPrefix = `covers/${eventId}/`;
+    if (!storagePath.startsWith(expectedPrefix) || !storagePath.endsWith('.webp')) {
+      return res.status(400).json({
+        success: false,
+        message: 'storage_path 格式不正確。',
+      });
+    }
+
+    const { data: current } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id, cover_image_path')
+      .eq('id', eventId)
+      .single();
+    const oldPath = current && current.cover_image_path;
+
+    const { data: updated, error } = await supabaseAdmin
+      .from('campaign_events')
+      .update({ cover_image_path: storagePath })
+      .eq('id', eventId)
+      .select('id, cover_image_path')
+      .single();
+
+    if (error || !updated) {
+      console.error('admin event cover patch failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '封面更新失敗，請稍後再試。',
+      });
+    }
+
+    if (oldPath && oldPath !== storagePath) {
+      const { error: removeError } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET_EVENT_COVERS)
+        .remove([oldPath]);
+      if (removeError) {
+        console.error('Remove old event cover failed:', removeError);
+      }
+    }
+
+    const coverUrl = await getEventCoverSignedUrl(updated.cover_image_path);
+
+    return res.json({
+      success: true,
+      message: '封面已更新。',
+      data: {
+        id: updated.id,
+        cover_image_path: updated.cover_image_path,
+        cover_url: coverUrl,
+      },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event cover patch failed:');
+  }
+});
+
+// 刪除封面
+app.delete('/api/admin/events/:id/cover', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: current } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id, cover_image_path')
+      .eq('id', eventId)
+      .single();
+    const oldPath = current && current.cover_image_path;
+
+    if (!oldPath) {
+      return res.json({
+        success: true,
+        message: '本筆行程目前沒有封面。',
+        data: { id: eventId, cover_image_path: null, cover_url: null },
+      });
+    }
+
+    const { error: removeError } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET_EVENT_COVERS)
+      .remove([oldPath]);
+    if (removeError) {
+      console.error('Remove event cover failed:', removeError);
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from('campaign_events')
+      .update({ cover_image_path: null })
+      .eq('id', eventId);
+
+    if (updateError) {
+      console.error('Clear event cover path failed:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: '封面路徑清空失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: '封面已刪除。',
+      data: { id: eventId, cover_image_path: null, cover_url: null },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event cover delete failed:');
+  }
+});
+
+// 取得相簿某張上傳 URL（先檢查 ≤ 6 張）
+app.post('/api/admin/events/:id/album-upload-url', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: exist } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id')
+      .eq('id', eventId)
+      .maybeSingle();
+    if (!exist) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆行程。',
+      });
+    }
+
+    const { count, error: countError } = await supabaseAdmin
+      .from('campaign_event_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', eventId);
+
+    if (countError) {
+      console.error('Event album count failed:', countError);
+      return res.status(500).json({
+        success: false,
+        message: '相簿數量檢查失敗，請稍後再試。',
+      });
+    }
+
+    if (Number(count) >= EVENT_ALBUM_MAX_PHOTOS) {
+      return res.status(400).json({
+        success: false,
+        message: `相簿最多 ${EVENT_ALBUM_MAX_PHOTOS} 張，請先刪除舊照再上傳。`,
+      });
+    }
+
+    const fileUuid = generateUuidSafe();
+    const storagePath = buildEventAlbumStoragePath(eventId, fileUuid);
+    const { data, error } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET_EVENT_COVERS)
+      .createSignedUploadUrl(storagePath);
+
+    if (error || !data) {
+      console.error('Event album signed upload URL failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '相簿上傳金鑰產生失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: '相簿上傳金鑰已核發，請在 10 分鐘內完成上傳。',
+      data: {
+        storage_path: storagePath,
+        upload_url: data.signedUrl || data.url,
+        upload_token: data.token || null,
+        expires_in_seconds: SIGNED_UPLOAD_URL_EXPIRES_IN,
+        expected_content_type: 'image/webp',
+      },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event album upload-url failed:');
+  }
+});
+
+// 回寫一張相簿照片
+app.post('/api/admin/events/:id/album', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const storagePath = req.body && req.body.storage_path;
+    if (!storagePath || typeof storagePath !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'storage_path 為必填。',
+      });
+    }
+
+    const expectedPrefix = `albums/${eventId}/`;
+    if (!storagePath.startsWith(expectedPrefix) || !storagePath.endsWith('.webp')) {
+      return res.status(400).json({
+        success: false,
+        message: 'storage_path 格式不正確。',
+      });
+    }
+
+    // 再次檢查 ≤ 6 張（避免上傳 URL 核發後又被新增）
+    const { count } = await supabaseAdmin
+      .from('campaign_event_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', eventId);
+
+    if (Number(count) >= EVENT_ALBUM_MAX_PHOTOS) {
+      // 刪除已上傳但無法寫入的檔案
+      await supabaseAdmin.storage
+        .from(STORAGE_BUCKET_EVENT_COVERS)
+        .remove([storagePath]);
+      return res.status(400).json({
+        success: false,
+        message: `相簿最多 ${EVENT_ALBUM_MAX_PHOTOS} 張，已超過上限。`,
+      });
+    }
+
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('campaign_event_photos')
+      .insert([
+        {
+          event_id: eventId,
+          storage_path: storagePath,
+          sort_order: Number(count),
+        },
+      ])
+      .select('id, storage_path, sort_order')
+      .single();
+
+    if (insertError || !inserted) {
+      console.error('admin event album insert failed:', insertError);
+      return res.status(500).json({
+        success: false,
+        message: '相簿照片建立失敗，請稍後再試。',
+      });
+    }
+
+    let signedUrl = null;
+    try {
+      const { data, error } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET_EVENT_COVERS)
+        .createSignedUrl(inserted.storage_path, SIGNED_READ_URL_EXPIRES_IN);
+      if (!error && data) {
+        signedUrl = data.signedUrl;
+      }
+    } catch (err) {
+      console.error('admin event album signed URL error:', err.message);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: '相簿照片已新增。',
+      data: {
+        id: inserted.id,
+        storage_path: inserted.storage_path,
+        sort_order: inserted.sort_order,
+        signed_url: signedUrl,
+      },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event album insert failed:');
+  }
+});
+
+// 刪除單張相簿照片
+app.delete('/api/admin/events/:id/album/:photoId', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    const photoId = Number.parseInt(req.params.photoId, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0 || !Number.isInteger(photoId) || photoId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: photo } = await supabaseAdmin
+      .from('campaign_event_photos')
+      .select('id, event_id, storage_path')
+      .eq('id', photoId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+
+    if (!photo) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這張相簿照片。',
+      });
+    }
+
+    const { error: deleteError } = await supabaseAdmin
+      .from('campaign_event_photos')
+      .delete()
+      .eq('id', photoId)
+      .eq('event_id', eventId);
+
+    if (deleteError) {
+      console.error('admin event album delete failed:', deleteError);
+      return res.status(500).json({
+        success: false,
+        message: '相簿照片刪除失敗，請稍後再試。',
+      });
+    }
+
+    if (photo.storage_path) {
+      const { error: removeError } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET_EVENT_COVERS)
+        .remove([photo.storage_path]);
+      if (removeError) {
+        console.error('Remove event album file failed:', removeError);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: '相簿照片已刪除。',
+      data: { id: photoId, event_id: eventId },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event album delete failed:');
+  }
+});
+
+// 通知已報名者
+app.post('/api/admin/events/:id/notify-rsvp', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    if (!lineClient) {
+      return res.status(500).json({
+        success: false,
+        message: '尚未設定 LINE Messaging API 權杖（LINE_CHANNEL_ACCESS_TOKEN），無法發送通知。',
+      });
+    }
+
+    const { data: eventRow } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id, title, start_at, location, is_published')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (!eventRow) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆行程。',
+      });
+    }
+
+    const { data: rsvpRows, error: rsvpError } = await supabaseAdmin
+      .from('event_rsvps')
+      .select('line_user_id')
+      .eq('event_id', eventId);
+
+    if (rsvpError) {
+      console.error('notify-rsvp fetch failed:', rsvpError);
+      return res.status(500).json({
+        success: false,
+        message: '報名名單讀取失敗，請稍後再試。',
+      });
+    }
+
+    const recipients = (rsvpRows || [])
+      .map((r) => r.line_user_id)
+      .filter(Boolean);
+
+    const attempted = recipients.length;
+    if (attempted === 0) {
+      return res.json({
+        success: true,
+        message: '目前沒有已報名者，無需通知。',
+        data: { attempted: 0, succeeded: 0, failed: 0 },
+      });
+    }
+
+    const messageText = buildEventRsvpNotifyText(eventRow);
+    let succeeded = 0;
+    let failed = 0;
+
+    // 逐一發送（pushMessage 支援多人，但逐一以便精確計數成功/失敗）
+    for (const userId of recipients) {
+      try {
+        await lineClient.pushMessage({
+          to: userId,
+          messages: [{ type: 'text', text: messageText }],
+        });
+        succeeded += 1;
+      } catch (err) {
+        console.error('pushMessage failed for', userId, err.message);
+        failed += 1;
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `通知已發送：嘗試 ${attempted} 人，成功 ${succeeded} 人，失敗 ${failed} 人。`,
+      data: { attempted, succeeded, failed },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event notify-rsvp failed:');
+  }
+});
+
+// 通知曾使用許願池的里民（user_feedback distinct line_user_id）
+app.post('/api/admin/events/:id/notify-wish-pool', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const eventId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '行程編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    if (!lineClient) {
+      return res.status(500).json({
+        success: false,
+        message: '尚未設定 LINE Messaging API 權杖（LINE_CHANNEL_ACCESS_TOKEN），無法發送通知。',
+      });
+    }
+
+    const { data: eventRow } = await supabaseAdmin
+      .from('campaign_events')
+      .select('id, title, start_at, location, is_published')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (!eventRow) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆行程。',
+      });
+    }
+
+    const { data: feedbackRows, error: feedbackError } = await supabaseAdmin
+      .from('user_feedback')
+      .select('line_user_id')
+      .not('line_user_id', 'is', null);
+
+    if (feedbackError) {
+      console.error('notify-wish-pool fetch failed:', feedbackError);
+      return res.status(500).json({
+        success: false,
+        message: '許願池里民名單讀取失敗，請稍後再試。',
+      });
+    }
+
+    const distinctSet = new Set();
+    for (const row of (feedbackRows || [])) {
+      if (row.line_user_id) distinctSet.add(row.line_user_id);
+    }
+    const recipients = Array.from(distinctSet);
+
+    const attempted = recipients.length;
+    if (attempted === 0) {
+      return res.json({
+        success: true,
+        message: '目前沒有曾使用許願池的里民，無需通知。',
+        data: { attempted: 0, succeeded: 0, failed: 0 },
+      });
+    }
+
+    if (attempted > EVENT_NOTIFY_RECIPIENT_HARD_LIMIT) {
+      return res.status(400).json({
+        success: false,
+        message: `通知對象共 ${attempted} 人，超過第一版上限 ${EVENT_NOTIFY_RECIPIENT_HARD_LIMIT} 人，暫不發送。`,
+      });
+    }
+
+    const messageText = buildEventNewEventNotifyText(eventRow);
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const userId of recipients) {
+      try {
+        await lineClient.pushMessage({
+          to: userId,
+          messages: [{ type: 'text', text: messageText }],
+        });
+        succeeded += 1;
+      } catch (err) {
+        console.error('pushMessage failed for', userId, err.message);
+        failed += 1;
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `通知已發送：嘗試 ${attempted} 人，成功 ${succeeded} 人，失敗 ${failed} 人。`,
+      data: { attempted, succeeded, failed },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin event notify-wish-pool failed:');
+  }
+});
+
 app.use((error, req, res, next) => {
   if (error instanceof line.SignatureValidationFailed) {
     console.error('LINE signature validation failed.');
@@ -1893,6 +3264,208 @@ async function getPlatformCoverSignedUrl(coverPath) {
     return null;
   }
   return data.signedUrl || data.url || null;
+}
+
+// ============================================================================
+// 行程 helper：路徑建構、signed URL、payload 正規化、通知文案（後端寫死）
+// ============================================================================
+
+function buildEventCoverStoragePath(eventId, fileUuid) {
+  const safeId = String(eventId).replace(/[^A-Za-z0-9_-]/g, '');
+  const safeFile = String(fileUuid).replace(/[^A-Za-z0-9_-]/g, '');
+  return `covers/${safeId}/${safeFile}.webp`;
+}
+
+function buildEventAlbumStoragePath(eventId, fileUuid) {
+  const safeId = String(eventId).replace(/[^A-Za-z0-9_-]/g, '');
+  const safeFile = String(fileUuid).replace(/[^A-Za-z0-9_-]/g, '');
+  return `albums/${safeId}/${safeFile}.webp`;
+}
+
+// 行程封面 / 相簿 signed read URL；無路徑回 null
+async function getEventCoverSignedUrl(coverPath) {
+  if (!coverPath || !supabaseAdmin) return null;
+  const { data, error } = await supabaseAdmin.storage
+    .from(STORAGE_BUCKET_EVENT_COVERS)
+    .createSignedUrl(coverPath, SIGNED_READ_URL_EXPIRES_IN);
+  if (error || !data) {
+    console.error('Event cover signed URL failed:', error);
+    return null;
+  }
+  return data.signedUrl || data.url || null;
+}
+
+// 新增行程 payload 正規化（title、start_at 為必填）
+function normalizeEventPayload(body = {}) {
+  const title = String(body.title || '').trim();
+  const description = String(body.description || '').trim();
+  const content = String(body.content || '').trim();
+  const location = String(body.location || '').trim();
+  const videoUrl = String(body.video_url || '').trim();
+  const startAt = String(body.start_at || '').trim();
+  const endAt = String(body.end_at || '').trim();
+
+  if (!title) {
+    return { success: false, message: '請填寫行程名稱。' };
+  }
+  if (!startAt || Number.isNaN(new Date(startAt).getTime())) {
+    return { success: false, message: '請填寫正確的開始時間。' };
+  }
+  if (endAt && Number.isNaN(new Date(endAt).getTime())) {
+    return { success: false, message: '結束時間格式不正確。' };
+  }
+  if (endAt && new Date(endAt) < new Date(startAt)) {
+    return { success: false, message: '結束時間不可早於開始時間。' };
+  }
+  if (title.length > 100) {
+    return { success: false, message: '行程名稱過長，請精簡至 100 字內。' };
+  }
+  if (description.length > 300) {
+    return { success: false, message: '列表摘要過長，請精簡至 300 字內。' };
+  }
+  if (content.length > 5000) {
+    return { success: false, message: '說明內容過長，請精簡至 5000 字內。' };
+  }
+  if (location.length > 200) {
+    return { success: false, message: '地點過長，請精簡至 200 字內。' };
+  }
+  if (videoUrl.length > 500) {
+    return { success: false, message: '影片網址過長。' };
+  }
+
+  const data = {
+    title,
+    start_at: new Date(startAt).toISOString(),
+  };
+  if (description) data.description = description;
+  if (content) data.content = content;
+  if (location) data.location = location;
+  if (videoUrl) data.video_url = videoUrl;
+  if (endAt) data.end_at = new Date(endAt).toISOString();
+
+  return { success: true, data };
+}
+
+// 跨輯行程 payload（選擇性欄位都允許）
+function buildEventUpdatePayload(body = {}) {
+  const payload = {};
+
+  if (Object.prototype.hasOwnProperty.call(body, 'title')) {
+    const title = String(body.title || '').trim();
+    if (!title) {
+      throw Object.assign(new Error('行程名稱不可為空。'), { status: 400 });
+    }
+    if (title.length > 100) {
+      throw Object.assign(new Error('行程名稱過長，請精簡至 100 字內。'), { status: 400 });
+    }
+    payload.title = title;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'description')) {
+    const description = String(body.description || '').trim();
+    if (description.length > 300) {
+      throw Object.assign(new Error('列表摘要過長，請精簡至 300 字內。'), { status: 400 });
+    }
+    payload.description = description || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'content')) {
+    const content = String(body.content || '').trim();
+    if (content.length > 5000) {
+      throw Object.assign(new Error('說明內容過長，請精簡至 5000 字內。'), { status: 400 });
+    }
+    payload.content = content || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'start_at')) {
+    const startAt = String(body.start_at || '').trim();
+    if (!startAt || Number.isNaN(new Date(startAt).getTime())) {
+      throw Object.assign(new Error('開始時間格式不正確。'), { status: 400 });
+    }
+    payload.start_at = new Date(startAt).toISOString();
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'end_at')) {
+    const endAt = String(body.end_at || '').trim();
+    if (endAt) {
+      if (Number.isNaN(new Date(endAt).getTime())) {
+        throw Object.assign(new Error('結束時間格式不正確。'), { status: 400 });
+      }
+      const startAt = payload.start_at || null;
+      if (startAt && new Date(endAt) < new Date(startAt)) {
+        throw Object.assign(new Error('結束時間不可早於開始時間。'), { status: 400 });
+      }
+      payload.end_at = new Date(endAt).toISOString();
+    } else {
+      payload.end_at = null;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'location')) {
+    const location = String(body.location || '').trim();
+    if (location.length > 200) {
+      throw Object.assign(new Error('地點過長，請精簡至 200 字內。'), { status: 400 });
+    }
+    payload.location = location || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'video_url')) {
+    const videoUrl = String(body.video_url || '').trim();
+    if (videoUrl.length > 500) {
+      throw Object.assign(new Error('影片網址過長。'), { status: 400 });
+    }
+    payload.video_url = videoUrl || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'is_published')) {
+    payload.is_published = Boolean(body.is_published);
+  }
+
+  return payload;
+}
+
+// 通知文案：提醒已報名者
+function buildEventRsvpNotifyText(eventRow) {
+  const title = eventRow.title || '行程';
+  const startAtStr = formatEventDateTime(eventRow.start_at);
+  const location = eventRow.location || '待公佈';
+  return [
+    `${CANDIDATE_NAME}向您問候：`,
+    `您報名的行程「${title}」即將到來！`,
+    `時間：${startAtStr}`,
+    `地點：${location}`,
+    `期待與您相見，請留意當天天候與交通。`,
+    `詳情請至 LIFF 行程頁查看：${LIFF_FORM_URL}`,
+  ].join('\n');
+}
+
+// 通知文案：發送新行程通知（對象：曾使用許願池的里民）
+function buildEventNewEventNotifyText(eventRow) {
+  const title = eventRow.title || '新行程';
+  const startAtStr = formatEventDateTime(eventRow.start_at);
+  const location = eventRow.location || '待公佈';
+  const description = eventRow.description ? `\n${eventRow.description}` : '';
+  return [
+    `${CANDIDATE_NAME}向您問候：`,
+    `有新行程公告囉！`,
+    `${title}${description}`,
+    `時間：${startAtStr}`,
+    `地點：${location}`,
+    `歡迎到 LIFF 行程頁報名參加：${LIFF_FORM_URL}`,
+  ].join('\n');
+}
+
+// 行程時間顯示格式（YYYY/MM/DD HH:mm，台北時區）
+function formatEventDateTime(isoStr) {
+  if (!isoStr) return '待公佈';
+  const d = new Date(isoStr);
+  if (Number.isNaN(d.getTime())) return '待公佈';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${y}/${m}/${day} ${hh}:${mm}`;
 }
 
 function buildExcerpt(text, maxLen = 60) {
