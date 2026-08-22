@@ -399,7 +399,7 @@
           <section
             id="platformsPanel"
             data-tab-panel="platforms"
-            class="space-y-5"
+            class="hidden space-y-5"
           >
             <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -1427,6 +1427,82 @@
           </div>
         </div>
       </nav>
+
+      <!-- 第一幀防閃：緊接底部導覽立即執行，在超長 <script> 解析完就先決定 panel / Tab 可見狀態 -->
+      <script>
+        (function () {
+          function readTabFromUrl() {
+            try {
+              var search = window.location.search || '';
+              var hash = window.location.hash || '';
+              // 1) query: ?tab=xxx
+              if (search.indexOf('tab=') >= 0) {
+                try {
+                  var q = new URLSearchParams(search);
+                  var t = q.get('tab');
+                  if (t) return t;
+                } catch (e) {}
+              }
+              // 2) hash: #tab=xxx / #?tab=xxx / #/?tab=xxx
+              if (hash.length > 1) {
+                var clean = hash.charAt(0) === '#' ? hash.slice(1) : hash;
+                try {
+                  var s = clean;
+                  if (s.charAt(0) === '/') s = s.slice(1);
+                  if (s.charAt(0) !== '?') s = '?' + s;
+                  var q2 = new URLSearchParams(s.slice(1));
+                  var t2 = q2.get('tab');
+                  if (t2) return t2;
+                } catch (e) {}
+                var m = clean.match(/(?:^|[?&])tab=([a-zA-Z0-9_-]+)/);
+                if (m) return m[1];
+              }
+            } catch (e) {}
+            return '';
+          }
+
+          // 只允許公開 4 個 tab；admin 在這個階段一律擋下（身份確認後由主 script 再處理）
+          var PUBLIC_TABS = { platforms: 1, intro: 1, wish: 1, schedule: 1 };
+          var raw = readTabFromUrl();
+          var initialTab = PUBLIC_TABS[raw] ? raw : 'platforms';
+
+          // 1) Panel：只顯示目標，其他保持 hidden（HTML 現在預設全部都是 hidden）
+          try {
+            var panels = document.querySelectorAll('[data-tab-panel]');
+            for (var i = 0; i < panels.length; i++) {
+              if (panels[i].getAttribute('data-tab-panel') === initialTab) {
+                panels[i].classList.remove('hidden');
+              } else {
+                panels[i].classList.add('hidden');
+              }
+            }
+          } catch (e) {}
+
+          // 2) 底部 4 個 Tab 選中狀態同步
+          try {
+            var btns = document.querySelectorAll('[data-tab-button]');
+            for (var j = 0; j < btns.length; j++) {
+              var isActive = btns[j].getAttribute('data-tab-button') === initialTab;
+              btns[j].className = isActive
+                ? 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full bg-violet-50/80 px-2 py-2 text-violet-950 transition'
+                : 'group relative flex min-h-[4.5rem] flex-col items-center justify-center rounded-full px-2 py-2 text-slate-400 transition';
+            }
+            var inds = document.querySelectorAll('[data-tab-indicator]');
+            for (var k = 0; k < inds.length; k++) {
+              if (inds[k].getAttribute('data-tab-indicator') === initialTab) {
+                inds[k].classList.remove('opacity-0');
+                inds[k].classList.add('opacity-100');
+              } else {
+                inds[k].classList.add('opacity-0');
+                inds[k].classList.remove('opacity-100');
+              }
+            }
+          } catch (e) {}
+
+          // 把初始 tab 暫存，讓後續主 script 知道（避免 LIFF ready 後 tab 不穩時，仍可對比是否要再切）
+          try { window.__zhengshaInitialTab = initialTab; } catch (e) {}
+        })();
+      </script>
     </div>
 
     <script>
@@ -1743,6 +1819,16 @@
           }
           syncCandidateName();
           await initializeIdentity(config);
+
+          // LIFF 導向後 query 有時在 init 後才穩定（尤其是 LINE iOS 版），
+          // 這裡再讀一次 tab；若與第一幀 inline script 決定的不一樣，才補一次切換
+          try {
+            const tabAfterInit = getInitialTab();
+            if (tabAfterInit && tabAfterInit !== state.activeTab) {
+              switchTab(tabAfterInit, { updateHistory: false, autoload: false, skipHydrate: false });
+            }
+          } catch (_) {}
+
           await checkAdminIdentity();
         } catch (error) {
           console.error('Bootstrap config failed:', error);
