@@ -2923,12 +2923,36 @@
         openPlatformModal(platformId);
       }
 
-      function openPlatformModal(platformId) {
-        const platform = state.platforms.find((item) => Number(item.id) === Number(platformId));
-        if (!platform) {
+      async function openPlatformModal(platformId) {
+        const cached = state.platforms.find((item) => Number(item.id) === Number(platformId));
+        if (!cached) {
           return;
         }
 
+        // 先用列表快取立即渲染（避免彈窗空白）
+        renderPlatformModal(cached);
+
+        // 再打單筆詳情 API 拿最新資料（列表 API 不含 content，詳情才有）
+        try {
+          const res = await fetch(`/api/platforms/${Number(platformId)}`);
+          const result = await res.json();
+          if (res.ok && result.success && result.data) {
+            const fresh = result.data;
+            // 更新快取中該筆（保留排序位置）
+            state.platforms = state.platforms.map((p) =>
+              Number(p.id) === Number(fresh.id) ? { ...p, ...fresh } : p
+            );
+            // 彈窗仍開著且仍是同一筆才重繪，避免使用者已切到別筆
+            if (state.activePlatformId === Number(fresh.id) && !elements.platformModal.classList.contains('hidden')) {
+              renderPlatformModal(fresh);
+            }
+          }
+        } catch (err) {
+          console.warn('載入政見詳情失敗，顯示列表快取資料', err);
+        }
+      }
+
+      function renderPlatformModal(platform) {
         state.activePlatformId = Number(platform.id);
         const theme = getPlatformTheme();
         const iconName = getPlatformIconName(platform);
@@ -4936,6 +4960,11 @@
           // 同步列表中該筆
           state.admin.platform.items = state.admin.platform.items.map((p) =>
             Number(p.id) === Number(edit.id) ? { ...p, ...result.data } : p
+          );
+          // 清掉里民端政見快取，下次進政見頁會重抓最新資料
+          if (state.platformsMeta) state.platformsMeta.loadedAt = null;
+          state.platforms = state.platforms.map((p) =>
+            Number(p.id) === Number(result.data.id) ? { ...p, ...result.data } : p
           );
           renderAdminPlatformEdit();
           renderAdminPlatformList();
