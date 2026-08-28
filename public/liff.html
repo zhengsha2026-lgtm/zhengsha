@@ -2929,8 +2929,8 @@
           return;
         }
 
-        // 先用列表快取立即渲染（避免彈窗空白）
-        renderPlatformModal(cached);
+        // 先用列表快取立即渲染（標題/分類/封面/支持按鈕），正文先顯示骨架
+        renderPlatformModal(cached, { contentLoading: true });
 
         // 再打單筆詳情 API 拿最新資料（列表 API 不含 content，詳情才有）
         try {
@@ -2946,13 +2946,20 @@
             if (state.activePlatformId === Number(fresh.id) && !elements.platformModal.classList.contains('hidden')) {
               renderPlatformModal(fresh);
             }
+          } else if (state.activePlatformId === Number(platformId) && !elements.platformModal.classList.contains('hidden')) {
+            // 詳情載入失敗：退回列表快取內容，避免骨架卡死
+            renderPlatformModal(cached);
           }
         } catch (err) {
           console.warn('載入政見詳情失敗，顯示列表快取資料', err);
+          if (state.activePlatformId === Number(platformId) && !elements.platformModal.classList.contains('hidden')) {
+            renderPlatformModal(cached);
+          }
         }
       }
 
-      function renderPlatformModal(platform) {
+      function renderPlatformModal(platform, options = {}) {
+        const contentLoading = options.contentLoading === true;
         state.activePlatformId = Number(platform.id);
         const theme = getPlatformTheme();
         const iconName = getPlatformIconName(platform);
@@ -2973,7 +2980,19 @@
 
         elements.modalSubtitle.textContent = platform.subtitle || '核心政見';
         elements.modalTitle.textContent = platform.title || '未命名政見';
-        elements.modalDescription.textContent = content;
+        if (contentLoading) {
+          // 詳情 API 回來前，正文只顯示載入骨架，不用舊 description 當正文
+          elements.modalDescription.innerHTML = `
+            <div class="space-y-2.5" aria-hidden="true">
+              <div class="h-4 w-full animate-pulse rounded bg-slate-200/60"></div>
+              <div class="h-4 w-full animate-pulse rounded bg-slate-200/50"></div>
+              <div class="h-4 w-5/6 animate-pulse rounded bg-slate-200/50"></div>
+              <div class="h-4 w-2/3 animate-pulse rounded bg-slate-200/40"></div>
+            </div>
+          `;
+        } else {
+          elements.modalDescription.textContent = content;
+        }
         elements.modalAgreeCount.textContent = String(Number(platform.agree_count) || 0);
         elements.modalIconWrap.className = `flex h-14 w-14 items-center justify-center rounded-2xl ring-1 ring-white/80 ${theme.modalIconWrap}`;
         elements.modalIconWrap.innerHTML = `<i data-lucide="${iconName}" class="h-7 w-7"></i>`;
