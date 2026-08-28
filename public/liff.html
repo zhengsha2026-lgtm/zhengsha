@@ -793,21 +793,42 @@
 
                       <div id="photoGrid" class="grid grid-cols-3 gap-3">
                         <button
-                          id="addPhotoButton"
+                          id="addPhotoCameraButton"
                           type="button"
                           class="group relative flex aspect-square flex-col items-center justify-center gap-1.5 overflow-hidden rounded-[1.25rem] border border-dashed border-violet-200 bg-white/70 text-violet-500 ring-1 ring-white/60 transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-white hover:text-violet-600 active:scale-[0.98]"
-                          aria-label="新增照片"
+                          aria-label="拍照新增照片"
                         >
                           <span class="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-violet-50/60 via-rose-50/20 to-white/0"></span>
                           <span class="relative flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-input ring-1 ring-violet-100">
-                            <i data-lucide="plus" class="h-4.5 w-4.5"></i>
+                            <i data-lucide="camera" class="h-4.5 w-4.5"></i>
                           </span>
-                          <span class="relative text-[11px] font-semibold">新增照片</span>
+                          <span class="relative text-[11px] font-semibold">拍照</span>
+                        </button>
+                        <button
+                          id="addPhotoAlbumButton"
+                          type="button"
+                          class="group relative flex aspect-square flex-col items-center justify-center gap-1.5 overflow-hidden rounded-[1.25rem] border border-dashed border-violet-200 bg-white/70 text-violet-500 ring-1 ring-white/60 transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-white hover:text-violet-600 active:scale-[0.98]"
+                          aria-label="從相簿選擇照片"
+                        >
+                          <span class="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-violet-50/60 via-rose-50/20 to-white/0"></span>
+                          <span class="relative flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-input ring-1 ring-violet-100">
+                            <i data-lucide="image-plus" class="h-4.5 w-4.5"></i>
+                          </span>
+                          <span class="relative text-[11px] font-semibold">從相簿選擇</span>
                         </button>
                       </div>
 
+                      <!-- 拍照入口：capture="environment" 讓 LINE WebView 開啟相機（行動裝置） -->
                       <input
-                        id="photoFileInput"
+                        id="photoCameraInput"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        class="hidden"
+                      />
+                      <!-- 相簿入口：不加 capture，讓 LINE WebView 開啟相簿選擇器 -->
+                      <input
+                        id="photoAlbumInput"
                         type="file"
                         accept="image/*"
                         multiple
@@ -1701,8 +1722,10 @@
         profileBadge: document.getElementById('profileBadge'),
         profileBadgeIcon: document.getElementById('profileBadgeIcon'),
         profileBadgeText: document.getElementById('profileBadgeText'),
-        addPhotoButton: document.getElementById('addPhotoButton'),
-        photoFileInput: document.getElementById('photoFileInput'),
+        addPhotoCameraButton: document.getElementById('addPhotoCameraButton'),
+        addPhotoAlbumButton: document.getElementById('addPhotoAlbumButton'),
+        photoCameraInput: document.getElementById('photoCameraInput'),
+        photoAlbumInput: document.getElementById('photoAlbumInput'),
         photoGrid: document.getElementById('photoGrid'),
         photoCountBadge: document.getElementById('photoCountBadge'),
         photoProgressPanel: document.getElementById('photoProgressPanel'),
@@ -2095,17 +2118,30 @@
           });
         });
 
-        elements.addPhotoButton.addEventListener('click', () => {
+        const openPhotoInput = (input, { allowMultiple }) => {
           const remainingSlots = 3 - state.photos.length;
           if (remainingSlots <= 0) {
             showToast('最多只能上傳 3 張照片哦。');
             return;
           }
-          elements.photoFileInput.value = '';
-          elements.photoFileInput.setAttribute('multiple', remainingSlots > 1 ? 'multiple' : '');
-          elements.photoFileInput.click();
-        });
-        elements.photoFileInput.addEventListener('change', handlePhotoFileChange);
+          input.value = '';
+          if (allowMultiple) {
+            input.setAttribute('multiple', remainingSlots > 1 ? 'multiple' : '');
+          } else {
+            input.removeAttribute('multiple');
+          }
+          input.click();
+        };
+        // 拍照入口：capture="environment"，單張（每次拍一張）
+        elements.addPhotoCameraButton.addEventListener('click', () =>
+          openPhotoInput(elements.photoCameraInput, { allowMultiple: false })
+        );
+        // 相簿入口：不加 capture，可多選
+        elements.addPhotoAlbumButton.addEventListener('click', () =>
+          openPhotoInput(elements.photoAlbumInput, { allowMultiple: true })
+        );
+        elements.photoCameraInput.addEventListener('change', handlePhotoFileChange);
+        elements.photoAlbumInput.addEventListener('change', handlePhotoFileChange);
         elements.photoGrid.addEventListener('click', (event) => {
           const removeBtn = event.target.closest('[data-remove-photo-index]');
           if (removeBtn) {
@@ -3422,7 +3458,8 @@
       }
 
       function renderPhotoGrid() {
-        const addButton = elements.addPhotoButton;
+        const cameraButton = elements.addPhotoCameraButton;
+        const albumButton = elements.addPhotoAlbumButton;
         if (!elements.photoGrid) return;
 
         state.photos.forEach((photo) => {
@@ -3466,9 +3503,14 @@
         });
 
         const remainingSlots = Math.max(0, 3 - state.photos.length);
-        if (addButton) {
-          addButton.classList.toggle('hidden', remainingSlots === 0);
-        }
+        // 滿 3 張時兩個入口都停用；未滿時恢復可用
+        [cameraButton, albumButton].forEach((btn) => {
+          if (!btn) return;
+          const full = remainingSlots === 0;
+          btn.disabled = full;
+          btn.classList.toggle('opacity-40', full);
+          btn.classList.toggle('pointer-events-none', full);
+        });
 
         elements.photoGrid.innerHTML = '';
         previewCards.forEach((html) => {
@@ -3476,8 +3518,11 @@
           wrap.innerHTML = html;
           elements.photoGrid.appendChild(wrap.firstElementChild);
         });
-        if (addButton) {
-          elements.photoGrid.appendChild(addButton);
+        if (cameraButton) {
+          elements.photoGrid.appendChild(cameraButton);
+        }
+        if (albumButton && remainingSlots > 0) {
+          elements.photoGrid.appendChild(albumButton);
         }
 
         elements.photoCountBadge.textContent = `${Math.min(state.photos.length, 3)} / 3`;
