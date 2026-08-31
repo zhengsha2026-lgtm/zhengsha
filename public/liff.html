@@ -764,9 +764,21 @@
                     </div>
 
                     <div>
-                      <label for="content" class="mb-2 block text-sm font-semibold text-violet-700">
-                        具體建議內容
-                      </label>
+                      <div class="mb-2 flex items-center justify-between gap-2">
+                        <label for="content" class="block text-sm font-semibold text-violet-700">
+                          具體建議內容
+                        </label>
+                        <button
+                          id="voiceInputButton"
+                          type="button"
+                          class="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-violet-600 ring-1 ring-violet-200 transition hover:bg-violet-50 active:scale-95"
+                          aria-label="語音輸入"
+                        >
+                          <i data-lucide="mic" class="h-3.5 w-3.5"></i>
+                          <span data-voice-label>語音輸入</span>
+                        </button>
+                      </div>
+                      <p id="voiceInputStatus" class="mb-2 hidden text-xs font-medium text-violet-500" aria-live="polite"></p>
                       <textarea
                         id="content"
                         name="content"
@@ -1724,6 +1736,8 @@
         profileBadgeText: document.getElementById('profileBadgeText'),
         addPhotoCameraButton: document.getElementById('addPhotoCameraButton'),
         addPhotoAlbumButton: document.getElementById('addPhotoAlbumButton'),
+        voiceInputButton: document.getElementById('voiceInputButton'),
+        voiceInputStatus: document.getElementById('voiceInputStatus'),
         photoCameraInput: document.getElementById('photoCameraInput'),
         photoAlbumInput: document.getElementById('photoAlbumInput'),
         photoGrid: document.getElementById('photoGrid'),
@@ -2007,6 +2021,139 @@
         }
       }
 
+      // ============================================
+      // 語音輸入（Web Speech API，繁體中文 zh-TW）
+      // 只作用於許願表單內容框；不支援的環境（iOS LINE WKWebView）提示改打字
+      // ============================================
+      const CONTENT_MAX_LENGTH = 2000;
+      const voiceInput = {
+        supported: Boolean(window.SpeechRecognition || window.webkitSpeechRecognition),
+        recognition: null,
+        listening: false,
+        baseText: '', // 開始錄音時內容框快照，辨識文字接在其後
+      };
+
+      function setVoiceInputUi(listening) {
+        const button = elements.voiceInputButton;
+        if (!button) return;
+        const label = button.querySelector('[data-voice-label]');
+        button.classList.toggle('animate-pulse', listening);
+        button.classList.toggle('bg-rose-50', listening);
+        button.classList.toggle('text-rose-600', listening);
+        button.classList.toggle('ring-rose-300', listening);
+        button.classList.toggle('bg-white', !listening);
+        button.classList.toggle('text-violet-600', !listening);
+        button.classList.toggle('ring-violet-200', !listening);
+        if (label) label.textContent = listening ? '停止錄音' : '語音輸入';
+        button.setAttribute('aria-pressed', listening ? 'true' : 'false');
+      }
+
+      function setVoiceStatus(text) {
+        const status = elements.voiceInputStatus;
+        if (!status) return;
+        if (text) {
+          status.textContent = text;
+          status.classList.remove('hidden');
+        } else {
+          status.textContent = '';
+          status.classList.add('hidden');
+        }
+      }
+
+      // 中文直接串接；英數字結尾接英數字開頭時補空格
+      function appendVoiceText(base, addition) {
+        const text = String(addition || '').trim();
+        if (!text) return base;
+        if (!base) return text;
+        const needsSpace = /[A-Za-z0-9]$/.test(base) && /^[A-Za-z0-9]/.test(text);
+        return needsSpace ? `${base} ${text}` : `${base}${text}`;
+      }
+
+      function stopVoiceInput({ silent = false } = {}) {
+        if (voiceInput.recognition) {
+          try {
+            voiceInput.recognition.stop();
+          } catch (err) {
+            // 忽略重複 stop 錯誤
+          }
+        }
+        voiceInput.listening = false;
+        setVoiceInputUi(false);
+        if (!silent) setVoiceStatus('');
+      }
+
+      function startVoiceInput() {
+        if (!voiceInput.supported) {
+          showToast('此環境不支援語音輸入（如 iOS LINE 內建瀏覽器），請改用打字輸入。');
+          return;
+        }
+        if (voiceInput.listening) return;
+
+        const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognitionCtor();
+        recognition.lang = 'zh-TW';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        voiceInput.recognition = recognition;
+        voiceInput.baseText = elements.content ? elements.content.value : '';
+
+        recognition.onresult = (event) => {
+          let finalText = '';
+          let interimText = '';
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const alternative = event.results[i][0];
+            if (event.results[i].isFinal) {
+              finalText += alternative.transcript;
+            } else {
+              interimText += alternative.transcript;
+            }
+          }
+          if (finalText) {
+            voiceInput.baseText = appendVoiceText(voiceInput.baseText, finalText);
+          }
+          if (elements.content) {
+            elements.content.value = appendVoiceText(voiceInput.baseText, interimText).slice(0, CONTENT_MAX_LENGTH);
+          }
+        };
+
+        recognition.onerror = (event) => {
+          const errorMessages = {
+            'not-allowed': '麥克風權限被拒絕。請到手機設定與 LINE 權限開啟麥克風，或改用打字輸入。',
+            'service-not-allowed': '語音服務被瀏覽器停用，請改用打字輸入。',
+            'no-speech': '沒有偵測到說話內容，請再點一次「語音輸入」或改用打字。',
+            'audio-capture': '找不到麥克風裝置，請改用打字輸入。',
+            'network': '語音服務連線失敗，請檢查網路或改用打字輸入。',
+          };
+          const message = errorMessages[event.error];
+          if (message) {
+            showToast(message);
+            setVoiceStatus(message);
+          }
+        };
+
+        recognition.onend = () => {
+          if (voiceInput.listening) {
+            voiceInput.listening = false;
+            setVoiceInputUi(false);
+            // 保留最後狀態文字（若有錯誤）；正常結束就清掉
+            if (elements.voiceInputStatus && !elements.voiceInputStatus.textContent) {
+              setVoiceStatus('');
+            }
+          }
+        };
+
+        try {
+          recognition.start();
+          voiceInput.listening = true;
+          setVoiceInputUi(true);
+          setVoiceStatus('聆聽中…請對手機說話，說完再點一次「停止錄音」');
+        } catch (err) {
+          voiceInput.listening = false;
+          setVoiceInputUi(false);
+          showToast('無法啟動語音輸入，請改用打字輸入。');
+        }
+      }
+
       function bindEvents() {
         elements.tabButtons.forEach((button) => {
           button.addEventListener('click', () => {
@@ -2142,6 +2289,18 @@
         );
         elements.photoCameraInput.addEventListener('change', handlePhotoFileChange);
         elements.photoAlbumInput.addEventListener('change', handlePhotoFileChange);
+
+        // 語音輸入：點一下開始、再點停止
+        if (elements.voiceInputButton) {
+          elements.voiceInputButton.addEventListener('click', () => {
+            if (voiceInput.listening) {
+              stopVoiceInput();
+            } else {
+              startVoiceInput();
+            }
+          });
+        }
+
         elements.photoGrid.addEventListener('click', (event) => {
           const removeBtn = event.target.closest('[data-remove-photo-index]');
           if (removeBtn) {
@@ -2183,7 +2342,11 @@
           }
         });
 
-        elements.feedbackForm.addEventListener('submit', handleSubmit);
+        elements.feedbackForm.addEventListener('submit', (event) => {
+          // 送出時若仍在錄音，自動停止（不影響送出流程）
+          if (voiceInput.listening) stopVoiceInput({ silent: true });
+          handleSubmit(event);
+        });
 
         // ===== 管理面板事件 =====
         if (elements.adminEntryButton) {
