@@ -764,21 +764,9 @@
                     </div>
 
                     <div>
-                      <div class="mb-2 flex items-center justify-between gap-2">
-                        <label for="content" class="block text-sm font-semibold text-violet-700">
-                          具體建議內容
-                        </label>
-                        <button
-                          id="voiceInputButton"
-                          type="button"
-                          class="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-violet-600 ring-1 ring-violet-200 transition hover:bg-violet-50 active:scale-95"
-                          aria-label="語音輸入"
-                        >
-                          <i data-lucide="mic" class="h-3.5 w-3.5"></i>
-                          <span data-voice-label>語音輸入</span>
-                        </button>
-                      </div>
-                      <p id="voiceInputStatus" class="mb-2 hidden text-xs font-medium text-violet-500" aria-live="polite"></p>
+                      <label for="content" class="mb-2 block text-sm font-semibold text-violet-700">
+                        具體建議內容
+                      </label>
                       <textarea
                         id="content"
                         name="content"
@@ -1736,8 +1724,6 @@
         profileBadgeText: document.getElementById('profileBadgeText'),
         addPhotoCameraButton: document.getElementById('addPhotoCameraButton'),
         addPhotoAlbumButton: document.getElementById('addPhotoAlbumButton'),
-        voiceInputButton: document.getElementById('voiceInputButton'),
-        voiceInputStatus: document.getElementById('voiceInputStatus'),
         photoCameraInput: document.getElementById('photoCameraInput'),
         photoAlbumInput: document.getElementById('photoAlbumInput'),
         photoGrid: document.getElementById('photoGrid'),
@@ -2021,221 +2007,6 @@
         }
       }
 
-      // ============================================
-      // 語音輸入（Web Speech API，繁體中文 zh-TW）
-      // 只作用於許願表單內容框；不支援的環境（iOS LINE WKWebView）提示改打字
-      // ============================================
-      const CONTENT_MAX_LENGTH = 2000;
-      const voiceInput = {
-        supported: Boolean(window.SpeechRecognition || window.webkitSpeechRecognition),
-        recognition: null, // 長駐同一實例：之後的 start()/stop() 重用它，降低再次跳權限窗的機率
-        listening: false, // 辨識實際在跑
-        desiredListening: false, // 使用者意圖：按了開始、還沒按停止（onend 自動接續依據）
-        restartTimer: null,
-        baseText: '', // 已確定的文字（使用者原文 + 已提交的語音 final），interim 不會混進來
-        previewText: '', // 辨識中的暫定文字（只拿來預覽，final 到了直接取代）
-        consumedFinalCount: 0, // 已提交成 final 的 results 數量（cursor，避免同一段話重複提交）
-        lastCommittedSegment: '', // 上一段已提交的 final，用來過濾引擎對短句的重複輸出
-        permissionDenied: false, // 系統彈窗被拒過（本頁面），之後不再嘗試，直接提示改打字
-        failureCount: 0, // 連續非致命錯誤次數（網路等），超過就停止並提示改打字
-      };
-
-      function setVoiceInputUi(listening) {
-        const button = elements.voiceInputButton;
-        if (!button) return;
-        const label = button.querySelector('[data-voice-label]');
-        button.classList.toggle('animate-pulse', listening);
-        button.classList.toggle('bg-rose-50', listening);
-        button.classList.toggle('text-rose-600', listening);
-        button.classList.toggle('ring-rose-300', listening);
-        button.classList.toggle('bg-white', !listening);
-        button.classList.toggle('text-violet-600', !listening);
-        button.classList.toggle('ring-violet-200', !listening);
-        if (label) label.textContent = listening ? '停止錄音' : '語音輸入';
-        button.setAttribute('aria-pressed', listening ? 'true' : 'false');
-      }
-
-      function setVoiceStatus(text) {
-        const status = elements.voiceInputStatus;
-        if (!status) return;
-        if (text) {
-          status.textContent = text;
-          status.classList.remove('hidden');
-        } else {
-          status.textContent = '';
-          status.classList.add('hidden');
-        }
-      }
-
-      // 語音結果接在既有文字後面，用空格隔開（中英皆同，讓使用者看得出是語音補上的段落）
-      function joinVoiceText(base, addition) {
-        const text = String(addition || '').trim();
-        if (!text) return base;
-        if (!base) return text;
-        return `${base} ${text}`;
-      }
-
-      // 依 baseText（已確定）+ previewText（暫定預覽）重寫內容框；只有 final 會進 baseText
-      function writeVoiceOutput() {
-        if (!elements.content) return;
-        let value = voiceInput.baseText;
-        if (voiceInput.previewText) {
-          value = joinVoiceText(value, voiceInput.previewText);
-        }
-        elements.content.value = value.slice(0, CONTENT_MAX_LENGTH);
-      }
-
-      // 麥克風權限策略：完全不用 getUserMedia 預問（那會多跳一次彈窗，且 LINE WebView 對
-      // 「僅允許本次」不記憶）。唯一會觸發權限詢問的是 SpeechRecognition.start()，
-      // 同一趟頁面只會在第一次按下時問一次；之後重按與自動接續都重用同一實例 start()，
-      // 已授權的 WebView session 內不會再跳窗。（關掉 LIFF 再開會再問是系統行為，網頁端無法控制。）
-      function stopVoiceInput() {
-        voiceInput.desiredListening = false;
-        if (voiceInput.restartTimer) {
-          clearTimeout(voiceInput.restartTimer);
-          voiceInput.restartTimer = null;
-        }
-        if (voiceInput.recognition) {
-          try {
-            voiceInput.recognition.stop();
-          } catch (err) {
-            // 忽略重複 stop 錯誤
-          }
-        }
-        voiceInput.listening = false;
-        setVoiceInputUi(false);
-        setVoiceStatus(''); // 停止／自動結束／錯誤後立刻清掉「聆聽中…」，讓文案與按鈕一致
-      }
-
-      function startVoiceInput() {
-        if (!voiceInput.supported) {
-          showToast('此環境不支援語音輸入（如 iOS LINE 內建瀏覽器），請改用打字輸入。');
-          return;
-        }
-        if (voiceInput.listening || voiceInput.desiredListening) return;
-        if (voiceInput.permissionDenied) {
-          showToast('麥克風權限被拒絕，請到手機設定與 LINE 權限開啟麥克風，或改用打字輸入。');
-          return;
-        }
-
-        voiceInput.desiredListening = true;
-        voiceInput.baseText = elements.content ? elements.content.value : '';
-        voiceInput.previewText = '';
-        voiceInput.consumedFinalCount = 0;
-        voiceInput.lastCommittedSegment = '';
-        voiceInput.failureCount = 0;
-        beginRecognition();
-      }
-
-      // 內部啟動（使用者第一次按、onend 自動接續共用）：重用同一實例，已授權 session 內不再跳權限窗
-      function beginRecognition() {
-        if (!voiceInput.desiredListening) return;
-        const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!voiceInput.recognition) {
-          const recognition = new SpeechRecognitionCtor();
-          recognition.lang = 'zh-TW';
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          voiceInput.recognition = recognition;
-
-          recognition.onresult = (event) => {
-            const results = event.results;
-            voiceInput.failureCount = 0; // 有結果就重置連續失敗計數
-
-            // 1) 只提交「新變成 final」的結果：cursor 走過就不再回頭加，
-            //    interim 轉 final 也只會提交一次，不會同一段話 interim + final 各加一次。
-            while (
-              voiceInput.consumedFinalCount < results.length &&
-              results[voiceInput.consumedFinalCount].isFinal
-            ) {
-              const transcript = String(results[voiceInput.consumedFinalCount][0].transcript || '').trim();
-              // 過濾引擎對短句的重複輸出（例如「沒問題」連續兩個相同的 final）
-              if (transcript && transcript !== voiceInput.lastCommittedSegment) {
-                voiceInput.baseText = joinVoiceText(voiceInput.baseText, transcript);
-                voiceInput.lastCommittedSegment = transcript;
-              }
-              voiceInput.consumedFinalCount += 1;
-            }
-
-            // 2) 暫定文字只當預覽：每次整體重寫（baseText + preview），
-            //    不累加，final 到了自動被取代，不會重複。
-            let preview = '';
-            for (let i = voiceInput.consumedFinalCount; i < results.length; i += 1) {
-              if (!results[i].isFinal) {
-                preview = String(results[i][0].transcript || '').trim();
-                break;
-              }
-            }
-            voiceInput.previewText = preview;
-            writeVoiceOutput();
-          };
-
-          recognition.onerror = (event) => {
-            const error = event.error;
-            // 致命錯誤：權限被拒／服務被停／沒有麥克風 → 真正結束並提示改打字
-            if (error === 'not-allowed' || error === 'service-not-allowed' || error === 'audio-capture') {
-              const errorMessages = {
-                'not-allowed': '麥克風權限被拒絕。請到手機設定與 LINE 權限開啟麥克風，或改用打字輸入。',
-                'service-not-allowed': '語音服務被瀏覽器停用，請改用打字輸入。',
-                'audio-capture': '找不到麥克風裝置，請改用打字輸入。',
-              };
-              if (error === 'not-allowed' || error === 'service-not-allowed') {
-                voiceInput.permissionDenied = true;
-              }
-              stopVoiceInput();
-              showToast(errorMessages[error]);
-              return;
-            }
-            // 非致命（no-speech / network / aborted）：不動按鈕，交給 onend 自動接續。
-            // 連續失敗太多次（網路斷等）才真正停止，避免無限重試。
-            if (error !== 'aborted') {
-              voiceInput.failureCount += 1;
-              if (voiceInput.failureCount >= 3) {
-                stopVoiceInput();
-                showToast('語音服務暫時無法連線，請改用打字輸入。');
-              }
-            }
-          };
-
-          recognition.onend = () => {
-            voiceInput.listening = false;
-            if (voiceInput.desiredListening) {
-              // 使用者還沒按停止 → 300ms 後自動接續聆聽（重用同一實例，不會再跳權限窗）。
-              // 按鈕維持「停止錄音」、文案維持聆聽中，使用者無感。
-              setVoiceInputUi(true);
-              if (!voiceInput.restartTimer) {
-                voiceInput.restartTimer = setTimeout(() => {
-                  voiceInput.restartTimer = null;
-                  if (voiceInput.desiredListening) {
-                    beginRecognition();
-                  }
-                }, 300);
-              }
-            } else {
-              // 真正結束（使用者按停止／錯誤）：按鈕與文案同步復原
-              setVoiceInputUi(false);
-              setVoiceStatus('');
-            }
-          };
-        }
-
-        try {
-          voiceInput.recognition.start();
-          voiceInput.listening = true;
-          setVoiceInputUi(true);
-          setVoiceStatus('聆聽中…請對手機說話，停頓換句沒關係，結束再點「停止錄音」');
-        } catch (err) {
-          // start() 對已在跑的實例可能丟錯（InvalidStateError）：視為仍在聆聽即可
-          if (voiceInput.desiredListening) {
-            voiceInput.listening = true;
-            setVoiceInputUi(true);
-          } else {
-            setVoiceInputUi(false);
-            setVoiceStatus('');
-            showToast('無法啟動語音輸入，請改用打字輸入。');
-          }
-        }
-      }
 
       function bindEvents() {
         elements.tabButtons.forEach((button) => {
@@ -2373,17 +2144,6 @@
         elements.photoCameraInput.addEventListener('change', handlePhotoFileChange);
         elements.photoAlbumInput.addEventListener('change', handlePhotoFileChange);
 
-        // 語音輸入：點一下開始、再點停止
-        if (elements.voiceInputButton) {
-          elements.voiceInputButton.addEventListener('click', () => {
-            if (voiceInput.listening || voiceInput.desiredListening) {
-              stopVoiceInput();
-            } else {
-              startVoiceInput();
-            }
-          });
-        }
-
         elements.photoGrid.addEventListener('click', (event) => {
           const removeBtn = event.target.closest('[data-remove-photo-index]');
           if (removeBtn) {
@@ -2426,8 +2186,6 @@
         });
 
         elements.feedbackForm.addEventListener('submit', (event) => {
-          // 送出時若仍在錄音，自動停止（不影響送出流程）
-          if (voiceInput.listening || voiceInput.desiredListening) stopVoiceInput();
           handleSubmit(event);
         });
 
