@@ -2030,7 +2030,11 @@
         supported: Boolean(window.SpeechRecognition || window.webkitSpeechRecognition),
         recognition: null,
         listening: false,
-        baseText: '', // 開始錄音時內容框快照，辨識文字接在其後
+        baseText: '', // 已確定的文字（使用者原文 + 已提交的語音 final），interim 不會混進來
+        previewText: '', // 辨識中的暫定文字（只拿來預覽，final 到了直接取代）
+        consumedFinalCount: 0, // 已提交成 final 的 results 數量（cursor，避免同一段話重複提交）
+        lastCommittedSegment: '', // 上一段已提交的 final，用來過濾引擎對短句的重複輸出
+        permissionGranted: false, // 同一頁面只需授權一次；關掉 LIFF 重開會再問是系統（WebView）行為，網頁端無法控制
       };
 
       function setVoiceInputUi(listening) {
@@ -2060,13 +2064,52 @@
         }
       }
 
-      // 中文直接串接；英數字結尾接英數字開頭時補空格
-      function appendVoiceText(base, addition) {
+      // 語音結果接在既有文字後面，用空格隔開（中英皆同，讓使用者看得出是語音補上的段落）
+      function joinVoiceText(base, addition) {
         const text = String(addition || '').trim();
         if (!text) return base;
         if (!base) return text;
-        const needsSpace = /[A-Za-z0-9]$/.test(base) && /^[A-Za-z0-9]/.test(text);
-        return needsSpace ? `${base} ${text}` : `${base}${text}`;
+        return `${base} ${text}`;
+      }
+
+      // 依 baseText（已確定）+ previewText（暫定預覽）重寫內容框；只有 final 會進 baseText
+      function writeVoiceOutput() {
+        if (!elements.content) return;
+        let value = voiceInput.baseText;
+        if (voiceInput.previewText) {
+          value = joinVoiceText(value, voiceInput.previewText);
+        }
+        elements.content.value = value.slice(0, CONTENT_MAX_LENGTH);
+      }
+
+      // 麥克風權限：同一頁面只處理一次。
+      // 第一次：Permissions API 先查狀態；還是 prompt 時用 getUserMedia 問一次並立即釋放軌道，
+      // 之後再按「語音輸入」直接重用授權結果，不再呼叫 getUserMedia、不再觸發詢問。
+      // （關掉 LIFF 再開會再問一次，是 LINE WebView 的系統行為，網頁端無法避免。）
+      async function ensureMicPermission() {
+        if (voiceInput.permissionGranted) return true;
+        try {
+          if (navigator.permissions && navigator.permissions.query) {
+            const status = await navigator.permissions.query({ name: 'microphone' });
+            if (status.state === 'granted') {
+              voiceInput.permissionGranted = true;
+              return true;
+            }
+            if (status.state === 'denied') {
+              return false;
+            }
+          }
+        } catch (err) {
+          // Permissions API 不支援（部分 WebView），往下走 getUserMedia
+        }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((track) => track.stop());
+          voiceInput.permissionGranted = true;
+          return true;
+        } catch (err) {
+          return false;
+        }
       }
 
       function stopVoiceInput({ silent = false } = {}) {
@@ -2082,12 +2125,21 @@
         if (!silent) setVoiceStatus('');
       }
 
-      function startVoiceInput() {
+      async function startVoiceInput() {
         if (!voiceInput.supported) {
           showToast('此環境不支援語音輸入（如 iOS LINE 內建瀏覽器），請改用打字輸入。');
           return;
         }
         if (voiceInput.listening) return;
+
+        // 先確保麥克風權限（同一頁面只會詢問一次，之後直接重用授權結果）
+        setVoiceStatus('正在確認麥克風權限…');
+        const permitted = await ensureMicPermission();
+        if (!permitted) {
+          setVoiceStatus('');
+          showToast('麥克風權限被拒絕或無法取得，請改用打字輸入。');
+          return;
+        }
 
         const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognitionCtor();
@@ -2096,24 +2148,39 @@
         recognition.interimResults = true;
         voiceInput.recognition = recognition;
         voiceInput.baseText = elements.content ? elements.content.value : '';
+        voiceInput.previewText = '';
+        voiceInput.consumedFinalCount = 0;
+        voiceInput.lastCommittedSegment = '';
 
         recognition.onresult = (event) => {
-          let finalText = '';
-          let interimText = '';
-          for (let i = event.resultIndex; i < event.results.length; i += 1) {
-            const alternative = event.results[i][0];
-            if (event.results[i].isFinal) {
-              finalText += alternative.transcript;
-            } else {
-              interimText += alternative.transcript;
+          const results = event.results;
+
+          // 1) 只提交「新變成 final」的結果：cursor 走過就不再回頭加，
+          //    interim 轉 final 也只會提交一次，不會同一段話 interim + final 各加一次。
+          while (
+            voiceInput.consumedFinalCount < results.length &&
+            results[voiceInput.consumedFinalCount].isFinal
+          ) {
+            const transcript = String(results[voiceInput.consumedFinalCount][0].transcript || '').trim();
+            // 過濾引擎對短句的重複輸出（例如「沒問題」連續兩個相同的 final）
+            if (transcript && transcript !== voiceInput.lastCommittedSegment) {
+              voiceInput.baseText = joinVoiceText(voiceInput.baseText, transcript);
+              voiceInput.lastCommittedSegment = transcript;
+            }
+            voiceInput.consumedFinalCount += 1;
+          }
+
+          // 2) 暫定文字只當預覽：每次整體重寫（baseText + preview），
+          //    不累加，final 到了自動被取代，不會重複。
+          let preview = '';
+          for (let i = voiceInput.consumedFinalCount; i < results.length; i += 1) {
+            if (!results[i].isFinal) {
+              preview = String(results[i][0].transcript || '').trim();
+              break;
             }
           }
-          if (finalText) {
-            voiceInput.baseText = appendVoiceText(voiceInput.baseText, finalText);
-          }
-          if (elements.content) {
-            elements.content.value = appendVoiceText(voiceInput.baseText, interimText).slice(0, CONTENT_MAX_LENGTH);
-          }
+          voiceInput.previewText = preview;
+          writeVoiceOutput();
         };
 
         recognition.onerror = (event) => {
