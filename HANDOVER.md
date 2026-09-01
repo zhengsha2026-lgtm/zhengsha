@@ -192,6 +192,7 @@
 | GET | `/api/admin/feedback` | 全部許願列表，支援 `status` / `q` / `limit` / `offset`，並回傳各狀態計數 |
 | GET | `/api/admin/feedback/:id` | 單筆許願詳情（含照片 signed read URL、`status_logs` 含 `changed_by`、`reply_summary`） |
 | PATCH | `/api/admin/feedback/:id` | 變更狀態與/或回覆，body `{ status, reply_summary }`，自動寫入一筆狀態歷程（`changed_by` = 管理員 LINE user id） |
+| DELETE | `/api/admin/feedback/:id` | 刪除單筆許願（requireAdmin；刪前確認存在；CASCADE 刪 photos/status_logs 並移除 Storage `wish-photos` 檔案） |
 | GET | `/api/admin/platforms` | 全部政見列表（含未上架），含封面 signed read URL |
 | GET | `/api/admin/platforms/:id` | 單筆政見完整資料 |
 | PATCH | `/api/admin/platforms/:id` | 更新標題/分類/摘要/內文/排序/主打/上架；設新主打時自動取消其他主打 |
@@ -278,6 +279,7 @@
   - 管理入口：header 右上角盾牌圖示（僅管理員可見），底部永遠 4 個 Tab
   - 管理首頁：模組列表（許願管理可用、政見管理可用、行程管理可用）
   - 許願管理子頁：列表（含狀態 chips 計數、搜尋、分頁）+ 詳情（照片 signed URL、處理歷程時間軸、狀態變更/回覆填寫、自動寫入 `changed_by`）
+  - **刪除案件**：詳情頁危險區「刪除此許願」，確認視窗顯示編號／申請人／內容摘要（前 40 字）；`DELETE /api/admin/feedback/:id`（requireAdmin）會刪 `user_feedback` 主表（`user_feedback_photos`、`user_feedback_status_logs` 依 CASCADE 一併刪）並清除 Storage `wish-photos` 對應檔案；成功後回管理列表並重抓；失敗 toast 顯示原因。里民端無刪除入口
 - **核心政見改版**
   - 里民端：單欄主打卡（`is_featured`，16:9 封面 + 摘要 + 支持數）+ 其餘左圖右文卡；沒圖用 `theme_color` + `icon` fallback；詳情 modal 頂部加封面圖
   - 管理端：政見管理列表（封面縮圖、排序上移/下移、設為主打）+ 編輯頁（封面上傳/更換/刪除、文案、主打、上架）

@@ -6560,6 +6560,19 @@
           </div>
 
           ${timelineHtml}
+
+          <div class="rounded-[1.75rem] border border-rose-200 bg-rose-50/50 p-5">
+            <p class="text-xs font-semibold text-rose-700">危險區</p>
+            <p class="mt-1 text-[11px] leading-5 text-slate-500">刪除此許願將一併移除照片與處理紀錄，無法復原。</p>
+            <button
+              type="button"
+              id="adminDeleteFeedbackButton"
+              class="mt-3 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-100 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+              <span>刪除此許願</span>
+            </button>
+          </div>
         `;
 
         const copyBtn = container.querySelector('[data-admin-copy-phone]');
@@ -6581,7 +6594,94 @@
           saveBtn.addEventListener('click', () => handleAdminSave(id));
         }
 
+        const deleteBtn = container.querySelector('#adminDeleteFeedbackButton');
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', () => handleAdminDeleteFeedback(id, {
+            userName: data.user_name || '匿名',
+            contentPreview: (data.content || '').slice(0, 40),
+            photoCount: photos.length,
+          }));
+        }
+
         renderIcons();
+      }
+
+      async function handleAdminDeleteFeedback(feedbackId, summary = {}) {
+        if (state.admin.detail.deleting) return;
+        const name = summary.userName || '匿名';
+        const preview = summary.contentPreview || '';
+        const previewText = preview.length >= 40 ? `${preview}…` : preview;
+        const photoNote = summary.photoCount > 0 ? `，含 ${summary.photoCount} 張照片` : '';
+
+        const confirmed = window.confirm(
+          `確定要刪除這筆許願嗎？\n\n` +
+          `編號：#${feedbackId}\n` +
+          `申請人：${name}\n` +
+          `內容摘要：${previewText || '（無內容）'}\n` +
+          `刪除後照片與處理紀錄將一併移除${photoNote}，無法復原。`
+        );
+        if (!confirmed) return;
+
+        const deleteBtn = elements.adminDetailContainer && elements.adminDetailContainer.querySelector('#adminDeleteFeedbackButton');
+        state.admin.detail.deleting = true;
+        if (deleteBtn) {
+          deleteBtn.disabled = true;
+          deleteBtn.innerHTML = '<i data-lucide="loader-2" class="h-3.5 w-3.5 animate-spin"></i><span>刪除中...</span>';
+          renderIcons();
+        }
+
+        let tokenBundle = { kind: 'fallback' };
+        try {
+          tokenBundle = await getIdentityToken();
+        } catch (err) {
+          console.warn('getIdentityToken failed on admin feedback delete', err);
+        }
+
+        if (tokenBundle.kind !== 'liff') {
+          state.admin.detail.deleting = false;
+          if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>刪除此許願</span>';
+            renderIcons();
+          }
+          showToast('身分驗證資訊取得失敗，請重新從 LINE 開啟 LIFF。');
+          return;
+        }
+
+        try {
+          const res = await fetch(`/api/admin/feedback/${encodeURIComponent(feedbackId)}`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const json = await res.json().catch(() => null);
+
+          if (res.status === 401 || res.status === 403) {
+            throw new Error('您沒有管理員權限，請重新從 LINE 開啟 LIFF。');
+          }
+          if (res.status === 404) {
+            throw new Error('找不到這筆許願紀錄，可能已被刪除。');
+          }
+          if (!res.ok || !json || json.success === false) {
+            throw new Error((json && json.message) || `刪除失敗（HTTP ${res.status}）`);
+          }
+
+          showToast(json.message || '許願已刪除。');
+          // 回到管理列表並重抓（列表計數需更新）
+          state.admin.detail.data = null;
+          state.admin.list.refreshedAt = null;
+          switchAdminView('list');
+          loadAdminList({ force: true });
+        } catch (err) {
+          console.error('handleAdminDeleteFeedback failed:', err);
+          const msg = err && err.message ? err.message : '刪除失敗，請稍後再試。';
+          showToast(msg);
+          state.admin.detail.deleting = false;
+          if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>刪除此許願</span>';
+            renderIcons();
+          }
+        }
       }
 
       async function handleAdminSave(feedbackId) {

@@ -1522,6 +1522,115 @@ app.patch('/api/admin/feedback/:id', async (req, res) => {
 // 政見管理 API（管理員白名單）
 // ============================================
 
+app.delete('/api/admin/feedback/:id', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/feedback delete auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({
+      success: false,
+      message: 'Supabase Service Role 尚未完成設定。',
+    });
+  }
+
+  const feedbackId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: '許願編號不正確。',
+    });
+  }
+
+  try {
+    // 刪前確認該筆存在，並取出照片 storage_path（刪 Storage 用）
+    const { data: target, error: fetchError } = await supabaseAdmin
+      .from('user_feedback')
+      .select('id, user_name, content')
+      .eq('id', feedbackId)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('admin feedback delete fetch failed:', fetchError);
+      return res.status(500).json({
+        success: false,
+        message: '案件讀取失敗，請稍後再試。',
+      });
+    }
+    if (!target) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆許願紀錄，可能已被刪除。',
+      });
+    }
+
+    // 取出照片路徑（DB cascade 會刪 photos/status_logs，Storage 要手動刪）
+    const { data: photos, error: photosError } = await supabaseAdmin
+      .from('user_feedback_photos')
+      .select('storage_path')
+      .eq('feedback_id', feedbackId);
+
+    if (photosError) {
+      console.error('admin feedback delete photos fetch failed:', photosError);
+      return res.status(500).json({
+        success: false,
+        message: '案件照片讀取失敗，請稍後再試。',
+      });
+    }
+
+    const photoPaths = (photos || [])
+      .map((p) => p.storage_path)
+      .filter((p) => typeof p === 'string' && p.length > 0);
+
+    // 刪主表（photos、status_logs 依 ON DELETE CASCADE 一併刪除）
+    const { error: deleteError } = await supabaseAdmin
+      .from('user_feedback')
+      .delete()
+      .eq('id', feedbackId);
+
+    if (deleteError) {
+      console.error('admin feedback delete failed:', deleteError);
+      return res.status(500).json({
+        success: false,
+        message: '許願刪除失敗，請稍後再試。',
+      });
+    }
+
+    // 刪 Storage 照片（主表已刪，Storage 失敗不擋回應，只記 log）
+    if (photoPaths.length > 0) {
+      const { error: removeError } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET_WISH_PHOTOS)
+        .remove(photoPaths);
+      if (removeError) {
+        console.error('Remove wish photos on feedback delete failed:', removeError);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: '許願已刪除，照片與處理紀錄已一併移除。',
+      data: {
+        id: feedbackId,
+        photo_count: photoPaths.length,
+        deleted_by: identity.lineUserId,
+      },
+    });
+  } catch (error) {
+    console.error('admin feedback delete failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: '伺服器忙碌中，請稍後再試。',
+    });
+  }
+});
+
+// ============================================
+// 政見管理 API（管理員白名單）
+// ============================================
+
 // 取得政見列表（含未上架、含封面 signed URL）
 app.get('/api/admin/platforms', async (req, res) => {
   try {
