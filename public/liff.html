@@ -881,6 +881,41 @@
                       </button>
                     </div>
 
+                    <div
+                      id="wishListFilterControl"
+                      class="relative mb-4 flex h-10 w-full select-none items-center rounded-full border border-violet-100/60 bg-violet-50/50 p-1"
+                      aria-label="許願進度篩選"
+                    >
+                      <span
+                        id="wishListFilterSlider"
+                        class="pointer-events-none absolute top-1 left-1 h-8 w-[calc((100%-0.5rem)/3)] rounded-full bg-white shadow-[0_4px_16px_-6px_rgba(139,92,246,0.35)] ring-1 ring-violet-100 transition-transform duration-300 ease-out"
+                      ></span>
+                      <button
+                        type="button"
+                        data-wish-filter="all"
+                        aria-pressed="true"
+                        class="relative z-10 flex h-8 flex-1 items-center justify-center rounded-full text-xs font-bold text-violet-700 transition-colors duration-300"
+                      >
+                        全部
+                      </button>
+                      <button
+                        type="button"
+                        data-wish-filter="open"
+                        aria-pressed="false"
+                        class="relative z-10 flex h-8 flex-1 items-center justify-center rounded-full text-xs font-semibold text-slate-400 transition-colors duration-300"
+                      >
+                        處理中
+                      </button>
+                      <button
+                        type="button"
+                        data-wish-filter="done"
+                        aria-pressed="false"
+                        class="relative z-10 flex h-8 flex-1 items-center justify-center rounded-full text-xs font-semibold text-slate-400 transition-colors duration-300"
+                      >
+                        已完成
+                      </button>
+                    </div>
+
                     <div id="wishListLoading" class="space-y-3">
                       <div class="h-[104px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
                       <div class="h-[104px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
@@ -891,8 +926,8 @@
                       <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
                         <i data-lucide="sparkles" class="h-6 w-6"></i>
                       </div>
-                      <p class="mt-4 text-base font-semibold text-violet-950">還沒有任何許願</p>
-                      <p class="mt-2 text-sm leading-7 text-slate-500">
+                      <p id="wishListEmptyTitle" class="mt-4 text-base font-semibold text-violet-950">還沒有任何許願</p>
+                      <p id="wishListEmptyDesc" class="mt-2 text-sm leading-7 text-slate-500">
                         切換到「我要許願」填寫表單，送出後就會在這裡看到處理進度哦。
                       </p>
                     </div>
@@ -1666,6 +1701,7 @@
         wish: {
           view: 'form',
           list: [],
+          listFilter: 'all',
           listMeta: { loading: false, error: null, refreshedAt: null },
           detail: { id: null, loading: false, data: null, error: null },
         },
@@ -1740,8 +1776,12 @@
         wishListView: document.getElementById('wishListView'),
         wishDetailView: document.getElementById('wishDetailView'),
         wishListRefreshButton: document.getElementById('wishListRefreshButton'),
+        wishListFilterSlider: document.getElementById('wishListFilterSlider'),
+        wishListFilterButtons: Array.from(document.querySelectorAll('[data-wish-filter]')),
         wishListLoading: document.getElementById('wishListLoading'),
         wishListEmpty: document.getElementById('wishListEmpty'),
+        wishListEmptyTitle: document.getElementById('wishListEmptyTitle'),
+        wishListEmptyDesc: document.getElementById('wishListEmptyDesc'),
         wishListError: document.getElementById('wishListError'),
         wishListErrorText: document.getElementById('wishListErrorText'),
         wishListContainer: document.getElementById('wishListContainer'),
@@ -2163,6 +2203,10 @@
           });
         });
         elements.wishListRefreshButton.addEventListener('click', () => loadWishList({ force: true }));
+        elements.wishListFilterButtons.forEach((button) => {
+          button.addEventListener('click', () => setWishListFilter(button.dataset.wishFilter));
+        });
+        updateWishListFilterUi();
         elements.wishListError.addEventListener('click', (event) => {
           if (event.target.closest('[data-wish-retry-list]')) loadWishList({ force: true });
         });
@@ -4240,30 +4284,92 @@
         }
       }
 
-      function renderWishListState() {
-        const { wishListLoading, wishListEmpty, wishListError, wishListContainer, wishListErrorText } = elements;
-        const { loading, error, refreshedAt } = state.wish.listMeta;
+      const WISH_FILTER_DONE_STATUSES = ['已結案', '已取消'];
+      const WISH_FILTER_EMPTY_COPY = {
+        all: {
+          title: '還沒有任何許願',
+          desc: '切換到「我要許願」填寫表單，送出後就會在這裡看到處理進度哦。',
+        },
+        open: {
+          title: '目前沒有處理中的許願',
+          desc: '切回「全部」查看其他案件，或到「我要許願」送出新的許願。',
+        },
+        done: {
+          title: '目前沒有已完成的許願',
+          desc: '案件結案後就會顯示在這裡。',
+        },
+      };
+
+      function isWishDoneStatus(status) {
+        return WISH_FILTER_DONE_STATUSES.includes(status);
+      }
+
+      // 依目前進度篩選回傳列表資料（只篩已載入的 state.wish.list，不打 API）
+      function getFilteredWishItems() {
         const items = state.wish.list || [];
+        const filter = state.wish.listFilter || 'all';
+        if (filter === 'open') return items.filter((it) => !isWishDoneStatus(it.status));
+        if (filter === 'done') return items.filter((it) => isWishDoneStatus(it.status));
+        return items.slice();
+      }
+
+      function updateWishListFilterUi() {
+        const order = ['all', 'open', 'done'];
+        const index = Math.max(0, order.indexOf(state.wish.listFilter || 'all'));
+        if (elements.wishListFilterSlider) {
+          elements.wishListFilterSlider.style.transform = `translateX(${index * 100}%)`;
+        }
+        (elements.wishListFilterButtons || []).forEach((btn) => {
+          const active = btn.dataset.wishFilter === (state.wish.listFilter || 'all');
+          btn.classList.toggle('font-bold', active);
+          btn.classList.toggle('text-violet-700', active);
+          btn.classList.toggle('font-semibold', !active);
+          btn.classList.toggle('text-slate-400', !active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+      }
+
+      function setWishListFilter(filter) {
+        if (!['all', 'open', 'done'].includes(filter)) return;
+        if (state.wish.listFilter === filter) return;
+        state.wish.listFilter = filter;
+        updateWishListFilterUi();
+        renderWishListState();
+        renderWishListItems();
+      }
+
+      function renderWishListState() {
+        const { wishListLoading, wishListEmpty, wishListError, wishListContainer, wishListErrorText, wishListEmptyTitle, wishListEmptyDesc } = elements;
+        const { loading, error } = state.wish.listMeta;
+        const filtered = getFilteredWishItems();
         if (wishListLoading) wishListLoading.classList.toggle('hidden', !loading);
         const hasError = Boolean(error) && !loading;
         if (wishListError) {
           wishListError.classList.toggle('hidden', !hasError);
           if (wishListErrorText) wishListErrorText.textContent = error || '';
         }
-        const showEmpty = !loading && !hasError && items.length === 0;
-        if (wishListEmpty) wishListEmpty.classList.toggle('hidden', !showEmpty);
-        const showItems = !loading && !hasError && items.length > 0;
+        const showEmpty = !loading && !hasError && filtered.length === 0;
+        if (wishListEmpty) {
+          wishListEmpty.classList.toggle('hidden', !showEmpty);
+          if (showEmpty) {
+            const copy = WISH_FILTER_EMPTY_COPY[state.wish.listFilter || 'all'] || WISH_FILTER_EMPTY_COPY.all;
+            if (wishListEmptyTitle) wishListEmptyTitle.textContent = copy.title;
+            if (wishListEmptyDesc) wishListEmptyDesc.textContent = copy.desc;
+          }
+        }
+        const showItems = !loading && !hasError && filtered.length > 0;
         if (wishListContainer) wishListContainer.classList.toggle('hidden', !showItems);
       }
 
       function renderWishListItems() {
         const container = elements.wishListContainer;
         if (!container) return;
-        const items = state.wish.list || [];
+        const items = getFilteredWishItems();
         if (items.length === 0) { container.innerHTML = ''; return; }
 
-        const inProgress = items.filter(it => it.status === '已收到' || it.status === '處理中' || it.status === '已回覆');
-        const closed = items.filter(it => it.status === '已結案');
+        const filter = state.wish.listFilter || 'all';
+        const inProgress = filter === 'done' ? [] : items.filter((it) => !isWishDoneStatus(it.status));
+        const closed = filter === 'open' ? [] : items.filter((it) => isWishDoneStatus(it.status));
 
         function cardHtml(item) {
           const id = String(item.id || '');
