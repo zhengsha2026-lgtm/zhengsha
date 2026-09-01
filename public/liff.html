@@ -4269,7 +4269,6 @@
           state.wish.listMeta.error = null;
           renderWishListState();
           renderWishListItems();
-          updateWishListFilterUi();
         } catch (err) {
           console.error('loadWishList failed:', err);
           const msg = err && err.message ? err.message : '載入失敗，請稍後再試。';
@@ -4285,6 +4284,8 @@
         } finally {
           state.wish.listMeta.loading = false;
           renderWishListState();
+          // loading 已結束，此時才重算筆數（成功與失敗都會走到這裡）
+          updateWishListFilterUi();
         }
       }
 
@@ -4333,7 +4334,8 @@
         });
         // 計算各篩選筆數（同一套 isWishDoneStatus 規則，不打 API）
         const items = state.wish.list || [];
-        const loading = state.wish.listMeta.loading;
+        const { loading, refreshedAt } = state.wish.listMeta;
+        const hasLoaded = Boolean(refreshedAt);
         const allCount = items.length;
         const openCount = items.filter((it) => !isWishDoneStatus(it.status)).length;
         const doneCount = items.filter((it) => isWishDoneStatus(it.status)).length;
@@ -4341,8 +4343,12 @@
         document.querySelectorAll('[data-wish-filter-count]').forEach((el) => {
           const key = el.dataset.wishFilterCount;
           const value = counts[key];
-          // 載入中先不顯示數字
-          el.textContent = loading || !Number.isFinite(value) ? '' : `(${value})`;
+          // 從未載入過：不顯示數字；載入中（重新整理）：顯示 —；載入完成：顯示 (N)
+          if (!hasLoaded || !Number.isFinite(value)) {
+            el.textContent = '';
+          } else {
+            el.textContent = loading ? '—' : `(${value})`;
+          }
         });
       }
 
