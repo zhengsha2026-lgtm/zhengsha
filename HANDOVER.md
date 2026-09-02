@@ -79,6 +79,7 @@
 - **登入方式**：電腦瀏覽器開啟後，透過**第二個 LIFF app**（`ADMIN_LIFF_ID`，與里民 LIFF 同一個 LINE Login 頻道）做 LINE Login（掃 QR 或用已登入的 LINE 帳號）
 - **權限**：登入後打 `GET /api/admin/me` 檢查白名單（`ADMIN_LINE_USER_IDS`，後端以 LINE verify API 回傳的 `sub` 為準）；非白名單顯示「沒有管理權限」頁，**不會打任何會碰里民個資的 API**
 - **功能**：許願列表（桌面表格：狀態 chips 含計數、搜尋、分頁）＋ 詳情（左右雙欄：案件內容/照片/時間軸 + 里民資訊/狀態變更/回覆填寫）＋ 儲存（自動寫 `status_logs`）＋ 刪除（二次確認，接 `DELETE /api/admin/feedback/:id`）
+- **電腦閱讀體驗**：內容最大寬度 1280px 置中左右留白；正文/表格/姓名/摘要 16px、時間與分類 14px（表格不低於 14px 的次要欄、主要欄 16px）；列高加大（py-4 + px-6）好點擊；chips/搜尋框/按鈕/狀態徽章同步放大；詳情標題 24px、正文 16px leading-8
 - **API**：全部沿用既有 `/api/admin/*`，後端驗證邏輯零修改（同一 channel → 同 `aud`）；僅 `/api/client-config` 多回 `adminLiffId`
 - **登出**：`liff.logout()` 後重整；ID Token 過期（401）自動重新 `liff.login()`
 - **手機 LINE 內的盾牌管理入口完全不受影響**（`public/liff.html` 未動）

@@ -42,74 +42,74 @@
   <!-- ===== 主畫面：許願管理 ===== -->
   <div id="appScreen" class="hidden">
     <header class="sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur">
-      <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
-            <i data-lucide="shield-check" class="h-5 w-5"></i>
+      <div class="mx-auto flex max-w-[1280px] items-center justify-between px-8 py-5">
+        <div class="flex items-center gap-3.5">
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+            <i data-lucide="shield-check" class="h-6 w-6"></i>
           </div>
           <div>
-            <h1 class="text-base font-bold text-slate-900">許願池管理後台</h1>
-            <p class="text-[11px] text-slate-400">電腦版 · 第一期（許願管理）</p>
+            <h1 class="text-lg font-bold text-slate-900">許願池管理後台</h1>
+            <p class="text-xs text-slate-400">電腦版 · 第一期（許願管理）</p>
           </div>
         </div>
-        <div class="flex items-center gap-3">
-          <span id="adminNameLabel" class="hidden text-xs font-medium text-slate-500 sm:block"></span>
-          <button id="logoutButton" type="button" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-slate-100 px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-200">
-            <i data-lucide="log-out" class="h-3.5 w-3.5"></i>
+        <div class="flex items-center gap-4">
+          <span id="adminNameLabel" class="hidden text-sm font-medium text-slate-500 sm:block"></span>
+          <button id="logoutButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+            <i data-lucide="log-out" class="h-4 w-4"></i>
             <span>登出</span>
           </button>
         </div>
       </div>
     </header>
 
-    <main class="mx-auto max-w-6xl px-6 py-6">
+    <main class="mx-auto max-w-[1280px] px-8 py-8">
       <!-- ===== 列表視圖 ===== -->
       <section id="listView">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div class="flex flex-wrap items-center gap-2">
-            <button type="button" data-status-chip="" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">全部</button>
-            <button type="button" data-status-chip="已收到" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">已收到</button>
-            <button type="button" data-status-chip="處理中" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">處理中</button>
-            <button type="button" data-status-chip="已回覆" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">已回覆</button>
-            <button type="button" data-status-chip="已結案" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">已結案</button>
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button type="button" data-status-chip="" class="status-chip rounded-full px-5 py-2 text-sm font-semibold transition">全部</button>
+            <button type="button" data-status-chip="已收到" class="status-chip rounded-full px-5 py-2 text-sm font-semibold transition">已收到</button>
+            <button type="button" data-status-chip="處理中" class="status-chip rounded-full px-5 py-2 text-sm font-semibold transition">處理中</button>
+            <button type="button" data-status-chip="已回覆" class="status-chip rounded-full px-5 py-2 text-sm font-semibold transition">已回覆</button>
+            <button type="button" data-status-chip="已結案" class="status-chip rounded-full px-5 py-2 text-sm font-semibold transition">已結案</button>
           </div>
-          <form id="searchForm" class="flex items-center gap-2">
+          <form id="searchForm" class="flex items-center gap-2.5">
             <div class="relative">
-              <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+              <i data-lucide="search" class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
               <input id="searchInput" type="search" placeholder="搜尋姓名 / 電話 / 內容"
-                class="h-9 w-64 rounded-full border border-slate-200 bg-white pl-9 pr-4 text-xs text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100">
+                class="h-11 w-80 rounded-full border border-slate-200 bg-white pl-11 pr-5 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100">
             </div>
-            <button type="submit" class="h-9 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-700">搜尋</button>
+            <button type="submit" class="h-11 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-700">搜尋</button>
           </form>
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
-          <table class="w-full text-left text-sm">
+          <table class="w-full text-left text-base">
             <thead>
-              <tr class="border-b border-slate-100 bg-slate-50/60 text-[11px] uppercase tracking-wide text-slate-400">
-                <th class="px-5 py-3 font-semibold">編號</th>
-                <th class="px-5 py-3 font-semibold">狀態</th>
-                <th class="px-5 py-3 font-semibold">里民</th>
-                <th class="px-5 py-3 font-semibold">內容摘要</th>
-                <th class="px-5 py-3 font-semibold">分類</th>
-                <th class="px-5 py-3 font-semibold">照片</th>
-                <th class="px-5 py-3 font-semibold">送出時間</th>
-                <th class="px-5 py-3"></th>
+              <tr class="border-b border-slate-100 bg-slate-50/60 text-xs uppercase tracking-wide text-slate-400">
+                <th class="px-6 py-4 font-semibold">編號</th>
+                <th class="px-6 py-4 font-semibold">狀態</th>
+                <th class="px-6 py-4 font-semibold">里民</th>
+                <th class="px-6 py-4 font-semibold">內容摘要</th>
+                <th class="px-6 py-4 font-semibold">分類</th>
+                <th class="px-6 py-4 font-semibold">照片</th>
+                <th class="px-6 py-4 font-semibold">送出時間</th>
+                <th class="px-6 py-4"></th>
               </tr>
             </thead>
             <tbody id="listTableBody"></tbody>
           </table>
-          <div id="listEmpty" class="hidden px-6 py-16 text-center text-sm text-slate-400">目前沒有符合條件的許願</div>
-          <div id="listLoading" class="hidden px-6 py-16 text-center text-sm text-slate-400">載入中…</div>
+          <div id="listEmpty" class="hidden px-6 py-20 text-center text-base text-slate-400">目前沒有符合條件的許願</div>
+          <div id="listLoading" class="hidden px-6 py-20 text-center text-base text-slate-400">載入中…</div>
         </div>
 
-        <div class="mt-4 flex items-center justify-between text-xs text-slate-500">
+        <div class="mt-5 flex items-center justify-between text-sm text-slate-500">
           <span id="pageInfo"></span>
-          <div class="flex items-center gap-2">
-            <button id="prevPageButton" type="button" class="inline-flex h-8 items-center rounded-full bg-white px-4 font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+          <div class="flex items-center gap-2.5">
+            <button id="prevPageButton" type="button" class="inline-flex h-10 items-center rounded-full bg-white px-6 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
               上一頁
             </button>
-            <button id="nextPageButton" type="button" class="inline-flex h-8 items-center rounded-full bg-white px-4 font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+            <button id="nextPageButton" type="button" class="inline-flex h-10 items-center rounded-full bg-white px-6 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
               下一頁
             </button>
           </div>
@@ -118,37 +118,37 @@
 
       <!-- ===== 詳情視圖 ===== -->
       <section id="detailView" class="hidden">
-        <button id="backButton" type="button" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-600 transition hover:text-violet-800">
-          <i data-lucide="arrow-left" class="h-4 w-4"></i>
+        <button id="backButton" type="button" class="mb-5 inline-flex items-center gap-2 text-base font-semibold text-violet-600 transition hover:text-violet-800">
+          <i data-lucide="arrow-left" class="h-5 w-5"></i>
           <span>返回列表</span>
         </button>
 
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-5">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
           <!-- 左欄：案件資訊 -->
-          <div class="space-y-5 lg:col-span-3">
-            <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+          <div class="space-y-6 lg:col-span-3">
+            <div class="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm">
               <div class="flex items-start justify-between gap-4">
                 <div>
-                  <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">案件編號</p>
-                  <h2 id="detailId" class="mt-1 text-xl font-bold text-slate-900"></h2>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">案件編號</p>
+                  <h2 id="detailId" class="mt-1.5 text-2xl font-bold text-slate-900"></h2>
                 </div>
-                <span id="detailStatusBadge" class="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold"></span>
+                <span id="detailStatusBadge" class="shrink-0 rounded-full px-4 py-1.5 text-sm font-bold"></span>
               </div>
-              <div id="detailContent" class="mt-5 whitespace-pre-wrap rounded-xl bg-slate-50/70 p-4 text-sm leading-7 text-slate-700"></div>
-              <div id="detailPhotos" class="mt-5"></div>
+              <div id="detailContent" class="mt-6 whitespace-pre-wrap rounded-xl bg-slate-50/70 p-5 text-base leading-8 text-slate-700"></div>
+              <div id="detailPhotos" class="mt-6"></div>
             </div>
 
-            <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
-              <p class="text-sm font-bold text-slate-900">處理歷程</p>
-              <div id="detailTimeline" class="mt-4 space-y-0"></div>
+            <div class="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm">
+              <p class="text-base font-bold text-slate-900">處理歷程</p>
+              <div id="detailTimeline" class="mt-5 space-y-0"></div>
             </div>
           </div>
 
           <!-- 右欄：里民資訊 + 操作 -->
-          <div class="space-y-5 lg:col-span-2">
-            <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
-              <p class="text-sm font-bold text-slate-900">里民資訊</p>
-              <div class="mt-4 space-y-3 text-sm">
+          <div class="space-y-6 lg:col-span-2">
+            <div class="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm">
+              <p class="text-base font-bold text-slate-900">里民資訊</p>
+              <div class="mt-5 space-y-4 text-base">
                 <div class="flex items-center justify-between">
                   <span class="text-slate-400">姓名</span>
                   <span id="detailUserName" class="font-semibold text-slate-800"></span>
@@ -168,33 +168,33 @@
               </div>
             </div>
 
-            <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
-              <p class="text-sm font-bold text-slate-900">處理操作</p>
-              <label class="mt-4 block text-xs font-semibold text-slate-500">狀態</label>
-              <select id="statusSelect" class="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100">
+            <div class="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm">
+              <p class="text-base font-bold text-slate-900">處理操作</p>
+              <label class="mt-5 block text-sm font-semibold text-slate-500">狀態</label>
+              <select id="statusSelect" class="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100">
                 <option value="已收到">已收到</option>
                 <option value="處理中">處理中</option>
                 <option value="已回覆">已回覆</option>
                 <option value="已結案">已結案</option>
               </select>
-              <label class="mt-4 block text-xs font-semibold text-slate-500">回覆摘要（會顯示在里民的處理時間軸）</label>
+              <label class="mt-5 block text-sm font-semibold text-slate-500">回覆摘要（會顯示在里民的處理時間軸）</label>
               <textarea id="replyTextarea" rows="4" maxlength="500" placeholder="填寫回覆內容…"
-                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"></textarea>
-              <div class="mt-2 text-right text-[10px] text-slate-400"><span id="replyCharCount">0</span>/500</div>
+                class="mt-2 w-full rounded-xl border border-slate-200 bg-white p-4 text-base leading-7 text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"></textarea>
+              <div class="mt-2 text-right text-xs text-slate-400"><span id="replyCharCount">0</span>/500</div>
               <button id="saveButton" type="button"
-                class="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-violet-600 text-sm font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60">
-                <i data-lucide="save" class="h-4 w-4"></i>
+                class="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-violet-600 text-base font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60">
+                <i data-lucide="save" class="h-5 w-5"></i>
                 <span>儲存變更</span>
               </button>
-              <p id="saveHint" class="mt-3 text-[11px] leading-5 text-slate-400">狀態與回覆可擇一或同時填寫；儲存後會自動寫入一筆處理歷程。</p>
+              <p id="saveHint" class="mt-4 text-xs leading-5 text-slate-400">狀態與回覆可擇一或同時填寫；儲存後會自動寫入一筆處理歷程。</p>
             </div>
 
-            <div class="rounded-2xl border border-rose-200 bg-rose-50/50 p-6">
-              <p class="text-sm font-bold text-rose-700">危險區</p>
-              <p class="mt-1 text-[11px] leading-5 text-slate-500">刪除此許願將一併移除照片與處理紀錄，無法復原。</p>
+            <div class="rounded-2xl border border-rose-200 bg-rose-50/50 p-7">
+              <p class="text-base font-bold text-rose-700">危險區</p>
+              <p class="mt-1.5 text-xs leading-5 text-slate-500">刪除此許願將一併移除照片與處理紀錄，無法復原。</p>
               <button id="deleteButton" type="button"
-                class="mt-3 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60">
-                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                class="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60">
+                <i data-lucide="trash-2" class="h-4 w-4"></i>
                 <span>刪除此許願</span>
               </button>
             </div>
@@ -205,7 +205,7 @@
   </div>
 
   <!-- ===== Toast ===== -->
-  <div id="toast" class="pointer-events-none fixed bottom-6 left-1/2 z-50 hidden -translate-x-1/2 rounded-full bg-slate-900/90 px-5 py-2.5 text-xs font-semibold text-white shadow-lg"></div>
+  <div id="toast" class="pointer-events-none fixed bottom-6 left-1/2 z-50 hidden -translate-x-1/2 rounded-full bg-slate-900/90 px-6 py-3 text-sm font-semibold text-white shadow-lg"></div>
 
 <script>
 'use strict';
@@ -303,7 +303,7 @@ const STATUS_STYLES = {
 
 function statusBadgeHtml(status) {
   const style = STATUS_STYLES[status] || 'bg-slate-100 text-slate-500 ring-slate-200';
-  return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${style}">${escapeHtml(status)}</span>`;
+  return `<span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-bold ring-1 ${style}">${escapeHtml(status)}</span>`;
 }
 
 // ============================================================================
@@ -441,9 +441,9 @@ function updateStatusChips() {
     const key = chip.dataset.statusChip;
     const active = key === state.status;
     if (active) {
-      chip.className = 'status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition bg-violet-600 text-white shadow-sm';
+      chip.className = 'status-chip rounded-full px-5 py-2 text-sm font-semibold transition bg-violet-600 text-white shadow-sm';
     } else {
-      chip.className = 'status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50';
+      chip.className = 'status-chip rounded-full px-5 py-2 text-sm font-semibold transition bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50';
     }
     // 計數（全部 = 各狀態總和）
     let count = null;
@@ -463,16 +463,16 @@ function renderList() {
 
   const rows = state.items.map((item) => `
     <tr class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40" data-open-detail="${item.id}">
-      <td class="px-5 py-3.5 font-mono text-xs text-slate-400">#${item.id}</td>
-      <td class="px-5 py-3.5">${statusBadgeHtml(item.status)}</td>
-      <td class="px-5 py-3.5 text-sm font-semibold text-slate-800">${escapeHtml(item.user_name || '匿名')}</td>
-      <td class="max-w-[22rem] truncate px-5 py-3.5 text-sm text-slate-600">${escapeHtml((item.content || '').slice(0, 60))}</td>
-      <td class="px-5 py-3.5 text-xs text-slate-500">${escapeHtml(item.category || '')}</td>
-      <td class="px-5 py-3.5 text-xs text-slate-500">${item.photo_count > 0 ? `${item.photo_count} 張` : '—'}</td>
-      <td class="whitespace-nowrap px-5 py-3.5 text-xs text-slate-500">${formatDateTime(item.created_at)}</td>
-      <td class="px-5 py-3.5 text-right">
-        <span class="inline-flex items-center gap-1 text-xs font-semibold text-violet-600">
-          查看 <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+      <td class="px-6 py-4 font-mono text-sm text-slate-400">#${item.id}</td>
+      <td class="px-6 py-4">${statusBadgeHtml(item.status)}</td>
+      <td class="px-6 py-4 text-base font-semibold text-slate-800">${escapeHtml(item.user_name || '匿名')}</td>
+      <td class="max-w-[26rem] truncate px-6 py-4 text-base text-slate-600">${escapeHtml((item.content || '').slice(0, 60))}</td>
+      <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(item.category || '')}</td>
+      <td class="px-6 py-4 text-sm text-slate-500">${item.photo_count > 0 ? `${item.photo_count} 張` : '—'}</td>
+      <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-500">${formatDateTime(item.created_at)}</td>
+      <td class="px-6 py-4 text-right">
+        <span class="inline-flex items-center gap-1 text-sm font-semibold text-violet-600">
+          查看 <i data-lucide="chevron-right" class="h-4 w-4"></i>
         </span>
       </td>
     </tr>
@@ -512,7 +512,7 @@ async function openDetail(id) {
   elements.detailPhotos.innerHTML = '';
   elements.detailTimeline.innerHTML = '';
   elements.detailId.textContent = `#${id}`;
-  elements.detailStatusBadge.className = 'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold';
+  elements.detailStatusBadge.className = 'shrink-0 rounded-full px-4 py-1.5 text-sm font-bold';
   elements.detailStatusBadge.textContent = '';
 
   try {
@@ -539,7 +539,7 @@ function renderDetail() {
   elements.detailId.textContent = `#${d.id}`;
 
   const style = STATUS_STYLES[d.status] || 'bg-slate-100 text-slate-500 ring-slate-200';
-  elements.detailStatusBadge.className = `shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold ring-1 ${style}`;
+  elements.detailStatusBadge.className = `shrink-0 rounded-full px-4 py-1.5 text-sm font-bold ring-1 ${style}`;
   elements.detailStatusBadge.textContent = d.status || '';
 
   elements.detailContent.textContent = d.content || '（無內容）';
@@ -553,8 +553,8 @@ function renderDetail() {
   const photos = Array.isArray(d.photos) ? d.photos : [];
   if (photos.length > 0) {
     elements.detailPhotos.innerHTML = `
-      <p class="mb-2 text-xs font-semibold text-slate-500">現場照片（${photos.length} 張）</p>
-      <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      <p class="mb-3 text-sm font-semibold text-slate-500">現場照片（${photos.length} 張）</p>
+      <div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
         ${photos.map((p) => `
           <a href="${escapeHtml(p.url || p.signed_url || '#')}" target="_blank" rel="noopener" class="group relative block overflow-hidden rounded-xl ring-1 ring-slate-200">
             <img src="${escapeHtml(p.url || p.signed_url || '')}" alt="照片" loading="lazy"
@@ -572,20 +572,20 @@ function renderDetail() {
     elements.detailTimeline.innerHTML = logs.map((log, idx) => {
       const isLast = idx === logs.length - 1;
       return `
-        <div class="relative flex gap-3 pb-5">
+        <div class="relative flex gap-3.5 pb-6">
           ${!isLast ? '<div class="absolute left-[7px] top-4 h-full w-px bg-slate-200"></div>' : ''}
-          <div class="relative mt-1 h-3.5 w-3.5 shrink-0 rounded-full border-2 ${isLast ? 'border-violet-500 bg-violet-100' : 'border-slate-300 bg-white'}"></div>
+          <div class="relative mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 ${isLast ? 'border-violet-500 bg-violet-100' : 'border-slate-300 bg-white'}"></div>
           <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="text-sm font-bold text-slate-800">${escapeHtml(log.status || '')}</span>
-              <span class="text-[11px] text-slate-400">${formatDateTime(log.changed_at || log.created_at)}</span>
+            <div class="flex flex-wrap items-center gap-2.5">
+              <span class="text-base font-bold text-slate-800">${escapeHtml(log.status || '')}</span>
+              <span class="text-sm text-slate-400">${formatDateTime(log.changed_at || log.created_at)}</span>
             </div>
-            ${log.reply_summary ? `<p class="mt-1 whitespace-pre-wrap text-xs leading-5 text-slate-500">${escapeHtml(log.reply_summary)}</p>` : ''}
+            ${log.reply_summary ? `<p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-500">${escapeHtml(log.reply_summary)}</p>` : ''}
           </div>
         </div>`;
     }).join('');
   } else {
-    elements.detailTimeline.innerHTML = '<p class="text-xs text-slate-400">尚無處理紀錄</p>';
+    elements.detailTimeline.innerHTML = '<p class="text-sm text-slate-400">尚無處理紀錄</p>';
   }
 
   // 操作區初始值（狀態用 DB 目前值、回覆清空）
