@@ -74,6 +74,16 @@
 - 排序交換：PATCH sort_order 時後端自動與佔用者交換
 - `is_published = false` 的政見里民端不顯示
 
+### 管理端電腦版（第一期：許願管理）
+- **網址**：`https://zhengsha.vercel.app/admin.html`
+- **登入方式**：電腦瀏覽器開啟後，透過**第二個 LIFF app**（`ADMIN_LIFF_ID`，與里民 LIFF 同一個 LINE Login 頻道）做 LINE Login（掃 QR 或用已登入的 LINE 帳號）
+- **權限**：登入後打 `GET /api/admin/me` 檢查白名單（`ADMIN_LINE_USER_IDS`，後端以 LINE verify API 回傳的 `sub` 為準）；非白名單顯示「沒有管理權限」頁，**不會打任何會碰里民個資的 API**
+- **功能**：許願列表（桌面表格：狀態 chips 含計數、搜尋、分頁）＋ 詳情（左右雙欄：案件內容/照片/時間軸 + 里民資訊/狀態變更/回覆填寫）＋ 儲存（自動寫 `status_logs`）＋ 刪除（二次確認，接 `DELETE /api/admin/feedback/:id`）
+- **API**：全部沿用既有 `/api/admin/*`，後端驗證邏輯零修改（同一 channel → 同 `aud`）；僅 `/api/client-config` 多回 `adminLiffId`
+- **登出**：`liff.logout()` 後重整；ID Token 過期（401）自動重新 `liff.login()`
+- **手機 LINE 內的盾牌管理入口完全不受影響**（`public/liff.html` 未動）
+- **環境變數**：`ADMIN_LIFF_ID`（Vercel 與本機 `.env` 都要設）；`.env.example` 已有說明
+
 ### 競選行程（里民端 + 管理端）
 - 里民端行程頁：底部第 4 個 Tab「競選行程」
   - `GET /api/events` 回傳 `{ next, upcoming, past }`：主打 `next` 為 upcoming 第一筆（start_at >= now），列表中**不重複**；`upcoming` 為其餘即將到來、`past` 為過往足跡（upcoming/past **只看 `start_at`**）
@@ -136,7 +146,8 @@
 
 | 檔案 | 說明 |
 |------|------|
-| `public/liff.html` | 前端主檔（幾乎所有 UI 與前端邏輯） |
+| `public/liff.html` | 前端主檔（里民端 + 手機管理端，幾乎所有 UI 與前端邏輯） |
+| `public/admin.html` | 管理端電腦版（第一期：許願管理，LINE Login via 第二個 LIFF app） |
 | `app.js` | 後端 API 與 LINE 身分驗證 |
 | `schema.sql` / `supabase/migrations/` | 資料庫結構 |
 | `.env` | 本機環境變數（不可提交 Git） |
@@ -231,6 +242,7 @@
 - `SUPABASE_SERVICE_ROLE_KEY`（僅後端）
 - `LINE_LOGIN_CHANNEL_ID`
 - `ADMIN_LINE_USER_IDS`（逗號分隔多個 LINE user id，即 LINE verify API 回傳的 `sub`；管理員從 LIFF 登入後可從 `user_feedback.line_user_id` 或後端 log 查得自己的 sub）
+- `ADMIN_LIFF_ID`（管理端電腦版用的第二個 LIFF app ID，Endpoint URL = `https://zhengsha.vercel.app/admin.html`，與里民 LIFF 同一個 LINE Login 頻道；记得也把該網址加入頻道 Callback URL）
 - 以及其他既有的 LINE / LIFF 相關變數
 
 > `.env` 只存在本機，禁止提交到 GitHub。
@@ -304,6 +316,7 @@
   - 政見封面、行程封面、相簿、管理列表縮圖：全部 `loading="lazy"`
 
 ### 仍可優化 / 尚未完成
+- 管理端電腦版**第二期**：政見管理、行程管理的電腦版（第一期只有許願管理）
 - 許願案件狀態變更後的 **LINE 主動通知里民**（推播進度）尚未做
 - 後台管理的進階功能：批次變更狀態、匯出 CSV、依日期區間篩選
 - 後台管理員身分的**動態新增/移除**（目前需改環境變數重新部署）

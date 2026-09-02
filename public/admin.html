@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>許願池管理後台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-[#FAFAF8] text-slate-800">
+
+  <!-- ===== 登入中 / 載入畫面 ===== -->
+  <div id="authScreen" class="flex min-h-screen items-center justify-center px-4">
+    <div class="w-full max-w-sm rounded-3xl border border-slate-200/70 bg-white p-8 text-center shadow-xl shadow-slate-900/5">
+      <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-600">
+        <i data-lucide="shield-check" class="h-7 w-7"></i>
+      </div>
+      <h1 class="text-lg font-bold text-slate-900">許願池管理後台</h1>
+      <p id="authStatusText" class="mt-2 text-sm leading-6 text-slate-500">正在透過 LINE 驗證身分…</p>
+      <div id="authSpinner" class="mx-auto mt-5 h-1.5 w-1.5 animate-ping rounded-full bg-violet-400"></div>
+    </div>
+  </div>
+
+  <!-- ===== 無權限畫面 ===== -->
+  <div id="deniedScreen" class="hidden min-h-screen items-center justify-center px-4">
+    <div class="w-full max-w-sm rounded-3xl border border-slate-200/70 bg-white p-8 text-center shadow-xl shadow-slate-900/5">
+      <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+        <i data-lucide="shield-x" class="h-7 w-7"></i>
+      </div>
+      <h1 class="text-lg font-bold text-slate-900">沒有管理權限</h1>
+      <p class="mt-2 text-sm leading-6 text-slate-500">這個 LINE 帳號不在管理員名單內。如需管理權限，請聯絡系統管理員將您的 LINE user id 加入白名單。</p>
+      <button id="deniedLogoutButton" type="button" class="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-slate-100 px-6 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+        登出
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== 主畫面：許願管理 ===== -->
+  <div id="appScreen" class="hidden">
+    <header class="sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+            <i data-lucide="shield-check" class="h-5 w-5"></i>
+          </div>
+          <div>
+            <h1 class="text-base font-bold text-slate-900">許願池管理後台</h1>
+            <p class="text-[11px] text-slate-400">電腦版 · 第一期（許願管理）</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="adminNameLabel" class="hidden text-xs font-medium text-slate-500 sm:block"></span>
+          <button id="logoutButton" type="button" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-slate-100 px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-200">
+            <i data-lucide="log-out" class="h-3.5 w-3.5"></i>
+            <span>登出</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-6 py-6">
+      <!-- ===== 列表視圖 ===== -->
+      <section id="listView">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" data-status-chip="" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">全部</button>
+            <button type="button" data-status-chip="已收到" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">已收到</button>
+            <button type="button" data-status-chip="處理中" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">處理中</button>
+            <button type="button" data-status-chip="已回覆" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">已回覆</button>
+            <button type="button" data-status-chip="已結案" class="status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition">已結案</button>
+          </div>
+          <form id="searchForm" class="flex items-center gap-2">
+            <div class="relative">
+              <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+              <input id="searchInput" type="search" placeholder="搜尋姓名 / 電話 / 內容"
+                class="h-9 w-64 rounded-full border border-slate-200 bg-white pl-9 pr-4 text-xs text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100">
+            </div>
+            <button type="submit" class="h-9 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-700">搜尋</button>
+          </form>
+        </div>
+
+        <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-100 bg-slate-50/60 text-[11px] uppercase tracking-wide text-slate-400">
+                <th class="px-5 py-3 font-semibold">編號</th>
+                <th class="px-5 py-3 font-semibold">狀態</th>
+                <th class="px-5 py-3 font-semibold">里民</th>
+                <th class="px-5 py-3 font-semibold">內容摘要</th>
+                <th class="px-5 py-3 font-semibold">分類</th>
+                <th class="px-5 py-3 font-semibold">照片</th>
+                <th class="px-5 py-3 font-semibold">送出時間</th>
+                <th class="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="listTableBody"></tbody>
+          </table>
+          <div id="listEmpty" class="hidden px-6 py-16 text-center text-sm text-slate-400">目前沒有符合條件的許願</div>
+          <div id="listLoading" class="hidden px-6 py-16 text-center text-sm text-slate-400">載入中…</div>
+        </div>
+
+        <div class="mt-4 flex items-center justify-between text-xs text-slate-500">
+          <span id="pageInfo"></span>
+          <div class="flex items-center gap-2">
+            <button id="prevPageButton" type="button" class="inline-flex h-8 items-center rounded-full bg-white px-4 font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+              上一頁
+            </button>
+            <button id="nextPageButton" type="button" class="inline-flex h-8 items-center rounded-full bg-white px-4 font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+              下一頁
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 詳情視圖 ===== -->
+      <section id="detailView" class="hidden">
+        <button id="backButton" type="button" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-600 transition hover:text-violet-800">
+          <i data-lucide="arrow-left" class="h-4 w-4"></i>
+          <span>返回列表</span>
+        </button>
+
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-5">
+          <!-- 左欄：案件資訊 -->
+          <div class="space-y-5 lg:col-span-3">
+            <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">案件編號</p>
+                  <h2 id="detailId" class="mt-1 text-xl font-bold text-slate-900"></h2>
+                </div>
+                <span id="detailStatusBadge" class="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold"></span>
+              </div>
+              <div id="detailContent" class="mt-5 whitespace-pre-wrap rounded-xl bg-slate-50/70 p-4 text-sm leading-7 text-slate-700"></div>
+              <div id="detailPhotos" class="mt-5"></div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+              <p class="text-sm font-bold text-slate-900">處理歷程</p>
+              <div id="detailTimeline" class="mt-4 space-y-0"></div>
+            </div>
+          </div>
+
+          <!-- 右欄：里民資訊 + 操作 -->
+          <div class="space-y-5 lg:col-span-2">
+            <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+              <p class="text-sm font-bold text-slate-900">里民資訊</p>
+              <div class="mt-4 space-y-3 text-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">姓名</span>
+                  <span id="detailUserName" class="font-semibold text-slate-800"></span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">電話</span>
+                  <span id="detailPhone" class="font-semibold text-slate-800"></span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">分類</span>
+                  <span id="detailCategory" class="font-semibold text-slate-800"></span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">送出時間</span>
+                  <span id="detailCreatedAt" class="font-semibold text-slate-800"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+              <p class="text-sm font-bold text-slate-900">處理操作</p>
+              <label class="mt-4 block text-xs font-semibold text-slate-500">狀態</label>
+              <select id="statusSelect" class="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100">
+                <option value="已收到">已收到</option>
+                <option value="處理中">處理中</option>
+                <option value="已回覆">已回覆</option>
+                <option value="已結案">已結案</option>
+              </select>
+              <label class="mt-4 block text-xs font-semibold text-slate-500">回覆摘要（會顯示在里民的處理時間軸）</label>
+              <textarea id="replyTextarea" rows="4" maxlength="500" placeholder="填寫回覆內容…"
+                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"></textarea>
+              <div class="mt-2 text-right text-[10px] text-slate-400"><span id="replyCharCount">0</span>/500</div>
+              <button id="saveButton" type="button"
+                class="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-violet-600 text-sm font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60">
+                <i data-lucide="save" class="h-4 w-4"></i>
+                <span>儲存變更</span>
+              </button>
+              <p id="saveHint" class="mt-3 text-[11px] leading-5 text-slate-400">狀態與回覆可擇一或同時填寫；儲存後會自動寫入一筆處理歷程。</p>
+            </div>
+
+            <div class="rounded-2xl border border-rose-200 bg-rose-50/50 p-6">
+              <p class="text-sm font-bold text-rose-700">危險區</p>
+              <p class="mt-1 text-[11px] leading-5 text-slate-500">刪除此許願將一併移除照片與處理紀錄，無法復原。</p>
+              <button id="deleteButton" type="button"
+                class="mt-3 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60">
+                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                <span>刪除此許願</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== Toast ===== -->
+  <div id="toast" class="pointer-events-none fixed bottom-6 left-1/2 z-50 hidden -translate-x-1/2 rounded-full bg-slate-900/90 px-5 py-2.5 text-xs font-semibold text-white shadow-lg"></div>
+
+<script>
+'use strict';
+
+// ============================================================================
+// 管理端電腦版（第一期：許願管理）
+// - 透過第二個 LIFF app（ADMIN_LIFF_ID）在外部瀏覽器做 LINE Login
+// - 所有 API 沿用 /api/admin/*（Authorization: Bearer ID Token）
+// - 後端以 LINE verify API 的 sub 對 ADMIN_LINE_USER_IDS 白名單
+// ============================================================================
+
+const PAGE_SIZE = 20;
+const STATUS_ORDER = ['已收到', '處理中', '已回覆', '已結案'];
+
+const state = {
+  liffId: '',
+  authReady: false,
+  // 列表
+  items: [],
+  counts: {},
+  total: 0,
+  offset: 0,
+  status: '',
+  query: '',
+  loadingList: false,
+  // 詳情
+  detail: null,
+  saving: false,
+  deleting: false,
+};
+
+const elements = {};
+let toastTimer = null;
+
+function cacheElements() {
+  const ids = [
+    'authScreen', 'authStatusText', 'authSpinner',
+    'deniedScreen', 'deniedLogoutButton',
+    'appScreen', 'adminNameLabel', 'logoutButton',
+    'listView', 'listTableBody', 'listEmpty', 'listLoading',
+    'searchForm', 'searchInput',
+    'pageInfo', 'prevPageButton', 'nextPageButton',
+    'detailView', 'backButton',
+    'detailId', 'detailStatusBadge', 'detailContent', 'detailPhotos', 'detailTimeline',
+    'detailUserName', 'detailPhone', 'detailCategory', 'detailCreatedAt',
+    'statusSelect', 'replyTextarea', 'replyCharCount', 'saveButton',
+    'deleteButton',
+    'toast',
+  ];
+  ids.forEach((id) => { elements[id] = document.getElementById(id); });
+}
+
+function showToast(message, duration = 3200) {
+  if (!elements.toast) return;
+  elements.toast.textContent = message;
+  elements.toast.classList.remove('hidden');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => elements.toast.classList.add('hidden'), duration);
+}
+
+function renderIcons() {
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
+function formatDateTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ============================================================================
+// 狀態樣式（與手機版管理端一致語意）
+// ============================================================================
+
+const STATUS_STYLES = {
+  '已收到': 'bg-sky-50 text-sky-700 ring-sky-200',
+  '處理中': 'bg-amber-50 text-amber-700 ring-amber-200',
+  '已回覆': 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  '已結案': 'bg-slate-100 text-slate-500 ring-slate-200',
+};
+
+function statusBadgeHtml(status) {
+  const style = STATUS_STYLES[status] || 'bg-slate-100 text-slate-500 ring-slate-200';
+  return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${style}">${escapeHtml(status)}</span>`;
+}
+
+// ============================================================================
+// LIFF 啟動與登入
+// ============================================================================
+
+async function fetchClientConfig() {
+  const res = await fetch('/api/client-config');
+  const json = await res.json().catch(() => null);
+  return json && json.adminLiffId ? json : null;
+}
+
+async function initLiff() {
+  const config = await fetchClientConfig();
+  if (!config || !config.adminLiffId) {
+    throw new Error('尚未設定 ADMIN_LIFF_ID，請至 Vercel / .env 設定管理端 LIFF ID。');
+  }
+  state.liffId = config.adminLiffId;
+
+  await liff.init({ liffId: state.liffId });
+
+  // 外部瀏覽器未登入 → 跳 LINE Login（掃 QR 或用已登入的 LINE）
+  if (!liff.isLoggedIn()) {
+    liff.login();
+    throw new Error('REDIRECTING_TO_LINE_LOGIN');
+  }
+}
+
+async function getIdToken() {
+  // ID Token 過期時 liff.getIDToken 可能回 null → 主动刷新 context
+  let token = liff.getIDToken();
+  if (!token) {
+    try {
+      await liff.getAccessToken();
+    } catch (err) {
+      console.warn('liff.getAccessToken failed:', err);
+    }
+    token = liff.getIDToken();
+  }
+  if (!token) {
+    // 最後手段：logout 再 login 重新取得
+    throw Object.assign(new Error('ID Token 已失效，請重新登入。'), { code: 'NEED_RELOGIN' });
+  }
+  return token;
+}
+
+async function authedFetch(path, options = {}) {
+  const token = await getIdToken();
+  const headers = Object.assign(
+    { 'Content-Type': 'application/json' },
+    options.headers || {},
+    { Authorization: `Bearer ${token}` }
+  );
+  return fetch(path, Object.assign({}, options, { headers }));
+}
+
+function setAuthStatus(text, showSpinner) {
+  if (elements.authStatusText) elements.authStatusText.textContent = text;
+  if (elements.authSpinner) elements.authSpinner.classList.toggle('hidden', !showSpinner);
+}
+
+function showScreen(name) {
+  elements.authScreen.classList.toggle('hidden', name !== 'auth');
+  elements.authScreen.classList.toggle('flex', name === 'auth');
+  elements.deniedScreen.classList.toggle('hidden', name !== 'denied');
+  elements.deniedScreen.classList.toggle('flex', name === 'denied');
+  elements.appScreen.classList.toggle('hidden', name !== 'app');
+}
+
+async function checkAdmin() {
+  const res = await authedFetch('/api/admin/me');
+  const json = await res.json().catch(() => null);
+  if (res.status === 401) {
+    throw Object.assign(new Error('身分驗證失效，請重新登入。'), { code: 'NEED_RELOGIN' });
+  }
+  if (!res.ok) {
+    throw new Error('管理權限檢查失敗，請稍後再試。');
+  }
+  if (!json || json.success === false || json.data && json.data.is_admin !== true) {
+    return false;
+  }
+  if (json.data && json.data.is_admin === false) {
+    return false;
+  }
+  return true;
+}
+
+async function handleRelogin() {
+  liff.logout();
+  liff.login();
+}
+
+// ============================================================================
+// 列表
+// ============================================================================
+
+async function loadList() {
+  if (state.loadingList) return;
+  state.loadingList = true;
+  elements.listLoading.classList.remove('hidden');
+  elements.listEmpty.classList.add('hidden');
+
+  const params = new URLSearchParams();
+  params.set('limit', String(PAGE_SIZE));
+  params.set('offset', String(state.offset));
+  if (state.status) params.set('status', state.status);
+  if (state.query) params.set('q', state.query);
+
+  try {
+    const res = await authedFetch(`/api/admin/feedback?${params.toString()}`);
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    const data = json.data || {};
+    state.items = Array.isArray(data.items) ? data.items : [];
+    state.counts = data.counts || {};
+    state.total = Number.isFinite(data.total) ? data.total : state.items.length;
+    renderList();
+  } catch (err) {
+    console.error('loadList failed:', err);
+    state.items = [];
+    renderList();
+    showToast(err.message || '列表載入失敗');
+  } finally {
+    state.loadingList = false;
+    elements.listLoading.classList.add('hidden');
+  }
+}
+
+function updateStatusChips() {
+  document.querySelectorAll('[data-status-chip]').forEach((chip) => {
+    const key = chip.dataset.statusChip;
+    const active = key === state.status;
+    if (active) {
+      chip.className = 'status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition bg-violet-600 text-white shadow-sm';
+    } else {
+      chip.className = 'status-chip rounded-full px-4 py-1.5 text-xs font-semibold transition bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50';
+    }
+    // 計數（全部 = 各狀態總和）
+    let count = null;
+    if (key === '') {
+      const sum = Object.values(state.counts).reduce((a, b) => a + (Number(b) || 0), 0);
+      count = state.total || sum;
+    } else if (Object.prototype.hasOwnProperty.call(state.counts, key)) {
+      count = Number(state.counts[key]) || 0;
+    }
+    const label = chip.textContent.replace(/\s*\(\d+\)$/, '');
+    chip.textContent = count === null ? label : `${label} (${count})`;
+  });
+}
+
+function renderList() {
+  updateStatusChips();
+
+  const rows = state.items.map((item) => `
+    <tr class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40" data-open-detail="${item.id}">
+      <td class="px-5 py-3.5 font-mono text-xs text-slate-400">#${item.id}</td>
+      <td class="px-5 py-3.5">${statusBadgeHtml(item.status)}</td>
+      <td class="px-5 py-3.5 text-sm font-semibold text-slate-800">${escapeHtml(item.user_name || '匿名')}</td>
+      <td class="max-w-[22rem] truncate px-5 py-3.5 text-sm text-slate-600">${escapeHtml((item.content || '').slice(0, 60))}</td>
+      <td class="px-5 py-3.5 text-xs text-slate-500">${escapeHtml(item.category || '')}</td>
+      <td class="px-5 py-3.5 text-xs text-slate-500">${item.photo_count > 0 ? `${item.photo_count} 張` : '—'}</td>
+      <td class="whitespace-nowrap px-5 py-3.5 text-xs text-slate-500">${formatDateTime(item.created_at)}</td>
+      <td class="px-5 py-3.5 text-right">
+        <span class="inline-flex items-center gap-1 text-xs font-semibold text-violet-600">
+          查看 <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+        </span>
+      </td>
+    </tr>
+  `).join('');
+
+  elements.listTableBody.innerHTML = rows;
+  elements.listEmpty.classList.toggle('hidden', state.items.length > 0 || state.loadingList);
+  renderIcons();
+
+  // 分頁
+  const page = Math.floor(state.offset / PAGE_SIZE) + 1;
+  const totalPages = Math.max(1, Math.ceil(state.total / PAGE_SIZE));
+  elements.pageInfo.textContent = `第 ${page} / ${totalPages} 頁 · 共 ${state.total} 筆`;
+  elements.prevPageButton.disabled = state.offset <= 0;
+  elements.nextPageButton.disabled = state.offset + PAGE_SIZE >= state.total;
+
+  // 綁定整列點擊
+  elements.listTableBody.querySelectorAll('[data-open-detail]').forEach((tr) => {
+    tr.addEventListener('click', () => openDetail(Number(tr.dataset.openDetail)));
+  });
+}
+
+// ============================================================================
+// 詳情
+// ============================================================================
+
+function switchView(view) {
+  const isList = view === 'list';
+  elements.listView.classList.toggle('hidden', !isList);
+  elements.detailView.classList.toggle('hidden', isList);
+  if (isList) window.scrollTo({ top: 0 });
+}
+
+async function openDetail(id) {
+  switchView('detail');
+  elements.detailContent.textContent = '載入中…';
+  elements.detailPhotos.innerHTML = '';
+  elements.detailTimeline.innerHTML = '';
+  elements.detailId.textContent = `#${id}`;
+  elements.detailStatusBadge.className = 'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold';
+  elements.detailStatusBadge.textContent = '';
+
+  try {
+    const res = await authedFetch(`/api/admin/feedback/${encodeURIComponent(id)}`);
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    state.detail = json.data;
+    renderDetail();
+  } catch (err) {
+    console.error('openDetail failed:', err);
+    showToast(err.message || '詳情載入失敗');
+    switchView('list');
+  }
+}
+
+function renderDetail() {
+  const d = state.detail;
+  if (!d) return;
+
+  elements.detailId.textContent = `#${d.id}`;
+
+  const style = STATUS_STYLES[d.status] || 'bg-slate-100 text-slate-500 ring-slate-200';
+  elements.detailStatusBadge.className = `shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold ring-1 ${style}`;
+  elements.detailStatusBadge.textContent = d.status || '';
+
+  elements.detailContent.textContent = d.content || '（無內容）';
+
+  elements.detailUserName.textContent = d.user_name || '匿名';
+  elements.detailPhone.textContent = d.phone || '—';
+  elements.detailCategory.textContent = d.category || '—';
+  elements.detailCreatedAt.textContent = formatDateTime(d.created_at);
+
+  // 照片（signed URL 由後端給）
+  const photos = Array.isArray(d.photos) ? d.photos : [];
+  if (photos.length > 0) {
+    elements.detailPhotos.innerHTML = `
+      <p class="mb-2 text-xs font-semibold text-slate-500">現場照片（${photos.length} 張）</p>
+      <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        ${photos.map((p) => `
+          <a href="${escapeHtml(p.url || p.signed_url || '#')}" target="_blank" rel="noopener" class="group relative block overflow-hidden rounded-xl ring-1 ring-slate-200">
+            <img src="${escapeHtml(p.url || p.signed_url || '')}" alt="照片" loading="lazy"
+              class="aspect-square w-full object-cover transition group-hover:scale-105">
+          </a>
+        `).join('')}
+      </div>`;
+  } else {
+    elements.detailPhotos.innerHTML = '';
+  }
+
+  // 時間軸（對齊手機版 status_logs / changed_at 欄位）
+  const logs = Array.isArray(d.status_logs) ? d.status_logs : (Array.isArray(d.status_timeline) ? d.status_timeline : []);
+  if (logs.length > 0) {
+    elements.detailTimeline.innerHTML = logs.map((log, idx) => {
+      const isLast = idx === logs.length - 1;
+      return `
+        <div class="relative flex gap-3 pb-5">
+          ${!isLast ? '<div class="absolute left-[7px] top-4 h-full w-px bg-slate-200"></div>' : ''}
+          <div class="relative mt-1 h-3.5 w-3.5 shrink-0 rounded-full border-2 ${isLast ? 'border-violet-500 bg-violet-100' : 'border-slate-300 bg-white'}"></div>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-sm font-bold text-slate-800">${escapeHtml(log.status || '')}</span>
+              <span class="text-[11px] text-slate-400">${formatDateTime(log.changed_at || log.created_at)}</span>
+            </div>
+            ${log.reply_summary ? `<p class="mt-1 whitespace-pre-wrap text-xs leading-5 text-slate-500">${escapeHtml(log.reply_summary)}</p>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  } else {
+    elements.detailTimeline.innerHTML = '<p class="text-xs text-slate-400">尚無處理紀錄</p>';
+  }
+
+  // 操作區初始值（狀態用 DB 目前值、回覆清空）
+  elements.statusSelect.value = STATUS_ORDER.includes(d.status) ? d.status : '已收到';
+  elements.replyTextarea.value = '';
+  elements.replyCharCount.textContent = '0';
+  elements.saveButton.disabled = false;
+  elements.deleteButton.disabled = false;
+
+  renderIcons();
+}
+
+async function saveDetail() {
+  if (state.saving || !state.detail) return;
+  const newStatus = elements.statusSelect.value;
+  const reply = elements.replyTextarea.value.trim();
+  const statusChanged = newStatus !== state.detail.status;
+
+  if (!statusChanged && !reply) {
+    showToast('沒有變更可儲存（狀態未改變且未填回覆）。');
+    return;
+  }
+
+  state.saving = true;
+  elements.saveButton.disabled = true;
+  elements.saveButton.innerHTML = '<i data-lucide="loader-2" class="h-4 w-4 animate-spin"></i><span>儲存中…</span>';
+  renderIcons();
+
+  const body = {};
+  if (statusChanged) body.status = newStatus;
+  if (reply) body.reply_summary = reply;
+
+  try {
+    const res = await authedFetch(`/api/admin/feedback/${encodeURIComponent(state.detail.id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `儲存失敗（HTTP ${res.status}）`);
+    }
+    showToast('已儲存變更。');
+    // 重新載入詳情（拿最新 status_logs）與列表計數
+    await openDetail(state.detail.id);
+    await loadList();
+  } catch (err) {
+    console.error('saveDetail failed:', err);
+    showToast(err.message || '儲存失敗，請稍後再試');
+  } finally {
+    state.saving = false;
+    elements.saveButton.disabled = false;
+    elements.saveButton.innerHTML = '<i data-lucide="save" class="h-4 w-4"></i><span>儲存變更</span>';
+    renderIcons();
+  }
+}
+
+async function deleteDetail() {
+  if (state.deleting || !state.detail) return;
+  const d = state.detail;
+  const preview = (d.content || '').slice(0, 40);
+  const previewText = preview.length >= 40 ? `${preview}…` : preview;
+  const photoNote = (Array.isArray(d.photos) && d.photos.length > 0) ? `，含 ${d.photos.length} 張照片` : '';
+
+  const confirmed = window.confirm(
+    `確定要刪除這筆許願嗎？\n\n` +
+    `編號：#${d.id}\n` +
+    `申請人：${d.user_name || '匿名'}\n` +
+    `內容摘要：${previewText || '（無內容）'}\n` +
+    `刪除後照片與處理紀錄將一併移除${photoNote}，無法復原。`
+  );
+  if (!confirmed) return;
+
+  state.deleting = true;
+  elements.deleteButton.disabled = true;
+  elements.deleteButton.innerHTML = '<i data-lucide="loader-2" class="h-3.5 w-3.5 animate-spin"></i><span>刪除中…</span>';
+  renderIcons();
+
+  try {
+    const res = await authedFetch(`/api/admin/feedback/${encodeURIComponent(d.id)}`, { method: 'DELETE' });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `刪除失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '許願已刪除。');
+    state.detail = null;
+    switchView('list');
+    await loadList();
+  } catch (err) {
+    console.error('deleteDetail failed:', err);
+    showToast(err.message || '刪除失敗，請稍後再試');
+  } finally {
+    state.deleting = false;
+    elements.deleteButton.disabled = false;
+    elements.deleteButton.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>刪除此許願</span>';
+    renderIcons();
+  }
+}
+
+// ============================================================================
+// 事件綁定與啟動
+// ============================================================================
+
+function bindEvents() {
+  document.querySelectorAll('[data-status-chip]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      state.status = chip.dataset.statusChip;
+      state.offset = 0;
+      loadList();
+    });
+  });
+
+  elements.searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    state.query = elements.searchInput.value.trim();
+    state.offset = 0;
+    loadList();
+  });
+
+  elements.prevPageButton.addEventListener('click', () => {
+    if (state.offset > 0) {
+      state.offset = Math.max(0, state.offset - PAGE_SIZE);
+      loadList();
+    }
+  });
+
+  elements.nextPageButton.addEventListener('click', () => {
+    if (state.offset + PAGE_SIZE < state.total) {
+      state.offset += PAGE_SIZE;
+      loadList();
+    }
+  });
+
+  elements.backButton.addEventListener('click', () => switchView('list'));
+
+  elements.replyTextarea.addEventListener('input', () => {
+    elements.replyCharCount.textContent = String(elements.replyTextarea.value.length);
+  });
+
+  elements.saveButton.addEventListener('click', saveDetail);
+  elements.deleteButton.addEventListener('click', deleteDetail);
+
+  const doLogout = () => {
+    try { liff.logout(); } catch (err) { console.warn('liff.logout failed:', err); }
+    window.location.reload();
+  };
+  elements.logoutButton.addEventListener('click', doLogout);
+  elements.deniedLogoutButton.addEventListener('click', doLogout);
+}
+
+async function bootstrap() {
+  cacheElements();
+  bindEvents();
+  renderIcons();
+  showScreen('auth');
+  setAuthStatus('正在透過 LINE 驗證身分…', true);
+
+  try {
+    await initLiff();
+  } catch (err) {
+    if (err && err.message === 'REDIRECTING_TO_LINE_LOGIN') return; // 已 redirect
+    console.error('initLiff failed:', err);
+    setAuthStatus(err.message || 'LIFF 初始化失敗，請重新整理頁面。', false);
+    return;
+  }
+
+  try {
+    const profile = await liff.getProfile().catch(() => null);
+    if (profile && profile.displayName) {
+      elements.adminNameLabel.textContent = profile.displayName;
+      elements.adminNameLabel.classList.remove('hidden');
+    }
+  } catch (err) {
+    console.warn('getProfile failed:', err);
+  }
+
+  try {
+    const isAdmin = await checkAdmin();
+    if (!isAdmin) {
+      showScreen('denied');
+      return;
+    }
+    state.authReady = true;
+    showScreen('app');
+    await loadList();
+  } catch (err) {
+    if (err && err.code === 'NEED_RELOGIN') {
+      await handleRelogin();
+      return;
+    }
+    console.error('admin check failed:', err);
+    setAuthStatus(err.message || '身分驗證失敗，請重新整理頁面。', false);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  bootstrap().catch((err) => {
+    console.error('bootstrap failed:', err);
+    setAuthStatus('系統啟動失敗，請重新整理頁面。', false);
+  });
+});
+</script>
+</body>
+</html>

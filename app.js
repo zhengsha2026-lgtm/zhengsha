@@ -104,11 +104,14 @@ app.get('/', (req, res) => {
   res.redirect('/liff.html');
 });
 
+const ADMIN_LIFF_ID = process.env.ADMIN_LIFF_ID || '';
+
 app.get('/api/client-config', (req, res) => {
   res.json({
     liffId: LIFF_ID,
     liffFormUrl: LIFF_FORM_URL,
     candidateName: CANDIDATE_NAME,
+    adminLiffId: ADMIN_LIFF_ID,
   });
 });
 
