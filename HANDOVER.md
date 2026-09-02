@@ -111,6 +111,7 @@
   - 初始 Tab 規則：HTML 預設 4 個底部 Tab 的 panel 全部 `hidden`；**若 URL 讀不到 tab，不先顯示核心政見**
   - LIFF 啟動流程：頁面解析到 `</nav>` 時先用 inline script 把 search/hash 的 tab 提前打開（命中才顯示）；`liff.init()` 完成後再用 `location.search` → `location.hash` → `liff.permanentLink.createUrl()` 的順序重新解析一次，最後才 fallback platforms；目的是避免從 LINE 圖文選單進非政見頁時，**先閃核心政見再跳走**
   - 進哪個 Tab 才載該 Tab 的 API 資料（platforms/intro/wish/schedule），intro 以靜態為主，其餘 Tab 第一次進去時載入並快取，切回來不重抓
+  - **啟動頁（splash）**：`<body>` 開頭即渲染純 CSS 啟動頁（頭像 + 名稱 + 載入轉圈，不依賴 Tailwind/Lucide/主 script），第一次開啟不再乾等空白；`bootstrap()` 中身分 + 初始 Tab + 管理員檢查都完成後才淡出移除（280ms），拿掉後直接是 `?tab=` 目標頁，**不會閃核心政見**；另有 **8 秒保險絲**（inline script `setTimeout`），主流程卡死也強制進頁，且超時時若所有面板仍 hidden 會緊急顯示 platforms 避免整頁空白
   - 政見封面、行程封面、相簿、管理列表縮圖全部 `loading="lazy"`，非當前 Tab 不急著載
 
 ---
@@ -317,6 +318,7 @@
   - HTML 預設 4 個底部 Tab panel 全部 `hidden`；頁面解析到 `</nav>` 後立即執行一段 inline script，先以 search+hash 命中的 tab 開啟對應頁面，**若沒讀到 tab 就全部保持 hidden，不落回 platforms**
   - `liff.init()` 成功後再解析一次：來源優先序 `location.search` → `location.hash` → `liff.permanentLink.createUrl()`（圖文選單參數常藏在這），最後才 fallback platforms
   - 深度連結非政見 tab 時，第一眼不再出現核心政見列表或政見骨架
+  - **啟動頁（splash）**：`<body>` 開頭純 CSS 啟動頁（`#appSplash`，頭像 + 名稱 + spinner + 「載入中…」，z-70 蓋全頁不透明），不依賴 Tailwind/Lucide/主 script，HTML 一落地即顯示；`bootstrap()` 中 `liff.init` + 初始 Tab 解析 + `checkAdminIdentity()` 完成後呼叫 `window.__zhengshaDismissSplash()` 淡出移除；inline script 掛 **8 秒保險絲** `setTimeout`，超時強制進頁（若面板全 hidden 緊急顯示 platforms）
   - 進哪個 Tab 才載該 Tab API：platforms/wish/schedule 第一次進去時載入並快取，切回來不重抓；intro 以靜態為主
   - 政見封面、行程封面、相簿、管理列表縮圖：全部 `loading="lazy"`
 
