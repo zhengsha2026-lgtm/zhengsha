@@ -173,11 +173,106 @@
       .portrait-glow-ring {
         animation: portrait-glow 3.2s infinite ease-in-out;
       }
+
+      /* ===== 啟動頁（splash）：純 CSS 立即生效，不依賴 Tailwind / Lucide / 主 script ===== */
+      .app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        background:
+          radial-gradient(circle at top right, rgba(245, 243, 255, 0.9), transparent 32%),
+          radial-gradient(circle at top left, rgba(250, 245, 255, 0.75), transparent 28%),
+          #f8fafc;
+        transition: opacity 280ms ease-out;
+      }
+
+      .app-splash.is-leaving {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .app-splash__spinner {
+        width: 26px;
+        height: 26px;
+        border-radius: 9999px;
+        border: 3px solid rgba(139, 92, 246, 0.18);
+        border-top-color: rgba(139, 92, 246, 0.9);
+        animation: splash-spin 0.9s linear infinite;
+      }
+
+      @keyframes splash-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     </style>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-800">
+    <!-- ===== 啟動頁：HTML 一落地即顯示（純 CSS），身分與初始 Tab 就緒後由主流程淡出移除 ===== -->
+    <div id="appSplash" class="app-splash" role="status" aria-label="載入中">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 14px">
+        <div
+          style="height: 72px; width: 72px; border-radius: 9999px; background: linear-gradient(135deg, #e9d5ff, #fbcfe8, #fde68a); padding: 3px; box-shadow: 0 16px 50px rgba(139, 92, 246, 0.18)"
+        >
+          <div style="height: 100%; width: 100%; border-radius: 9999px; background: #ffffff; padding: 5px; overflow: hidden">
+            <img
+              src="/candidate.png"
+              alt="曾思容"
+              style="height: 100%; width: 100%; border-radius: 9999px; object-fit: cover"
+            />
+          </div>
+        </div>
+        <div style="text-align: center">
+          <p style="font-size: 18px; font-weight: 700; color: #4c1d95; letter-spacing: 0.02em">幸福正砂 ‧ 曾思容</p>
+          <p style="margin-top: 4px; font-size: 12px; color: #8b5cf6; letter-spacing: 0.18em">正砂里長候選人</p>
+        </div>
+      </div>
+      <div class="app-splash__spinner"></div>
+      <p style="font-size: 13px; color: #94a3b8">載入中…</p>
+    </div>
+    <script>
+      // 啟動頁移除：主流程 ready 時呼叫；最長 8 秒保險絲，主 script 異常也能進頁
+      (function () {
+        var dismissed = false;
+        function dismissSplash() {
+          if (dismissed) return;
+          dismissed = true;
+          var el = document.getElementById('appSplash');
+          if (!el) return;
+          // 超時保險絲情境：若主流程卡死且 URL 無 tab（面板全部 hidden），
+          // 緊急顯示 platforms 面板，避免移除啟動頁後整頁空白
+          var panels = document.querySelectorAll('[data-tab-panel]');
+          var anyVisible = false;
+          for (var i = 0; i < panels.length; i++) {
+            if (!panels[i].classList.contains('hidden')) {
+              anyVisible = true;
+              break;
+            }
+          }
+          if (!anyVisible) {
+            for (var j = 0; j < panels.length; j++) {
+              if (panels[j].getAttribute('data-tab-panel') === 'platforms') {
+                panels[j].classList.remove('hidden');
+              }
+            }
+          }
+          el.classList.add('is-leaving');
+          setTimeout(function () {
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+          }, 320);
+        }
+        window.__zhengshaDismissSplash = dismissSplash;
+        setTimeout(dismissSplash, 8000);
+      })();
+    </script>
+
     <div class="relative min-h-screen overflow-hidden">
       <div class="pointer-events-none absolute inset-0">
         <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,243,255,0.9),transparent_32%),radial-gradient(circle_at_top_left,rgba(250,245,255,0.75),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(245,243,255,0.6),transparent_24%)]"></div>
@@ -1902,6 +1997,11 @@
           if (!state.activeTab) {
             switchTab('platforms', { updateHistory: false, autoload: false });
           }
+        }
+
+        // 啟動頁：身分與初始 Tab 已解析、目標面板已可顯示，淡出移除（另有 8 秒保險絲）
+        if (typeof window.__zhengshaDismissSplash === 'function') {
+          window.__zhengshaDismissSplash();
         }
 
         // 2) 只針對初始 Tab 載入該 Tab 需要的資料（其他 Tab 留給使用者切過去時才載）
