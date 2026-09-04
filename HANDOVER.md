@@ -45,6 +45,7 @@
   - 空狀態依篩選顯示（「目前沒有處理中的許願」等）
 - 我的許願（列表 + 詳情）
 - 競選行程（里民端：主打 hero 卡 + 即將到來/過往足跡分組 + 詳情 modal + 16:9 封面與相簿 + 影片外連 + 報名/取消報名；管理端可看到報名人數）
+- 報平安（?tab=safety 直開，不進底部導覽：每日簽到 + 個人資料/緊急聯絡人管理；管理端有待關懷名單與關懷紀錄）
 
 ### 許願相關（重點）
 - 里民可填寫並送出許願
@@ -70,6 +71,7 @@
 
 ### 政見管理（管理員專用）
 - 里民端政見改版：單欄主打卡（`is_featured` 筆，16:9 封面圖 + 摘要 + 支持數）+ 其餘左圖右文卡
+- 每張卡（主打與小卡）都有「查看政見 →」提示：主打卡在右下（`text-xs`）、小卡在右欄底部與支持數同行靠右（`text-[11px]` 紫色，hover 箭頭微開）；**點擊區域仍是整張卡**（`data-platform-open`），非獨立按鈕
 - 沒封面圖時用 `theme_color` + `icon` 做 fallback 色塊
 - 詳情 modal 頂部可顯示封面圖，全文改用 `content` 欄位（fallback `description`）
 - 政見管理列表：封面縮圖、標題、分類、支持數、排序、主打標記；可上移/下移、設為主打、進入編輯
@@ -107,12 +109,32 @@
   - 行程時間顯示：畫面上一律 `YYYY/MM/DD HH:mm`（24 小時制，小時補零）；編輯頁的 `datetime-local` 系統挑選器可能仍是 12 小時，**下方另附 24 小時制可見文字**避免混淆
   - 上傳封面 / 相簿照片成功後，**只更新該區塊 DOM，不會重置表單其他已填欄位**（title、description、content、時間、地點、影片、上架等都保留）
 - **圖文選單入口**：
-  - 網址格式：`https://liff.line.me/{LIFF_ID}?tab=platforms|intro|wish|schedule`（可用 search 或 hash 兩種）
+  - 網址格式：`https://liff.line.me/{LIFF_ID}?tab=platforms|intro|wish|schedule|safety`（可用 search 或 hash 兩種）
   - 初始 Tab 規則：HTML 預設 4 個底部 Tab 的 panel 全部 `hidden`；**若 URL 讀不到 tab，不先顯示核心政見**
   - LIFF 啟動流程：頁面解析到 `</nav>` 時先用 inline script 把 search/hash 的 tab 提前打開（命中才顯示）；`liff.init()` 完成後再用 `location.search` → `location.hash` → `liff.permanentLink.createUrl()` 的順序重新解析一次，最後才 fallback platforms；目的是避免從 LINE 圖文選單進非政見頁時，**先閃核心政見再跳走**
   - 進哪個 Tab 才載該 Tab 的 API 資料（platforms/intro/wish/schedule），intro 以靜態為主，其餘 Tab 第一次進去時載入並快取，切回來不重抓
   - **啟動頁（splash）**：`<body>` 開頭即渲染純 CSS 啟動頁（頭像 + 名稱 + 載入轉圈，不依賴 Tailwind/Lucide/主 script），第一次開啟不再乾等空白；`bootstrap()` 中身分 + 初始 Tab + 管理員檢查都完成後才淡出移除（280ms），拿掉後直接是 `?tab=` 目標頁，**不會閃核心政見**；另有 **8 秒保險絲**（inline script `setTimeout`），主流程卡死也強制進頁，且超時時若所有面板仍 hidden 會緊急顯示 platforms 避免整頁空白
   - 政見封面、行程封面、相簿、管理列表縮圖全部 `loading="lazy"`，非當前 Tab 不急著載
+
+### 報平安（里民端 + 管理端；?tab=safety 獨立頁，不進底部導覽）
+- **定位**：里民每日簽到「我今天平安」；幹部從管理端看誰連續兩天以上沒簽到（待關懷），主動電訪/家訪並留下關懷紀錄
+- **入口**：`?tab=safety` deep-link（圖文選單/官方帳號導流用）；**底部導覽維持 4 個 Tab**，safety 是隱藏第 5 個 panel，只有 URL 帶 tab 才會開
+- **里民端（public/liff.html `safetyPanel`）**：
+  - 未加入：說明卡 + 加入表單（稱呼、本人電話、緊急聯絡人姓名/電話；電話格式後端驗證）；加入即本人同意，`line_user_id` 取自 LINE verify `sub`（不信前端）
+  - 已加入：大顆「我今天平安」簽到鈕（**冪等**：同日再按回 200 不報錯、不重複計次）、今日簽到時間、上次簽到日；「設定」可摺疊編輯稱呼/電話/聯絡人；「退出報平安」= soft delete（`left_at` 設時間），簽到歷史保留
+  - 重新加入會**重設 `baseline_date`**（舊簽到不影響未簽天數計算）
+- **管理端（管理首頁第 4 張模組卡「報平安」）**：
+  - 名單（`GET /api/admin/safety`）：只列活躍會員（`left_at IS NULL`），同時顯示**本人電話與緊急聯絡人電話**（可點擊撥打）
+  - 篩選 chips 四組含計數：全部 / 今日已簽 / 今日未簽 / **待關懷**
+  - 排序：待關懷優先（未簽天數多者在前）→ 其餘未簽 → 已簽；`missing_days` 與 `needs_care` 由後端計算
+  - 名單上可一鍵標記「已電訪/已家訪」（備註可留空）；詳情頁（`GET /api/admin/safety/:id`）看完整關懷歷史 + 近期簽到紀錄，也可補備註標記關懷（`POST /api/admin/safety/:id/care`）
+  - 第一期通知方式：**僅後台亮「待關懷」徽章**，不自動對外宣布、不自動 LINE 群發（管理員自己上後台看）
+- **核心規則（後端唯一可信）**：
+  - 「今天」一律用 `Asia/Taipei` 時區由後端計算（`getTaipeiToday()`），不信前端傳的日期
+  - 一天一筆簽到：`safety_checkins` 有 `UNIQUE(member_id, checkin_date)`
+  - `missing_days` = 今天 − max(最後簽到日, baseline_date)；今日已簽 = 0
+  - 待關懷 = 活躍 且 今日未簽 且 `missing_days >= 2`
+  - 關懷方式只有「已電訪 / 已家訪」兩種（DB CHECK 約束）
 
 ---
 
@@ -171,6 +193,11 @@
 - `campaign_events`：競選行程主表（title/description/content/start_at/end_at/location/cover_image_path/video_url/rsvp_count/is_published）
 - `campaign_event_photos`：行程相簿照片
 - `event_rsvps`：行程報名紀錄（`UNIQUE(event_id, line_user_id)`）
+- `safety_members`：報平安會員（`line_user_id` UNIQUE、`baseline_date` 起算日、`left_at` soft delete；重新加入重設 baseline_date）
+- `safety_checkins`：每日簽到（`UNIQUE(member_id, checkin_date)`，一天一筆；CASCADE 刪除）
+- `safety_care_logs`：關懷紀錄（`method` CHECK：`已電訪`/`已家訪`、`note` 備註、`created_by` 管理員 LINE id；CASCADE 刪除）
+
+> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`（已於 Supabase 執行）
 
 ### 狀態值
 `已收到` / `處理中` / `已回覆` / `已結案`
@@ -198,6 +225,11 @@
 | GET | `/api/events/:id` | 單筆行程詳情（含封面 signed URL、相簿 signed URL、`my_rsvp`） |
 | POST | `/api/events/:id/rsvp` | 報名行程（已結束 `start_at < now` 擋新增） |
 | DELETE | `/api/events/:id/rsvp` | 取消報名（**不擋已結束**） |
+| GET | `/api/safety/status` | 我的報平安狀態（joined、今日是否已簽、上次簽到日） |
+| POST | `/api/safety/join` | 加入報平安（本人同意；重新加入重設 baseline_date） |
+| PATCH | `/api/safety/profile` | 修改稱呼/本人電話/緊急聯絡人 |
+| POST | `/api/safety/checkin` | 今日簽到（**冪等**：同日再按回 200 不重複計次） |
+| DELETE | `/api/safety/membership` | 退出報平安（soft delete，簽到歷史保留） |
 
 ### 管理員端 API（許願池後台管理）
 
@@ -229,6 +261,9 @@
 | DELETE | `/api/admin/events/:id/album/:photoId` | 刪除單張相簿照片 |
 | POST | `/api/admin/events/:id/notify-rsvp` | 發訊給已報名里民（文案後端寫死） |
 | POST | `/api/admin/events/:id/notify-wish-pool` | 發訊給許願池里民（文案後端寫死） |
+| GET | `/api/admin/safety` | 報平安名單（活躍會員），支援 `filter=all/checked/unchecked/care`，回傳各組計數與 derived 欄位（checked_in_today / missing_days / needs_care / latest_care） |
+| GET | `/api/admin/safety/:id` | 單筆詳情（會員資料 + 近期簽到紀錄 + 完整關懷歷史） |
+| POST | `/api/admin/safety/:id/care` | 標記關懷，body `{ method: '已電訪'\|'已家訪', note }` |
 
 ---
 
@@ -272,10 +307,11 @@
   - 401（未登入）→ 靜默隱藏管理圖示
 - 底部導覽永遠維持 4 個 Tab，不再動態切換 grid-cols
 - 點 header 圖示 → `switchTab('admin')` → 顯示 adminPanel → `switchAdminView('home')`
-- 管理首頁有三個模組卡：許願管理（可用）、政見管理（可用）、行程管理（可用）
+- 管理首頁有四個模組卡：許願管理（可用）、政見管理（可用）、行程管理（可用）、報平安（可用）
 - 許願管理流程：管理首頁 → 許願列表（返回管理首頁）→ 詳情處理（返回列表）
 - 政見管理流程：管理首頁 → 政見列表（返回管理首頁，可上移/下移/設主打/進入編輯）→ 編輯頁（返回列表）
 - 行程管理流程：管理首頁 → 行程列表（返回管理首頁，可新增/編輯/刪除）→ 編輯頁（返回列表，封面/相簿/時間/影片/文案/上架/通知；**封面/相簿上傳後只更新自己那塊 DOM，不會清空其他已填欄位**）
+- 報平安流程：管理首頁 → 簽到名單（返回管理首頁；篩選 chips 全部/今日已簽/今日未簽/待關懷、可一鍵標記已電訪/已家訪）→ 詳情頁（返回名單；完整關懷歷史 + 近期簽到 + 補備註標記關懷）
 - 行程通知兩顆手動按鈕：`notify-rsvp`（已報名里民）、`notify-wish-pool`（許願池里民），不會自動發，會消耗 LINE 官方帳號推播則數
 - 行程時間 24 小時制統一顯示；編輯頁 `datetime-local` 之下另附 `YYYY/MM/DD HH:mm` 文字；**結束時間必須晚於開始時間，前後端雙重檢查**
 - 若 URL 帶有 `?tab=admin` 且確認為管理員，自動切換到管理面板
@@ -314,16 +350,24 @@
   - 新增 Storage bucket：`event-covers`（private，RLS 拒絕 anon/authenticated）
   - 行程 API：里民 list/detail/rsvp join/rsvp cancel；管理 list/detail/create/patch/delete/cover/album/notify-rsvp/notify-wish-pool
 - **LIFF 啟動與載入速度優化（防閃政見 + 分頁載入）**
-  - 圖文選單網址：`https://liff.line.me/{LIFF_ID}?tab=platforms|intro|wish|schedule`（search 或 hash 兩種都支援）
+  - 圖文選單網址：`https://liff.line.me/{LIFF_ID}?tab=platforms|intro|wish|schedule|safety`（search 或 hash 兩種都支援）
   - HTML 預設 4 個底部 Tab panel 全部 `hidden`；頁面解析到 `</nav>` 後立即執行一段 inline script，先以 search+hash 命中的 tab 開啟對應頁面，**若沒讀到 tab 就全部保持 hidden，不落回 platforms**
   - `liff.init()` 成功後再解析一次：來源優先序 `location.search` → `location.hash` → `liff.permanentLink.createUrl()`（圖文選單參數常藏在這），最後才 fallback platforms
   - 深度連結非政見 tab 時，第一眼不再出現核心政見列表或政見骨架
   - **啟動頁（splash）**：`<body>` 開頭純 CSS 啟動頁（`#appSplash`，頭像 + 名稱 + spinner + 「載入中…」，z-70 蓋全頁不透明），不依賴 Tailwind/Lucide/主 script，HTML 一落地即顯示；`bootstrap()` 中 `liff.init` + 初始 Tab 解析 + `checkAdminIdentity()` 完成後呼叫 `window.__zhengshaDismissSplash()` 淡出移除；inline script 掛 **8 秒保險絲** `setTimeout`，超時強制進頁（若面板全 hidden 緊急顯示 platforms）
-  - 進哪個 Tab 才載該 Tab API：platforms/wish/schedule 第一次進去時載入並快取，切回來不重抓；intro 以靜態為主
+  - 進哪個 Tab 才載該 Tab API：platforms/wish/schedule/safety 第一次進去時載入並快取，切回來不重抓；intro 以靜態為主
   - 政見封面、行程封面、相簿、管理列表縮圖：全部 `loading="lazy"`
+- **報平安模組（已上線；?tab=safety 獨立頁）**
+  - 里民端：未加入（說明 + 加入表單：稱呼/本人電話/緊急聯絡人）/ 已加入（大顆「我今天平安」簽到鈕、冪等、設定摺疊編輯、退出 soft delete）兩種畫面；底部導覽維持 4 Tab 不變，safety 僅 deep-link 進入
+  - 管理端：管理首頁第 4 張模組卡「報平安」→ 名單（四組篩選 chips 含計數、待關懷優先排序、顯示本人與緊急聯絡人電話、一鍵標記關懷）→ 詳情（完整關懷歷史 + 近期簽到 + 補備註關懷）
+  - 後端規則：台灣時區後端算今天、`UNIQUE(member_id, checkin_date)` 一天一筆、簽到冪等、missing_days = 今天 − max(最後簽到日, baseline_date)、待關懷 = 活躍且今日未簽且 missing_days ≥ 2、重新加入重設 baseline_date、退出為 soft delete
+  - 新增資料表（migration `004_safety_schema.sql`，已於 Supabase 執行）：`safety_members` / `safety_checkins` / `safety_care_logs`
+  - API：里民 status/join/profile/checkin/membership（DELETE）；管理 list/detail/care
+  - 電腦版 admin.html **本期未動**（報平安僅手機 LIFF）
 
 ### 仍可優化 / 尚未完成
-- 管理端電腦版**第二期**：政見管理、行程管理的電腦版（第一期只有許願管理）
+- 管理端電腦版**第二期**：政見管理、行程管理的電腦版（第一期只有許願管理；報平安電腦版也尚未做）
+- 報平安「待關懷」目前僅後台顯示，**未主動推播提醒幹部**（未來可考慮每日定時 LINE 通知，需注意推播則數成本）
 - 許願案件狀態變更後的 **LINE 主動通知里民**（推播進度）尚未做
 - 後台管理的進階功能：批次變更狀態、匯出 CSV、依日期區間篩選
 - 後台管理員身分的**動態新增/移除**（目前需改環境變數重新部署）

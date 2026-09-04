@@ -645,6 +645,399 @@ app.delete('/api/events/:id/rsvp', async (req, res) => {
   }
 });
 
+// ============================================================================
+// 報平安（safety）：里民端 API
+// 規則：
+//   1. 加入必須本人同意（LIFF ID Token 的 sub）
+//   2. 一天只計一次簽到（台灣日期，後端計算）；已簽再按為冪等（200，不報錯）
+//   3. 退出 = left_at 設時間（soft delete）；重新加入重設 baseline_date
+//   4. 待關懷 = 活躍且今日未簽且 missing_days >= 2（管理端計算）
+// ============================================================================
+
+const SAFETY_TAIPEI_TZ = 'Asia/Taipei';
+const SAFETY_NAME_MAX_LENGTH = 20;
+const SAFETY_PHONE_MAX_LENGTH = 20;
+const SAFETY_NOTE_MAX_LENGTH = 200;
+
+// 台灣時區的今天，回傳 'YYYY-MM-DD'（後端唯一可信的日期來源，不信前端）
+function getTaipeiToday() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('sv-SE', { timeZone: SAFETY_TAIPEI_TZ }).format(now);
+  return parts; // 'YYYY-MM-DD'
+}
+
+function dateDaysDiff(fromDateStr, toDateStr) {
+  const from = new Date(`${fromDateStr}T00:00:00Z`).getTime();
+  const to = new Date(`${toDateStr}T00:00:00Z`).getTime();
+  if (Number.isNaN(from) || Number.isNaN(to)) return 0;
+  return Math.round((to - from) / 86400000);
+}
+
+function sanitizeSafetyPhone(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  if (!/^[0-9+\-()\s#]{5,SAFETY_PHONE_MAX_LENGTH}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+// 查自己的活躍會員資料（left_at IS NULL）
+async function findActiveSafetyMember(lineUserId) {
+  const { data, error } = await supabaseAdmin
+    .from('safety_members')
+    .select('id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+    .eq('line_user_id', lineUserId)
+    .is('left_at', null)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+function buildSafetyMemberData(row) {
+  return {
+    id: row.id,
+    display_name: row.display_name || '',
+    phone: row.phone || '',
+    contact_name: row.contact_name || '',
+    contact_phone: row.contact_phone || '',
+    joined_at: row.joined_at,
+    baseline_date: row.baseline_date,
+  };
+}
+
+// GET /api/safety/status：我的報平安狀態
+app.get('/api/safety/status', async (req, res) => {
+  let identity;
+  try {
+    identity = await authenticateLineIdentity(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'safety status auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  try {
+    const today = getTaipeiToday();
+    const member = await findActiveSafetyMember(identity.lineUserId);
+    if (!member) {
+      return res.json({
+        success: true,
+        data: { joined: false, member: null, today, checked_in_today: false, today_checkin_at: null, last_checkin_date: null },
+      });
+    }
+
+    const { data: todayCheckin, error: todayError } = await supabaseAdmin
+      .from('safety_checkins')
+      .select('id, checkin_date, created_at')
+      .eq('member_id', member.id)
+      .eq('checkin_date', today)
+      .maybeSingle();
+    if (todayError) throw todayError;
+
+    const { data: lastCheckin, error: lastError } = await supabaseAdmin
+      .from('safety_checkins')
+      .select('checkin_date')
+      .eq('member_id', member.id)
+      .order('checkin_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastError) throw lastError;
+
+    return res.json({
+      success: true,
+      data: {
+        joined: true,
+        member: buildSafetyMemberData(member),
+        today,
+        checked_in_today: Boolean(todayCheckin),
+        today_checkin_at: todayCheckin ? todayCheckin.created_at : null,
+        last_checkin_date: lastCheckin ? lastCheckin.checkin_date : null,
+      },
+    });
+  } catch (error) {
+    console.error('safety status failed:', error);
+    return res.status(500).json({ success: false, message: '報平安狀態讀取失敗，請稍後再試。' });
+  }
+});
+
+// POST /api/safety/join：加入報平安（本人同意）
+app.post('/api/safety/join', async (req, res) => {
+  let identity;
+  try {
+    identity = await authenticateLineIdentity(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'safety join auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  const displayName = String((req.body && req.body.display_name) || '').trim();
+  if (!displayName || displayName.length > SAFETY_NAME_MAX_LENGTH) {
+    return res.status(400).json({ success: false, message: `請填寫稱呼（${SAFETY_NAME_MAX_LENGTH} 字以內）。` });
+  }
+
+  const phone = sanitizeSafetyPhone(req.body && req.body.phone);
+  if (phone === null) {
+    return res.status(400).json({ success: false, message: '電話格式不正確。' });
+  }
+  const contactName = String((req.body && req.body.contact_name) || '').trim().slice(0, SAFETY_NAME_MAX_LENGTH);
+  const contactPhone = sanitizeSafetyPhone(req.body && req.body.contact_phone);
+  if (contactPhone === null) {
+    return res.status(400).json({ success: false, message: '聯絡人電話格式不正確。' });
+  }
+
+  try {
+    const today = getTaipeiToday();
+
+    // 已是活躍會員：擋重複加入
+    const existing = await findActiveSafetyMember(identity.lineUserId);
+    if (existing) {
+      return res.status(409).json({ success: false, message: '您已加入報平安。' });
+    }
+
+    // 查是否有退出紀錄（同一人同一列）
+    const { data: leftMember, error: findError } = await supabaseAdmin
+      .from('safety_members')
+      .select('id, left_at')
+      .eq('line_user_id', identity.lineUserId)
+      .not('left_at', 'is', null)
+      .maybeSingle();
+    if (findError) throw findError;
+
+    let row;
+    if (leftMember) {
+      // 重新加入：復用同一列、清空 left_at、重設 baseline_date（退久了回來不會立刻變待關懷）
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from('safety_members')
+        .update({
+          display_name: displayName,
+          phone: phone || null,
+          contact_name: contactName || null,
+          contact_phone: contactPhone || null,
+          baseline_date: today,
+          left_at: null,
+        })
+        .eq('id', leftMember.id)
+        .select('id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+        .single();
+      if (updateError) throw updateError;
+      row = updated;
+    } else {
+      const { data: inserted, error: insertError } = await supabaseAdmin
+        .from('safety_members')
+        .insert([
+          {
+            line_user_id: identity.lineUserId,
+            display_name: displayName,
+            phone: phone || null,
+            contact_name: contactName || null,
+            contact_phone: contactPhone || null,
+            baseline_date: today,
+          },
+        ])
+        .select('id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+        .single();
+      if (insertError) {
+        // UNIQUE 衝突 = 並發重複加入
+        if (insertError.code === '23505') {
+          return res.status(409).json({ success: false, message: '您已加入報平安。' });
+        }
+        throw insertError;
+      }
+      row = inserted;
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: '已加入報平安，謝謝您讓我們一起守護彼此。',
+      data: { joined: true, member: buildSafetyMemberData(row), today, checked_in_today: false, today_checkin_at: null, last_checkin_date: null },
+    });
+  } catch (error) {
+    console.error('safety join failed:', error);
+    return res.status(500).json({ success: false, message: '加入報平安失敗，請稍後再試。' });
+  }
+});
+
+// PATCH /api/safety/profile：修改稱呼/電話/聯絡人
+app.patch('/api/safety/profile', async (req, res) => {
+  let identity;
+  try {
+    identity = await authenticateLineIdentity(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'safety profile auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  const body = req.body || {};
+  const hasAnyField =
+    body.display_name !== undefined ||
+    body.phone !== undefined ||
+    body.contact_name !== undefined ||
+    body.contact_phone !== undefined;
+  if (!hasAnyField) {
+    return res.status(400).json({ success: false, message: '沒有可更新的欄位。' });
+  }
+
+  const patch = {};
+  if (body.display_name !== undefined) {
+    const displayName = String(body.display_name || '').trim();
+    if (!displayName || displayName.length > SAFETY_NAME_MAX_LENGTH) {
+      return res.status(400).json({ success: false, message: `稱呼需為 1-${SAFETY_NAME_MAX_LENGTH} 字。` });
+    }
+    patch.display_name = displayName;
+  }
+  if (body.phone !== undefined) {
+    const phone = sanitizeSafetyPhone(body.phone);
+    if (phone === null) {
+      return res.status(400).json({ success: false, message: '電話格式不正確。' });
+    }
+    patch.phone = phone || null;
+  }
+  if (body.contact_name !== undefined) {
+    const contactName = String(body.contact_name || '').trim();
+    if (contactName.length > SAFETY_NAME_MAX_LENGTH) {
+      return res.status(400).json({ success: false, message: `聯絡人姓名需為 ${SAFETY_NAME_MAX_LENGTH} 字以內。` });
+    }
+    patch.contact_name = contactName || null;
+  }
+  if (body.contact_phone !== undefined) {
+    const contactPhone = sanitizeSafetyPhone(body.contact_phone);
+    if (contactPhone === null) {
+      return res.status(400).json({ success: false, message: '聯絡人電話格式不正確。' });
+    }
+    patch.contact_phone = contactPhone || null;
+  }
+
+  try {
+    const member = await findActiveSafetyMember(identity.lineUserId);
+    if (!member) {
+      return res.status(404).json({ success: false, message: '您尚未加入報平安。' });
+    }
+
+    const { data: updated, error } = await supabaseAdmin
+      .from('safety_members')
+      .update(patch)
+      .eq('id', member.id)
+      .select('id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+      .single();
+    if (error) throw error;
+
+    return res.json({ success: true, message: '設定已更新。', data: { member: buildSafetyMemberData(updated) } });
+  } catch (error) {
+    console.error('safety profile failed:', error);
+    return res.status(500).json({ success: false, message: '更新設定失敗，請稍後再試。' });
+  }
+});
+
+// POST /api/safety/checkin：今日簽到（冪等：已簽再按回 200，不報錯不重複計次）
+app.post('/api/safety/checkin', async (req, res) => {
+  let identity;
+  try {
+    identity = await authenticateLineIdentity(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'safety checkin auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  try {
+    const today = getTaipeiToday();
+    const member = await findActiveSafetyMember(identity.lineUserId);
+    if (!member) {
+      return res.status(404).json({ success: false, message: '您尚未加入報平安。' });
+    }
+
+    // 已簽：冪等回 200
+    const { data: existing, error: findError } = await supabaseAdmin
+      .from('safety_checkins')
+      .select('id, checkin_date, created_at')
+      .eq('member_id', member.id)
+      .eq('checkin_date', today)
+      .maybeSingle();
+    if (findError) throw findError;
+    if (existing) {
+      return res.json({
+        success: true,
+        message: '今天已經報過平安囉。',
+        data: { already_checked_in: true, checkin_date: existing.checkin_date, checkin_at: existing.created_at },
+      });
+    }
+
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('safety_checkins')
+      .insert([{ member_id: member.id, checkin_date: today }])
+      .select('id, checkin_date, created_at')
+      .single();
+    if (insertError) {
+      // UNIQUE 衝突 = 並發重複簽到，視為已簽（冪等）
+      if (insertError.code === '23505') {
+        const { data: again } = await supabaseAdmin
+          .from('safety_checkins')
+          .select('id, checkin_date, created_at')
+          .eq('member_id', member.id)
+          .eq('checkin_date', today)
+          .maybeSingle();
+        return res.json({
+          success: true,
+          message: '今天已經報過平安囉。',
+          data: { already_checked_in: true, checkin_date: again ? again.checkin_date : today, checkin_at: again ? again.created_at : null },
+        });
+      }
+      throw insertError;
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: '已記錄您今天平安，謝謝。',
+      data: { already_checked_in: false, checkin_date: inserted.checkin_date, checkin_at: inserted.created_at },
+    });
+  } catch (error) {
+    console.error('safety checkin failed:', error);
+    return res.status(500).json({ success: false, message: '簽到失敗，請稍後再試。' });
+  }
+});
+
+// DELETE /api/safety/membership：退出報平安（soft delete；簽到歷史保留）
+app.delete('/api/safety/membership', async (req, res) => {
+  let identity;
+  try {
+    identity = await authenticateLineIdentity(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'safety leave auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  try {
+    const member = await findActiveSafetyMember(identity.lineUserId);
+    if (!member) {
+      return res.status(404).json({ success: false, message: '您尚未加入報平安。' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('safety_members')
+      .update({ left_at: new Date().toISOString() })
+      .eq('id', member.id)
+      .is('left_at', null);
+    if (error) throw error;
+
+    return res.json({ success: true, message: '已退出報平安，您的資料不再出現在關懷名單。' });
+  } catch (error) {
+    console.error('safety leave failed:', error);
+    return res.status(500).json({ success: false, message: '退出失敗，請稍後再試。' });
+  }
+});
+
 app.post('/api/feedback/upload-urls', async (req, res) => {
   let identity;
   try {
@@ -3172,6 +3565,299 @@ app.post('/api/admin/events/:id/notify-wish-pool', async (req, res) => {
     });
   } catch (error) {
     return handleAuthOrServerError(res, error, 'admin event notify-wish-pool failed:');
+  }
+});
+
+// ============================================================================
+// 報平安（safety）：管理端 API（requireAdmin 雙重檢查）
+//   - 名單只列活躍會員（left_at IS NULL）；退出者不出現、不計未簽
+//   - derived 欄位後端計算：checked_in_today / today_checkin_at / last_checkin_date
+//     / last_checkin_at / missing_days / needs_care
+//   - missing_days = 今天(台灣) - max(最後簽到日, baseline_date)；今天已簽 = 0
+//   - 待關懷（needs_care）= 活躍且今日未簽且 missing_days >= 2
+//   - 第一期通知：僅後台亮「待關懷」，不自動對外宣布、不自動群發
+// ============================================================================
+
+const SAFETY_ADMIN_FILTERS = new Set(['all', 'checked', 'unchecked', 'care']);
+
+// 由會員 + 簽到紀錄計算 derived 欄位
+function buildSafetyAdminItem(memberRow, checkinRows, latestCare) {
+  const today = getTaipeiToday();
+  const todayCheckin = checkinRows.find((c) => c.checkin_date === today) || null;
+  let lastCheckin = null;
+  for (const c of checkinRows) {
+    if (!lastCheckin || c.checkin_date > lastCheckin.checkin_date) {
+      lastCheckin = c;
+    }
+  }
+
+  let missingDays = 0;
+  if (!todayCheckin) {
+    // baseline_date 之後沒簽（或重新加入前的舊簽到不算）→ 從 max(最後簽到日, baseline_date) 起算
+    const fromDate =
+      lastCheckin && lastCheckin.checkin_date > memberRow.baseline_date
+        ? lastCheckin.checkin_date
+        : memberRow.baseline_date;
+    missingDays = Math.max(0, dateDaysDiff(fromDate, today));
+  }
+
+  return {
+    id: memberRow.id,
+    display_name: memberRow.display_name || '',
+    phone: memberRow.phone || '',
+    contact_name: memberRow.contact_name || '',
+    contact_phone: memberRow.contact_phone || '',
+    joined_at: memberRow.joined_at,
+    baseline_date: memberRow.baseline_date,
+    today,
+    checked_in_today: Boolean(todayCheckin),
+    today_checkin_at: todayCheckin ? todayCheckin.created_at : null,
+    last_checkin_date: lastCheckin ? lastCheckin.checkin_date : null,
+    last_checkin_at: lastCheckin ? lastCheckin.created_at : null,
+    missing_days: missingDays,
+    needs_care: !todayCheckin && missingDays >= 2,
+    latest_care: latestCare
+      ? {
+          method: latestCare.method,
+          note: latestCare.note || '',
+          created_by: latestCare.created_by,
+          created_at: latestCare.created_at,
+        }
+      : null,
+  };
+}
+
+// GET /api/admin/safety：報平安名單（活躍會員）+ 四組篩選計數
+// 注意：村里規模（數十人）下直接撈全部簽到/關懷紀錄後在 Node 端彙總；
+// 名單成長到上千人時可改 PostgREST aggregate 或 RPC 優化
+app.get('/api/admin/safety', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/safety list auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  const filterParam = String(req.query.filter || 'all').trim();
+  const filter = SAFETY_ADMIN_FILTERS.has(filterParam) ? filterParam : 'all';
+
+  try {
+    const [{ data: members, error: membersError }] = await Promise.all([
+      supabaseAdmin
+        .from('safety_members')
+        .select('id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+        .is('left_at', null)
+        .order('display_name', { ascending: true }),
+    ]);
+    if (membersError) throw membersError;
+
+    const memberIds = (members || []).map((m) => m.id);
+    let checkins = [];
+    let careLogs = [];
+    if (memberIds.length > 0) {
+      const [checkinsRes, careRes] = await Promise.all([
+        supabaseAdmin
+          .from('safety_checkins')
+          .select('member_id, checkin_date, created_at')
+          .in('member_id', memberIds),
+        supabaseAdmin
+          .from('safety_care_logs')
+          .select('id, member_id, method, note, created_by, created_at')
+          .in('member_id', memberIds)
+          .order('created_at', { ascending: false }),
+      ]);
+      if (checkinsRes.error) throw checkinsRes.error;
+      if (careRes.error) throw careRes.error;
+      checkins = checkinsRes.data || [];
+      careLogs = careRes.data || [];
+    }
+
+    // 彙總：每人簽到列表 + 最新一筆關懷
+    const checkinsByMember = new Map();
+    for (const c of checkins) {
+      if (!checkinsByMember.has(c.member_id)) checkinsByMember.set(c.member_id, []);
+      checkinsByMember.get(c.member_id).push(c);
+    }
+    const latestCareByMember = new Map();
+    for (const log of careLogs) {
+      if (!latestCareByMember.has(log.member_id)) latestCareByMember.set(log.member_id, log);
+    }
+
+    const items = (members || []).map((m) =>
+      buildSafetyAdminItem(m, checkinsByMember.get(m.id) || [], latestCareByMember.get(m.id) || null)
+    );
+
+    // 排序：待關懷優先（未簽天數多者在前），再來其餘未簽，最後已簽
+    items.sort((a, b) => {
+      if (a.needs_care !== b.needs_care) return a.needs_care ? -1 : 1;
+      if (a.checked_in_today !== b.checked_in_today) return a.checked_in_today ? 1 : -1;
+      if (a.missing_days !== b.missing_days) return b.missing_days - a.missing_days;
+      return a.display_name.localeCompare(b.display_name, 'zh-TW');
+    });
+
+    const counts = {
+      all: items.length,
+      checked: items.filter((i) => i.checked_in_today).length,
+      unchecked: items.filter((i) => !i.checked_in_today).length,
+      care: items.filter((i) => i.needs_care).length,
+    };
+
+    const filteredItems =
+      filter === 'checked'
+        ? items.filter((i) => i.checked_in_today)
+        : filter === 'unchecked'
+          ? items.filter((i) => !i.checked_in_today)
+          : filter === 'care'
+            ? items.filter((i) => i.needs_care)
+            : items;
+
+    return res.json({
+      success: true,
+      data: {
+        items: filteredItems,
+        counts,
+        filter,
+        today: getTaipeiToday(),
+      },
+    });
+  } catch (error) {
+    console.error('admin/safety list failed:', error);
+    return res.status(500).json({ success: false, message: '報平安名單讀取失敗，請稍後再試。' });
+  }
+});
+
+// GET /api/admin/safety/:id：單筆詳情（含近期簽到與關懷歷史）
+app.get('/api/admin/safety/:id', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/safety detail auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  const memberId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(memberId) || memberId <= 0) {
+    return res.status(400).json({ success: false, message: '名單編號不正確。' });
+  }
+
+  try {
+    const { data: memberRow, error: memberError } = await supabaseAdmin
+      .from('safety_members')
+      .select('id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+      .eq('id', memberId)
+      .maybeSingle();
+    if (memberError) throw memberError;
+    if (!memberRow) {
+      return res.status(404).json({ success: false, message: '找不到這位里民。' });
+    }
+
+    const [checkinsRes, careRes] = await Promise.all([
+      supabaseAdmin
+        .from('safety_checkins')
+        .select('id, checkin_date, created_at')
+        .eq('member_id', memberId)
+        .order('checkin_date', { ascending: false })
+        .limit(30),
+      supabaseAdmin
+        .from('safety_care_logs')
+        .select('id, method, note, created_by, created_at')
+        .eq('member_id', memberId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]);
+    if (checkinsRes.error) throw checkinsRes.error;
+    if (careRes.error) throw careRes.error;
+
+    const checkinRows = checkinsRes.data || [];
+    const careRows = careRes.data || [];
+
+    // 活躍者用完整 derived；已退出者仍可看資料（標示 left 狀態）
+    const isActive = !memberRow.left_at;
+    const summary = isActive
+      ? buildSafetyAdminItem(memberRow, checkinRows, careRows[0] || null)
+      : {
+          ...buildSafetyAdminItem({ ...memberRow, baseline_date: memberRow.baseline_date }, [], null),
+          checked_in_today: false,
+          needs_care: false,
+        };
+
+    return res.json({
+      success: true,
+      data: {
+        ...summary,
+        is_active: isActive,
+        left_at: memberRow.left_at || null,
+        checkins: checkinRows,
+        care_logs: careRows,
+      },
+    });
+  } catch (error) {
+    console.error('admin/safety detail failed:', error);
+    return res.status(500).json({ success: false, message: '報平安詳情讀取失敗，請稍後再試。' });
+  }
+});
+
+// POST /api/admin/safety/:id/care：標記關懷（已電訪 / 已家訪 + 一句備註）
+app.post('/api/admin/safety/:id/care', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/safety care auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  const memberId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(memberId) || memberId <= 0) {
+    return res.status(400).json({ success: false, message: '名單編號不正確。' });
+  }
+
+  const method = String((req.body && req.body.method) || '').trim();
+  if (method !== '已電訪' && method !== '已家訪') {
+    return res.status(400).json({ success: false, message: '關懷方式需為「已電訪」或「已家訪」。' });
+  }
+  const note = String((req.body && req.body.note) || '').trim().slice(0, SAFETY_NOTE_MAX_LENGTH);
+
+  try {
+    const { data: memberRow, error: memberError } = await supabaseAdmin
+      .from('safety_members')
+      .select('id, left_at')
+      .eq('id', memberId)
+      .maybeSingle();
+    if (memberError) throw memberError;
+    if (!memberRow) {
+      return res.status(404).json({ success: false, message: '找不到這位里民。' });
+    }
+    if (memberRow.left_at) {
+      return res.status(400).json({ success: false, message: '這位里民已退出報平安，無需關懷。' });
+    }
+
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('safety_care_logs')
+      .insert([{ member_id: memberId, method, note: note || null, created_by: identity.lineUserId }])
+      .select('id, member_id, method, note, created_by, created_at')
+      .single();
+    if (insertError) throw insertError;
+
+    return res.status(201).json({
+      success: true,
+      message: `已記錄：${method}。`,
+      data: { care: inserted },
+    });
+  } catch (error) {
+    console.error('admin/safety care failed:', error);
+    return res.status(500).json({ success: false, message: '關懷紀錄儲存失敗，請稍後再試。' });
   }
 });
 

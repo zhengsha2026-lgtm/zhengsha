@@ -1155,6 +1155,183 @@
             </div>
           </section>
 
+          <!-- ===== 報平安（?tab=safety 直開；不進底部導覽） ===== -->
+          <section
+            id="safetyPanel"
+            data-tab-panel="safety"
+            class="hidden space-y-5"
+          >
+            <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
+              <div>
+                <p class="text-sm font-semibold text-violet-600">報平安</p>
+                <h2 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">
+                  每天按一下，讓關心您的人放心
+                </h2>
+              </div>
+
+              <div id="safetyLoading" class="mt-6 space-y-3">
+                <div class="h-28 animate-pulse rounded-[1.5rem] bg-slate-200/70"></div>
+                <div class="h-[120px] animate-pulse rounded-[1.5rem] bg-slate-200/60"></div>
+              </div>
+
+              <div id="safetyError" class="hidden mt-6 rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                <p class="font-semibold text-rose-700">報平安載入失敗</p>
+                <p id="safetyErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                <button
+                  type="button"
+                  id="safetyRetryButton"
+                  class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                >
+                  <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                  <span>再試一次</span>
+                </button>
+              </div>
+
+              <!-- 未加入：短說明 + 同意加入表單 -->
+              <div id="safetyJoinView" class="hidden mt-6 space-y-5">
+                <div class="rounded-[1.5rem] border border-violet-100/60 bg-violet-50/30 p-4 text-sm leading-7 text-slate-600">
+                  每天按一下「我今天平安」，讓里辦知道您一切都好。
+                  <span class="font-medium text-violet-700">連續兩天沒按，里辦或您指定的家人會關心您。</span>
+                </div>
+
+                <form id="safetyJoinForm" class="space-y-4">
+                  <div>
+                    <label for="safetyJoinName" class="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      稱呼 <span class="text-violet-500">（必填）</span>
+                    </label>
+                    <input
+                      id="safetyJoinName"
+                      type="text"
+                      maxlength="20"
+                      placeholder="里辦怎麼稱呼您"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </div>
+                  <div>
+                    <label for="safetyJoinPhone" class="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      您的電話 <span class="text-slate-400">（選填）</span>
+                    </label>
+                    <input
+                      id="safetyJoinPhone"
+                      type="tel"
+                      maxlength="20"
+                      placeholder="0912-345-678"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </div>
+                  <div class="rounded-2xl border border-violet-100/60 bg-violet-50/20 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">指定聯絡人</p>
+                    <p class="mt-1.5 text-xs leading-6 text-slate-500">連續兩天沒按時，除了里辦，也會請這位家人關心您。</p>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                      <input
+                        id="safetyJoinContactName"
+                        type="text"
+                        maxlength="20"
+                        placeholder="聯絡人姓名（選填）"
+                        class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                      />
+                      <input
+                        id="safetyJoinContactPhone"
+                        type="tel"
+                        maxlength="20"
+                        placeholder="聯絡人電話（選填）"
+                        class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    id="safetyJoinSubmit"
+                    class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white shadow-[0_12px_30px_-12px_rgba(139,92,246,0.55)] transition hover:bg-violet-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <i data-lucide="heart-handshake" class="h-4 w-4"></i>
+                    <span id="safetyJoinSubmitText">同意並加入報平安</span>
+                  </button>
+                  <p class="text-center text-xs leading-6 text-slate-400">
+                    加入後可隨時更改聯絡人或退出，退出後不會再收到關心提醒。
+                  </p>
+                </form>
+              </div>
+
+              <!-- 已加入：今日簽到 + 設定 -->
+              <div id="safetyMemberView" class="hidden mt-6 space-y-5">
+                <div class="flex flex-col items-center pt-6 pb-2">
+                  <button
+                    type="button"
+                    id="safetyCheckinButton"
+                    class="group flex h-40 w-40 flex-col items-center justify-center gap-2 rounded-full bg-violet-600 text-white shadow-[0_20px_50px_-18px_rgba(139,92,246,0.65)] ring-8 ring-violet-50 transition hover:bg-violet-500 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-emerald-50 disabled:text-emerald-700 disabled:shadow-none disabled:ring-emerald-100/80"
+                  >
+                    <i data-lucide="heart-handshake" class="h-8 w-8 group-disabled:hidden"></i>
+                    <i data-lucide="check-circle-2" class="hidden h-8 w-8 group-disabled:block"></i>
+                    <span id="safetyCheckinLabel" class="px-4 text-center text-sm font-bold leading-6">我今天平安</span>
+                  </button>
+                  <p id="safetyCheckinDate" class="mt-4 hidden text-sm font-medium text-emerald-600"></p>
+                  <p class="mt-2 text-center text-xs leading-6 text-slate-400">
+                    連續兩天沒按，里辦或您指定的家人會關心您。
+                  </p>
+                </div>
+
+                <!-- 設定：改稱呼/電話/聯絡人、退出 -->
+                <div class="rounded-[1.5rem] border border-violet-100/60 bg-white">
+                  <button
+                    type="button"
+                    id="safetySettingsToggle"
+                    aria-expanded="false"
+                    class="flex w-full items-center justify-between px-5 py-4 text-sm font-semibold text-violet-950 transition hover:text-violet-600"
+                  >
+                    <span class="inline-flex items-center gap-2">
+                      <i data-lucide="settings-2" class="h-4 w-4 text-violet-500"></i>
+                      <span>聯絡人設定與退出</span>
+                    </span>
+                    <i data-lucide="chevron-down" class="h-4 w-4 text-slate-400 transition-transform"></i>
+                  </button>
+                  <div id="safetySettingsBody" class="hidden space-y-4 border-t border-violet-100/60 px-5 py-5">
+                    <form id="safetyProfileForm" class="space-y-3">
+                      <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label for="safetyProfileName" class="block text-xs font-semibold text-slate-500">稱呼</label>
+                          <input id="safetyProfileName" type="text" maxlength="20" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+                        </div>
+                        <div>
+                          <label for="safetyProfilePhone" class="block text-xs font-semibold text-slate-500">您的電話</label>
+                          <input id="safetyProfilePhone" type="tel" maxlength="20" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+                        </div>
+                        <div>
+                          <label for="safetyProfileContactName" class="block text-xs font-semibold text-slate-500">聯絡人姓名</label>
+                          <input id="safetyProfileContactName" type="text" maxlength="20" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+                        </div>
+                        <div>
+                          <label for="safetyProfileContactPhone" class="block text-xs font-semibold text-slate-500">聯絡人電話</label>
+                          <input id="safetyProfileContactPhone" type="tel" maxlength="20" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+                        </div>
+                      </div>
+                      <button
+                        type="submit"
+                        id="safetyProfileSave"
+                        class="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-violet-600 px-5 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span id="safetyProfileSaveText">儲存設定</span>
+                      </button>
+                    </form>
+
+                    <div class="border-t border-dashed border-violet-100/80 pt-4">
+                      <p class="text-xs leading-6 text-slate-400">退出後不會再出現在關懷名單，隨時可重新加入。</p>
+                      <button
+                        type="button"
+                        id="safetyLeaveButton"
+                        class="mt-2 inline-flex h-10 items-center gap-2 rounded-full bg-rose-50 px-5 text-sm font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <i data-lucide="log-out" class="h-4 w-4"></i>
+                        <span id="safetyLeaveButtonText">退出報平安</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section
             id="adminPanel"
             data-tab-panel="admin"
@@ -1189,7 +1366,7 @@
                   <span>返回里民頁面</span>
                 </button>
 
-                <div class="grid gap-4 sm:grid-cols-3">
+                <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <button
                     type="button"
                     data-admin-module="wish"
@@ -1237,6 +1414,24 @@
                     <p class="mt-4 text-base font-semibold text-violet-950">行程管理</p>
                     <p class="mt-2 text-xs leading-6 text-slate-500">
                       維護競選行程、封面、相簿與報名通知
+                    </p>
+                    <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
+                      <span>進入</span>
+                      <i data-lucide="chevron-right" class="h-3 w-3"></i>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-admin-module="safety"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/50 p-5 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] active:scale-[0.995]"
+                  >
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                      <i data-lucide="heart-handshake" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-base font-semibold text-violet-950">報平安</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-500">
+                      查看每日簽到名單、待關懷提醒與關懷紀錄
                     </p>
                     <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
                       <span>進入</span>
@@ -1520,6 +1715,101 @@
 
                 <div id="adminEventEditContainer" class="hidden space-y-5"></div>
               </div>
+
+              <!-- 報平安管理：名單列表 -->
+              <div id="adminSafetyListView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminSafetyListBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回管理首頁</span>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="adminSafetyRefreshButton"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 shadow-input ring-1 ring-slate-200 transition hover:text-violet-600 active:scale-95"
+                      aria-label="重新整理名單"
+                    >
+                      <i data-lucide="rotate-cw" class="h-4 w-4"></i>
+                    </button>
+                    <p class="text-sm font-semibold text-violet-950">報平安管理</p>
+                  </div>
+                </div>
+
+                <div id="adminSafetyChipsRow" class="flex flex-wrap gap-2"></div>
+
+                <div id="adminSafetyListLoading" class="space-y-3">
+                  <div class="h-[120px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[120px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[120px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminSafetyListEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                    <i data-lucide="heart-handshake" class="h-6 w-6"></i>
+                  </div>
+                  <p class="mt-4 text-base font-semibold text-violet-950">目前沒有符合條件的里民</p>
+                  <p id="adminSafetyListEmptyHint" class="mt-2 text-sm leading-7 text-slate-500">
+                    等里民從「報平安」頁面加入後，名單會出現在這裡。
+                  </p>
+                </div>
+
+                <div id="adminSafetyListError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入名單失敗</p>
+                  <p id="adminSafetyListErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    id="adminSafetyListRetryButton"
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminSafetyListContainer" class="space-y-3"></div>
+              </div>
+
+              <!-- 報平安管理：詳情（簽到與關懷歷史） -->
+              <div id="adminSafetyDetailView" class="hidden mt-6 space-y-5">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminSafetyDetailBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回名單</span>
+                  </button>
+                  <p class="text-sm font-semibold text-violet-950">報平安關懷</p>
+                </div>
+
+                <div id="adminSafetyDetailLoading" class="space-y-4">
+                  <div class="h-8 w-1/3 animate-pulse rounded-full bg-slate-200/70"></div>
+                  <div class="h-28 animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[120px] animate-pulse rounded-[1.25rem] bg-slate-200/55"></div>
+                  <div class="h-[160px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminSafetyDetailError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入資料失敗</p>
+                  <p id="adminSafetyDetailErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    id="adminSafetyDetailRetryButton"
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminSafetyDetailContainer" class="hidden space-y-5"></div>
+              </div>
             </div>
           </section>
         </section>
@@ -1614,7 +1904,7 @@
             return '';
           }
           function applyTabUi(tabOrEmpty) {
-            var PUBLIC_TABS = { platforms: 1, intro: 1, wish: 1, schedule: 1 };
+            var PUBLIC_TABS = { platforms: 1, intro: 1, wish: 1, schedule: 1, safety: 1 };
             var tab = PUBLIC_TABS[tabOrEmpty] ? tabOrEmpty : '';
             // 1) Panels：命中才顯示；沒命中就「全部維持 hidden」（HTML 預設全 hidden），決不落回 platforms
             try {
@@ -1657,8 +1947,8 @@
     </div>
 
     <script>
-      const TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule', 'admin'];
-      const PUBLIC_TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule'];
+      const TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule', 'safety', 'admin'];
+      const PUBLIC_TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule', 'safety'];
       const ADMIN_TAB_KEY = 'admin';
       const ADMIN_STATUS_FILTERS = ['全部', '已收到', '處理中', '已回覆', '已結案'];
       const ADMIN_LIST_LIMIT = 20;
@@ -1795,6 +2085,23 @@
               creating: false,
             },
           },
+          safety: {
+            view: 'list',
+            items: [],
+            counts: { all: 0, checked: 0, unchecked: 0, care: 0 },
+            filter: 'all',
+            loading: false,
+            error: null,
+            refreshedAt: null,
+            careBusy: false,
+            detail: {
+              id: null,
+              loading: false,
+              data: null,
+              error: null,
+              saving: false,
+            },
+          },
         },
         wish: {
           view: 'form',
@@ -1809,6 +2116,20 @@
           refreshedAt: null,
           data: { next: null, upcoming: [], past: [] },
           detail: { id: null, loading: false, data: null, error: null, rsvpBusy: false },
+        },
+        safety: {
+          // 里民端報平安：joined / checkin 狀態（點進 safety tab 才載）
+          meta: { loading: false, error: null, refreshedAt: null },
+          joined: false,
+          checkedInToday: false,
+          todayCheckinAt: null,
+          today: '',
+          member: null,
+          joining: false,
+          checkinBusy: false,
+          savingProfile: false,
+          leaving: false,
+          leaveArmed: false,
         },
       };
 
@@ -1932,6 +2253,52 @@
         adminEventEditLoading: document.getElementById('adminEventEditLoading'),
         adminEventEditError: document.getElementById('adminEventEditError'),
         adminEventEditContainer: document.getElementById('adminEventEditContainer'),
+        safetyPanel: document.getElementById('safetyPanel'),
+        safetyLoading: document.getElementById('safetyLoading'),
+        safetyError: document.getElementById('safetyError'),
+        safetyErrorText: document.getElementById('safetyErrorText'),
+        safetyRetryButton: document.getElementById('safetyRetryButton'),
+        safetyJoinView: document.getElementById('safetyJoinView'),
+        safetyJoinForm: document.getElementById('safetyJoinForm'),
+        safetyJoinName: document.getElementById('safetyJoinName'),
+        safetyJoinPhone: document.getElementById('safetyJoinPhone'),
+        safetyJoinContactName: document.getElementById('safetyJoinContactName'),
+        safetyJoinContactPhone: document.getElementById('safetyJoinContactPhone'),
+        safetyJoinSubmit: document.getElementById('safetyJoinSubmit'),
+        safetyJoinSubmitText: document.getElementById('safetyJoinSubmitText'),
+        safetyMemberView: document.getElementById('safetyMemberView'),
+        safetyCheckinButton: document.getElementById('safetyCheckinButton'),
+        safetyCheckinLabel: document.getElementById('safetyCheckinLabel'),
+        safetyCheckinDate: document.getElementById('safetyCheckinDate'),
+        safetySettingsToggle: document.getElementById('safetySettingsToggle'),
+        safetySettingsBody: document.getElementById('safetySettingsBody'),
+        safetyProfileForm: document.getElementById('safetyProfileForm'),
+        safetyProfileName: document.getElementById('safetyProfileName'),
+        safetyProfilePhone: document.getElementById('safetyProfilePhone'),
+        safetyProfileContactName: document.getElementById('safetyProfileContactName'),
+        safetyProfileContactPhone: document.getElementById('safetyProfileContactPhone'),
+        safetyProfileSave: document.getElementById('safetyProfileSave'),
+        safetyProfileSaveText: document.getElementById('safetyProfileSaveText'),
+        safetyLeaveButton: document.getElementById('safetyLeaveButton'),
+        safetyLeaveButtonText: document.getElementById('safetyLeaveButtonText'),
+        adminSafetyListView: document.getElementById('adminSafetyListView'),
+        adminSafetyDetailView: document.getElementById('adminSafetyDetailView'),
+        adminSafetyListBackButton: document.getElementById('adminSafetyListBackButton'),
+        adminSafetyRefreshButton: document.getElementById('adminSafetyRefreshButton'),
+        adminSafetyChipsRow: document.getElementById('adminSafetyChipsRow'),
+        adminSafetyListLoading: document.getElementById('adminSafetyListLoading'),
+        adminSafetyListEmpty: document.getElementById('adminSafetyListEmpty'),
+        adminSafetyListEmptyHint: document.getElementById('adminSafetyListEmptyHint'),
+        adminSafetyListError: document.getElementById('adminSafetyListError'),
+        adminSafetyListErrorText: document.getElementById('adminSafetyListErrorText'),
+        adminSafetyListContainer: document.getElementById('adminSafetyListContainer'),
+        adminSafetyListRetryButton: document.getElementById('adminSafetyListRetryButton'),
+        adminSafetyDetailBackButton: document.getElementById('adminSafetyDetailBackButton'),
+        adminSafetyDetailLoading: document.getElementById('adminSafetyDetailLoading'),
+        adminSafetyDetailError: document.getElementById('adminSafetyDetailError'),
+        adminSafetyDetailErrorText: document.getElementById('adminSafetyDetailErrorText'),
+        adminSafetyDetailContainer: document.getElementById('adminSafetyDetailContainer'),
+        adminSafetyDetailRetryButton: document.getElementById('adminSafetyDetailRetryButton'),
         adminChipsRow: document.getElementById('adminChipsRow'),
         adminSearchInput: document.getElementById('adminSearchInput'),
         adminListLoading: document.getElementById('adminListLoading'),
@@ -2012,7 +2379,7 @@
 
       // LIFF init 後解析 tab：來源依序是 search / hash / liff.permanentLink.createUrl()，最後才 fallback platforms
       async function resolveTabAfterLiffInit() {
-        const PUBLIC = { platforms: 1, intro: 1, wish: 1, schedule: 1 };
+        const PUBLIC = { platforms: 1, intro: 1, wish: 1, schedule: 1, safety: 1 };
         // 1 & 2: search + hash — 用底層 readTabFromUrl() 真實值，不提前 fallback
         let tab = '';
         try { tab = readTabFromUrl() || ''; } catch (_) { tab = ''; }
@@ -2076,6 +2443,13 @@
         }
         if (tab === 'schedule') {
           await loadEvents(options);
+          return;
+        }
+        if (tab === 'safety') {
+          // 報平安：點進此頁才打 API（有快取就不重打）
+          if (options.force === true || (!state.safety.meta.refreshedAt && !state.safety.meta.loading)) {
+            await loadSafetyStatus({ force: !!options.force });
+          }
           return;
         }
         // intro / admin：靜態或由各自管理流程載入
@@ -2358,6 +2732,8 @@
               switchAdminPlatformView('list', { autoload: true });
             } else if (module === 'schedule') {
               switchAdminEventView('list', { autoload: true });
+            } else if (module === 'safety') {
+              switchAdminSafetyView('list', { autoload: true });
             }
           });
         }
@@ -2492,6 +2868,103 @@
             }
           });
         }
+        // 報平安事件（里民端）
+        if (elements.safetyRetryButton) {
+          elements.safetyRetryButton.addEventListener('click', () => loadSafetyStatus({ force: true }));
+        }
+        if (elements.safetyJoinForm) {
+          elements.safetyJoinForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            handleSafetyJoin();
+          });
+        }
+        if (elements.safetyCheckinButton) {
+          elements.safetyCheckinButton.addEventListener('click', () => handleSafetyCheckin());
+        }
+        if (elements.safetySettingsToggle) {
+          elements.safetySettingsToggle.addEventListener('click', () => {
+            const body = elements.safetySettingsBody;
+            if (!body) return;
+            const isHidden = body.classList.toggle('hidden');
+            elements.safetySettingsToggle.setAttribute('aria-expanded', String(!isHidden));
+            const chevron = elements.safetySettingsToggle.querySelector('[data-lucide="chevron-down"]');
+            if (chevron) chevron.style.transform = isHidden ? '' : 'rotate(180deg)';
+          });
+        }
+        if (elements.safetyProfileForm) {
+          elements.safetyProfileForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            handleSafetyProfileSave();
+          });
+        }
+        if (elements.safetyLeaveButton) {
+          elements.safetyLeaveButton.addEventListener('click', () => handleSafetyLeave());
+        }
+
+        // 報平安管理事件
+        if (elements.adminSafetyListBackButton) {
+          elements.adminSafetyListBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
+        if (elements.adminSafetyDetailBackButton) {
+          elements.adminSafetyDetailBackButton.addEventListener('click', () => switchAdminSafetyView('list'));
+        }
+        if (elements.adminSafetyRefreshButton) {
+          elements.adminSafetyRefreshButton.addEventListener('click', () => loadAdminSafety({ force: true }));
+        }
+        if (elements.adminSafetyListRetryButton) {
+          elements.adminSafetyListRetryButton.addEventListener('click', () => loadAdminSafety({ force: true }));
+        }
+        if (elements.adminSafetyDetailRetryButton) {
+          elements.adminSafetyDetailRetryButton.addEventListener('click', () => {
+            if (state.admin.safety.detail.id) openAdminSafetyDetail(state.admin.safety.detail.id, { force: true });
+          });
+        }
+        if (elements.adminSafetyChipsRow) {
+          elements.adminSafetyChipsRow.addEventListener('click', (event) => {
+            const chip = event.target.closest('[data-safety-filter]');
+            if (!chip) return;
+            const filter = chip.dataset.safetyFilter;
+            if (filter && filter !== state.admin.safety.filter) {
+              state.admin.safety.filter = filter;
+              renderAdminSafetyChips();
+              renderAdminSafetyList();
+            }
+          });
+        }
+        if (elements.adminSafetyListContainer) {
+          elements.adminSafetyListContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-safety-action]');
+            if (!btn) return;
+            const action = btn.dataset.safetyAction;
+            const id = Number(btn.dataset.safetyId);
+            if (!id) return;
+            if (action === 'detail') {
+              openAdminSafetyDetail(id, { force: true });
+            } else if (action === 'call' || action === 'contact-call') {
+              // 電話改由 <a href="tel:"> 原生處理，此分支僅保留相容
+            } else if (action === 'care-call' || action === 'care-visit') {
+              markSafetyCare(id, action === 'care-call' ? '已電訪' : '已家訪', '');
+            }
+          });
+        }
+        if (elements.adminSafetyDetailContainer) {
+          elements.adminSafetyDetailContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-safety-detail-action]');
+            if (!btn) return;
+            const action = btn.dataset.safetyDetailAction;
+            if (action === 'care-save') {
+              const noteInput = elements.adminSafetyDetailContainer.querySelector('[data-safety-note-input]');
+              const note = noteInput ? noteInput.value.trim() : '';
+              const methodInput = elements.adminSafetyDetailContainer.querySelector('[data-safety-method-option]:checked');
+              if (!methodInput) {
+                showToast('請先選擇關懷方式（已電訪或已家訪）。');
+                return;
+              }
+              markSafetyCare(state.admin.safety.detail.id, methodInput.value, note);
+            }
+          });
+        }
+
         if (elements.adminChipsRow) {
           elements.adminChipsRow.addEventListener('click', (event) => {
             const chip = event.target.closest('[data-admin-status-filter]');
@@ -4878,6 +5351,9 @@
         // 行程管理子頁也一併隱藏（避免跨模組殘留）
         if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
         if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
+        // 報平安管理子頁一併隱藏（避免跨模組殘留）
+        if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
+        if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
 
         if (
           targetView === 'list' &&
@@ -4904,6 +5380,8 @@
         if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
         if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
         if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
+        if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
+        if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
 
         if (elements.adminPlatformListView) {
           elements.adminPlatformListView.classList.toggle('hidden', targetView !== 'list');
@@ -4932,6 +5410,8 @@
         if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
         if (elements.adminPlatformListView) elements.adminPlatformListView.classList.add('hidden');
         if (elements.adminPlatformEditView) elements.adminPlatformEditView.classList.add('hidden');
+        if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
+        if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
 
         if (elements.adminEventListView) {
           elements.adminEventListView.classList.toggle('hidden', targetView !== 'list');
@@ -4947,6 +5427,687 @@
         const scrollContainer = document.scrollingElement || document.documentElement || document.body;
         if (scrollContainer) scrollContainer.scrollTop = 0;
         renderIcons();
+      }
+
+      // 報平安管理子頁切換（safetyList / safetyDetail）
+      function switchAdminSafetyView(view, options = {}) {
+        const targetView = ['list', 'detail'].includes(view) ? view : 'list';
+        state.admin.safety.view = targetView;
+
+        // 先隱藏其他模組相關 view
+        if (elements.adminHomeView) elements.adminHomeView.classList.add('hidden');
+        if (elements.adminListView) elements.adminListView.classList.add('hidden');
+        if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
+        if (elements.adminPlatformListView) elements.adminPlatformListView.classList.add('hidden');
+        if (elements.adminPlatformEditView) elements.adminPlatformEditView.classList.add('hidden');
+        if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
+        if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
+
+        if (elements.adminSafetyListView) {
+          elements.adminSafetyListView.classList.toggle('hidden', targetView !== 'list');
+        }
+        if (elements.adminSafetyDetailView) {
+          elements.adminSafetyDetailView.classList.toggle('hidden', targetView !== 'detail');
+        }
+
+        if (targetView === 'list' && options.autoload === true) {
+          loadAdminSafety({ force: true });
+        }
+
+        const scrollContainer = document.scrollingElement || document.documentElement || document.body;
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+        renderIcons();
+      }
+
+      // ==========================================================================
+      // 報平安 — 里民端（?tab=safety；點進此頁才打 API）
+      // ==========================================================================
+
+      // 'YYYY-MM-DD' → 'YYYY/MM/DD'（顯示用；時間一律 formatEventDateTimeDisplay）
+      function formatSafetyDateForDisplay(dateStr) {
+        if (!dateStr) return '';
+        const parts = String(dateStr).split('-');
+        if (parts.length !== 3) return String(dateStr);
+        return `${parts[0]}/${parts[1]}/${parts[2]}`;
+      }
+
+      function setSafetyLoadingVisible(visible) {
+        if (elements.safetyLoading) elements.safetyLoading.classList.toggle('hidden', !visible);
+      }
+
+      function setSafetyError(message) {
+        if (!elements.safetyError) return;
+        if (message) {
+          if (elements.safetyErrorText) elements.safetyErrorText.textContent = message;
+          elements.safetyError.classList.remove('hidden');
+        } else {
+          elements.safetyError.classList.add('hidden');
+        }
+      }
+
+      async function loadSafetyStatus(options = {}) {
+        if (state.safety.meta.loading && options.force !== true) return;
+        state.safety.meta.loading = true;
+        state.safety.meta.error = null;
+
+        setSafetyLoadingVisible(true);
+        setSafetyError(null);
+        if (elements.safetyJoinView) elements.safetyJoinView.classList.add('hidden');
+        if (elements.safetyMemberView) elements.safetyMemberView.classList.add('hidden');
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch('/api/safety/status', {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '報平安狀態載入失敗');
+          }
+
+          const data = result.data || {};
+          state.safety.joined = Boolean(data.joined);
+          state.safety.member = data.member || null;
+          state.safety.checkedInToday = Boolean(data.checked_in_today);
+          state.safety.todayCheckinAt = data.today_checkin_at || null;
+          state.safety.today = data.today || '';
+          state.safety.meta.refreshedAt = Date.now();
+          renderSafetyView();
+        } catch (err) {
+          state.safety.meta.error = err.message || '報平安狀態載入失敗';
+          setSafetyError(state.safety.meta.error);
+        } finally {
+          state.safety.meta.loading = false;
+          setSafetyLoadingVisible(false);
+        }
+      }
+
+      function renderSafetyView() {
+        if (elements.safetyJoinView) {
+          elements.safetyJoinView.classList.toggle('hidden', state.safety.joined);
+        }
+        if (elements.safetyMemberView) {
+          elements.safetyMemberView.classList.toggle('hidden', !state.safety.joined);
+        }
+
+        if (state.safety.joined) {
+          // 大按鈕狀態：未簽可按；已簽 disabled + 「今天已報平安」+ 日期
+          if (elements.safetyCheckinButton) {
+            elements.safetyCheckinButton.disabled = state.safety.checkedInToday;
+          }
+          if (elements.safetyCheckinLabel) {
+            elements.safetyCheckinLabel.textContent = state.safety.checkedInToday ? '今天已報平安' : '我今天平安';
+          }
+          if (elements.safetyCheckinDate) {
+            if (state.safety.checkedInToday) {
+              const dateText = state.safety.today ? formatSafetyDateForDisplay(state.safety.today) : '';
+              const timeText = state.safety.todayCheckinAt
+                ? formatEventDateTimeDisplay(state.safety.todayCheckinAt)
+                : dateText;
+              elements.safetyCheckinDate.textContent = timeText ? `${timeText} 已簽到` : '今天已簽到';
+              elements.safetyCheckinDate.classList.remove('hidden');
+            } else {
+              elements.safetyCheckinDate.classList.add('hidden');
+            }
+          }
+
+          // 設定表單帶入現值
+          const m = state.safety.member || {};
+          if (elements.safetyProfileName) elements.safetyProfileName.value = m.display_name || '';
+          if (elements.safetyProfilePhone) elements.safetyProfilePhone.value = m.phone || '';
+          if (elements.safetyProfileContactName) elements.safetyProfileContactName.value = m.contact_name || '';
+          if (elements.safetyProfileContactPhone) elements.safetyProfileContactPhone.value = m.contact_phone || '';
+        }
+
+        // 收合設定區 + 重置退出二段式確認
+        if (elements.safetySettingsBody && !elements.safetySettingsBody.classList.contains('hidden')) {
+          elements.safetySettingsBody.classList.add('hidden');
+          if (elements.safetySettingsToggle) elements.safetySettingsToggle.setAttribute('aria-expanded', 'false');
+        }
+        resetSafetyLeaveConfirm();
+        renderIcons();
+      }
+
+      async function handleSafetyJoin() {
+        if (state.safety.joining) return;
+
+        const displayName = elements.safetyJoinName ? elements.safetyJoinName.value.trim() : '';
+        if (!displayName) {
+          showToast('請填寫稱呼，讓里辦知道怎麼稱呼您。');
+          return;
+        }
+
+        const tokenBundle = await getIdentityToken();
+        if (tokenBundle.kind !== 'liff') {
+          showToast('請從 LINE 開啟此頁面再加入報平安。');
+          return;
+        }
+
+        state.safety.joining = true;
+        if (elements.safetyJoinSubmit) elements.safetyJoinSubmit.disabled = true;
+        if (elements.safetyJoinSubmitText) elements.safetyJoinSubmitText.textContent = '正在加入...';
+
+        try {
+          const res = await fetch('/api/safety/join', {
+            method: 'POST',
+            headers: buildAuthHeaders(tokenBundle),
+            body: JSON.stringify({
+              display_name: displayName,
+              phone: elements.safetyJoinPhone ? elements.safetyJoinPhone.value.trim() : '',
+              contact_name: elements.safetyJoinContactName ? elements.safetyJoinContactName.value.trim() : '',
+              contact_phone: elements.safetyJoinContactPhone ? elements.safetyJoinContactPhone.value.trim() : '',
+            }),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '加入報平安失敗');
+          }
+
+          const data = result.data || {};
+          state.safety.joined = true;
+          state.safety.member = data.member || null;
+          state.safety.checkedInToday = false;
+          state.safety.todayCheckinAt = null;
+          state.safety.today = data.today || state.safety.today;
+          state.safety.meta.refreshedAt = Date.now();
+          renderSafetyView();
+          showToast(result.message || '已加入報平安。');
+        } catch (err) {
+          showToast(err.message || '加入報平安失敗，請稍後再試。');
+        } finally {
+          state.safety.joining = false;
+          if (elements.safetyJoinSubmit) elements.safetyJoinSubmit.disabled = false;
+          if (elements.safetyJoinSubmitText) elements.safetyJoinSubmitText.textContent = '同意並加入報平安';
+        }
+      }
+
+      async function handleSafetyCheckin() {
+        if (state.safety.checkinBusy || state.safety.checkedInToday) return;
+
+        const tokenBundle = await getIdentityToken();
+        if (tokenBundle.kind !== 'liff') {
+          showToast('請從 LINE 開啟此頁面再報平安。');
+          return;
+        }
+
+        state.safety.checkinBusy = true;
+        if (elements.safetyCheckinButton) elements.safetyCheckinButton.disabled = true;
+        if (elements.safetyCheckinLabel) elements.safetyCheckinLabel.textContent = '正在記錄...';
+
+        try {
+          const res = await fetch('/api/safety/checkin', {
+            method: 'POST',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '簽到失敗');
+          }
+
+          const data = result.data || {};
+          state.safety.checkedInToday = true;
+          state.safety.todayCheckinAt = data.checkin_at || new Date().toISOString();
+          if (data.checkin_date) state.safety.today = data.checkin_date;
+          renderSafetyView();
+          showToast(result.message || '已記錄您今天平安。');
+        } catch (err) {
+          showToast(err.message || '簽到失敗，請稍後再試。');
+          // 失敗回復可按狀態
+          if (elements.safetyCheckinButton) elements.safetyCheckinButton.disabled = false;
+          if (elements.safetyCheckinLabel) elements.safetyCheckinLabel.textContent = '我今天平安';
+        } finally {
+          state.safety.checkinBusy = false;
+        }
+      }
+
+      async function handleSafetyProfileSave() {
+        if (state.safety.savingProfile) return;
+
+        const displayName = elements.safetyProfileName ? elements.safetyProfileName.value.trim() : '';
+        if (!displayName) {
+          showToast('稱呼不可空白。');
+          return;
+        }
+
+        const tokenBundle = await getIdentityToken();
+        if (tokenBundle.kind !== 'liff') {
+          showToast('請從 LINE 開啟此頁面再修改設定。');
+          return;
+        }
+
+        state.safety.savingProfile = true;
+        if (elements.safetyProfileSave) elements.safetyProfileSave.disabled = true;
+        if (elements.safetyProfileSaveText) elements.safetyProfileSaveText.textContent = '儲存中...';
+
+        try {
+          const res = await fetch('/api/safety/profile', {
+            method: 'PATCH',
+            headers: buildAuthHeaders(tokenBundle),
+            body: JSON.stringify({
+              display_name: displayName,
+              phone: elements.safetyProfilePhone ? elements.safetyProfilePhone.value.trim() : '',
+              contact_name: elements.safetyProfileContactName ? elements.safetyProfileContactName.value.trim() : '',
+              contact_phone: elements.safetyProfileContactPhone ? elements.safetyProfileContactPhone.value.trim() : '',
+            }),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '更新設定失敗');
+          }
+
+          if (result.data && result.data.member) {
+            state.safety.member = result.data.member;
+          }
+          renderSafetyView();
+          showToast(result.message || '設定已更新。');
+        } catch (err) {
+          showToast(err.message || '更新設定失敗，請稍後再試。');
+        } finally {
+          state.safety.savingProfile = false;
+          if (elements.safetyProfileSave) elements.safetyProfileSave.disabled = false;
+          if (elements.safetyProfileSaveText) elements.safetyProfileSaveText.textContent = '儲存設定';
+        }
+      }
+
+      let safetyLeaveConfirmTimer = null;
+
+      function resetSafetyLeaveConfirm() {
+        state.safety.leaveArmed = false;
+        if (safetyLeaveConfirmTimer) {
+          window.clearTimeout(safetyLeaveConfirmTimer);
+          safetyLeaveConfirmTimer = null;
+        }
+        if (elements.safetyLeaveButtonText) elements.safetyLeaveButtonText.textContent = '退出報平安';
+      }
+
+      async function handleSafetyLeave() {
+        if (state.safety.leaving) return;
+
+        // 二段式確認：第一次點 = 武裝（按鈕文字變更，5 秒內再點才真的退出）
+        if (!state.safety.leaveArmed) {
+          state.safety.leaveArmed = true;
+          if (elements.safetyLeaveButtonText) elements.safetyLeaveButtonText.textContent = '再按一次確認退出';
+          if (safetyLeaveConfirmTimer) window.clearTimeout(safetyLeaveConfirmTimer);
+          safetyLeaveConfirmTimer = window.setTimeout(() => resetSafetyLeaveConfirm(), 5000);
+          return;
+        }
+
+        const tokenBundle = await getIdentityToken();
+        if (tokenBundle.kind !== 'liff') {
+          showToast('請從 LINE 開啟此頁面再退出。');
+          resetSafetyLeaveConfirm();
+          return;
+        }
+
+        state.safety.leaving = true;
+        if (elements.safetyLeaveButton) elements.safetyLeaveButton.disabled = true;
+        resetSafetyLeaveConfirm();
+
+        try {
+          const res = await fetch('/api/safety/membership', {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '退出失敗');
+          }
+
+          state.safety.joined = false;
+          state.safety.member = null;
+          state.safety.checkedInToday = false;
+          state.safety.todayCheckinAt = null;
+          state.safety.meta.refreshedAt = Date.now();
+          renderSafetyView();
+          showToast(result.message || '已退出報平安。');
+        } catch (err) {
+          showToast(err.message || '退出失敗，請稍後再試。');
+        } finally {
+          state.safety.leaving = false;
+          if (elements.safetyLeaveButton) elements.safetyLeaveButton.disabled = false;
+        }
+      }
+
+      // ==========================================================================
+      // 報平安 — 管理端（名單 / 待關懷 / 關懷紀錄；僅後台顯示，不自動對外通知）
+      // ==========================================================================
+
+      const SAFETY_ADMIN_FILTER_META = [
+        { key: 'all', label: '全部' },
+        { key: 'checked', label: '今日已簽' },
+        { key: 'unchecked', label: '今日未簽' },
+        { key: 'care', label: '待關懷' },
+      ];
+
+      async function loadAdminSafety(options = {}) {
+        if (state.admin.safety.loading && options.force !== true) return;
+        state.admin.safety.loading = true;
+        state.admin.safety.error = null;
+
+        if (elements.adminSafetyListLoading) elements.adminSafetyListLoading.classList.remove('hidden');
+        if (elements.adminSafetyListEmpty) elements.adminSafetyListEmpty.classList.add('hidden');
+        if (elements.adminSafetyListError) elements.adminSafetyListError.classList.add('hidden');
+        if (elements.adminSafetyListContainer) elements.adminSafetyListContainer.innerHTML = '';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch('/api/admin/safety', {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '報平安名單載入失敗');
+          }
+
+          const data = result.data || {};
+          // 後端回全部 items（filter=all）+ counts；chips 切換由前端即時過濾
+          state.admin.safety.items = Array.isArray(data.items) ? data.items : [];
+          state.admin.safety.counts = data.counts || { all: 0, checked: 0, unchecked: 0, care: 0 };
+          state.admin.safety.refreshedAt = Date.now();
+          renderAdminSafetyChips();
+          renderAdminSafetyList();
+        } catch (err) {
+          state.admin.safety.error = err.message || '報平安名單載入失敗';
+          if (elements.adminSafetyListError) {
+            elements.adminSafetyListError.classList.remove('hidden');
+            if (elements.adminSafetyListErrorText) {
+              elements.adminSafetyListErrorText.textContent = state.admin.safety.error;
+            }
+          }
+        } finally {
+          state.admin.safety.loading = false;
+          if (elements.adminSafetyListLoading) elements.adminSafetyListLoading.classList.add('hidden');
+        }
+      }
+
+      function renderAdminSafetyChips() {
+        if (!elements.adminSafetyChipsRow) return;
+        const counts = state.admin.safety.counts || {};
+        elements.adminSafetyChipsRow.innerHTML = SAFETY_ADMIN_FILTER_META.map((meta) => {
+          const active = state.admin.safety.filter === meta.key;
+          const count = Number(counts[meta.key]);
+          const countText = state.admin.safety.refreshedAt ? `(${Number.isFinite(count) ? count : 0})` : '';
+          const cls = active
+            ? 'bg-violet-600 text-white shadow-[0_8px_20px_-10px_rgba(139,92,246,0.6)]'
+            : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:text-violet-700';
+          return `
+            <button
+              type="button"
+              data-safety-filter="${meta.key}"
+              class="inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-xs font-semibold transition active:scale-95 ${cls}"
+            >
+              <span>${meta.label}</span>
+              <span class="${active ? 'text-violet-100' : 'text-slate-400'}">${countText}</span>
+            </button>
+          `;
+        }).join('');
+      }
+
+      function getSafetyBadge(item) {
+        if (item.needs_care) {
+          return '<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100"><i data-lucide="bell-ring" class="h-3 w-3"></i>待關懷</span>';
+        }
+        if (item.checked_in_today) {
+          return '<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-100"><i data-lucide="check-circle-2" class="h-3 w-3"></i>今日已簽</span>';
+        }
+        return '<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-600 ring-1 ring-amber-100"><i data-lucide="clock" class="h-3 w-3"></i>今日未簽</span>';
+      }
+
+      function renderAdminSafetyList() {
+        if (!elements.adminSafetyListContainer) return;
+        const filter = state.admin.safety.filter || 'all';
+        const items = (state.admin.safety.items || []).filter((item) => {
+          if (filter === 'checked') return item.checked_in_today;
+          if (filter === 'unchecked') return !item.checked_in_today;
+          if (filter === 'care') return item.needs_care;
+          return true;
+        });
+
+        if (elements.adminSafetyListEmpty) {
+          elements.adminSafetyListEmpty.classList.toggle('hidden', items.length > 0);
+          if (elements.adminSafetyListEmptyHint && items.length === 0) {
+            const hints = {
+              all: '等里民從「報平安」頁面加入後，名單會出現在這裡。',
+              checked: '今天還沒有人簽到。',
+              unchecked: '今天大家都已簽到，太棒了。',
+              care: '目前沒有待關懷的里民。',
+            };
+            elements.adminSafetyListEmptyHint.textContent = hints[filter] || hints.all;
+          }
+        }
+
+        elements.adminSafetyListContainer.innerHTML = items.map((item) => {
+          const id = escapeHtml(String(item.id));
+          const name = escapeHtml(item.display_name || '未填稱呼');
+          const lastCheckinText = item.last_checkin_at
+            ? formatEventDateTimeDisplay(item.last_checkin_at)
+            : item.last_checkin_date
+              ? formatSafetyDateForDisplay(item.last_checkin_date)
+              : '從未簽到';
+          const missingText = item.checked_in_today ? '—' : `${item.missing_days} 天`;
+          const phoneHtml = item.phone
+            ? `<a href="tel:${escapeHtml(item.phone)}" class="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:underline">${escapeHtml(item.phone)}</a>`
+            : '<span class="text-xs text-slate-400">未填寫</span>';
+          const contactHtml = item.contact_name || item.contact_phone
+            ? `${item.contact_name ? escapeHtml(item.contact_name) : '聯絡人'}：${item.contact_phone ? `<a href="tel:${escapeHtml(item.contact_phone)}" class="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:underline">${escapeHtml(item.contact_phone)}</a>` : '<span class="text-xs text-slate-400">未填電話</span>'}`
+            : '<span class="text-xs text-slate-400">未指定</span>';
+          const latestCare = item.latest_care;
+          const latestCareHtml = latestCare
+            ? `<p class="mt-1 text-[11px] leading-5 text-slate-500">最近關懷：${escapeHtml(latestCare.method)} · ${escapeHtml(formatEventDateTimeDisplay(latestCare.created_at))}${latestCare.note ? ` · ${escapeHtml(latestCare.note)}` : ''}</p>`
+            : '';
+
+          return `
+            <div class="rounded-[1.25rem] border border-violet-100/70 bg-white p-4 shadow-[0_10px_28px_-22px_rgba(31,38,135,0.25)]">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <p class="text-sm font-bold text-violet-950">${name}</p>
+                    ${getSafetyBadge(item)}
+                  </div>
+                  <p class="mt-1.5 text-[11px] leading-5 text-slate-500">里民電話：${phoneHtml}</p>
+                  <p class="mt-0.5 text-[11px] leading-5 text-slate-500">${contactHtml}</p>
+                </div>
+                <div class="shrink-0 text-right">
+                  <p class="text-[11px] text-slate-400">連續未簽</p>
+                  <p class="text-sm font-bold ${item.needs_care ? 'text-rose-600' : 'text-slate-600'}">${missingText}</p>
+                </div>
+              </div>
+              <p class="mt-2 text-[11px] leading-5 text-slate-400">最後簽到：${escapeHtml(lastCheckinText)}</p>
+              ${latestCareHtml}
+              <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-violet-100/70 pt-3">
+                <button type="button" data-safety-action="care-call" data-safety-id="${id}" class="inline-flex h-8 items-center gap-1 rounded-full bg-violet-50 px-3 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-100 active:scale-95">
+                  <i data-lucide="phone" class="h-3 w-3"></i><span>已電訪</span>
+                </button>
+                <button type="button" data-safety-action="care-visit" data-safety-id="${id}" class="inline-flex h-8 items-center gap-1 rounded-full bg-violet-50 px-3 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-100 active:scale-95">
+                  <i data-lucide="home" class="h-3 w-3"></i><span>已家訪</span>
+                </button>
+                <button type="button" data-safety-action="detail" data-safety-id="${id}" class="ml-auto inline-flex h-8 items-center gap-1 rounded-full bg-white px-3 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95">
+                  <span>關懷詳情</span>
+                  <i data-lucide="chevron-right" class="h-3 w-3"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        renderIcons();
+      }
+
+      async function openAdminSafetyDetail(id, options = {}) {
+        if (!id) return;
+        if (state.admin.safety.detail.loading && options.force !== true) return;
+        state.admin.safety.detail.id = id;
+        state.admin.safety.detail.loading = true;
+        state.admin.safety.detail.error = null;
+        state.admin.safety.detail.data = null;
+
+        switchAdminSafetyView('detail', { autoload: false });
+        if (elements.adminSafetyDetailLoading) elements.adminSafetyDetailLoading.classList.remove('hidden');
+        if (elements.adminSafetyDetailError) elements.adminSafetyDetailError.classList.add('hidden');
+        if (elements.adminSafetyDetailContainer) {
+          elements.adminSafetyDetailContainer.classList.add('hidden');
+          elements.adminSafetyDetailContainer.innerHTML = '';
+        }
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          const res = await fetch(`/api/admin/safety/${id}`, {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '報平安詳情載入失敗');
+          }
+          state.admin.safety.detail.data = result.data || null;
+          renderAdminSafetyDetail();
+        } catch (err) {
+          state.admin.safety.detail.error = err.message || '報平安詳情載入失敗';
+          if (elements.adminSafetyDetailError) {
+            elements.adminSafetyDetailError.classList.remove('hidden');
+            if (elements.adminSafetyDetailErrorText) {
+              elements.adminSafetyDetailErrorText.textContent = state.admin.safety.detail.error;
+            }
+          }
+        } finally {
+          state.admin.safety.detail.loading = false;
+          if (elements.adminSafetyDetailLoading) elements.adminSafetyDetailLoading.classList.add('hidden');
+        }
+      }
+
+      function renderAdminSafetyDetail() {
+        if (!elements.adminSafetyDetailContainer) return;
+        const data = state.admin.safety.detail.data;
+        if (!data) return;
+
+        const name = escapeHtml(data.display_name || '未填稱呼');
+        const isActive = data.is_active !== false;
+        const statusBadge = !isActive
+          ? '<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200"><i data-lucide="log-out" class="h-3 w-3"></i>已退出</span>'
+          : getSafetyBadge(data);
+        const phoneHtml = data.phone
+          ? `<a href="tel:${escapeHtml(data.phone)}" class="text-sm font-medium text-violet-600 hover:underline">${escapeHtml(data.phone)}</a>`
+          : '<span class="text-sm text-slate-400">未填寫</span>';
+        const contactHtml = data.contact_name || data.contact_phone
+          ? `${data.contact_name ? escapeHtml(data.contact_name) : '聯絡人'} · ${data.contact_phone ? `<a href="tel:${escapeHtml(data.contact_phone)}" class="text-sm font-medium text-violet-600 hover:underline">${escapeHtml(data.contact_phone)}</a>` : '<span class="text-sm text-slate-400">未填電話</span>'}`
+          : '<span class="text-sm text-slate-400">未指定</span>';
+        const lastCheckinText = data.last_checkin_at
+          ? formatEventDateTimeDisplay(data.last_checkin_at)
+          : data.last_checkin_date
+            ? formatSafetyDateForDisplay(data.last_checkin_date)
+            : '從未簽到';
+        const missingText = data.checked_in_today ? '—' : `${data.missing_days} 天`;
+        const joinedText = data.joined_at ? formatEventDateTimeDisplay(data.joined_at) : '—';
+
+        const checkins = Array.isArray(data.checkins) ? data.checkins : [];
+        const checkinsHtml = checkins.length
+          ? `<ul class="mt-3 space-y-2">${checkins.slice(0, 10).map((c) => `
+              <li class="flex items-center justify-between rounded-xl bg-violet-50/40 px-3.5 py-2 text-xs">
+                <span class="font-semibold text-violet-950">${escapeHtml(formatSafetyDateForDisplay(c.checkin_date))}</span>
+                <span class="text-slate-500">${escapeHtml(formatEventDateTimeDisplay(c.created_at))}</span>
+              </li>
+            `).join('')}</ul>${checkins.length > 10 ? `<p class="mt-2 text-[11px] text-slate-400">僅顯示最近 10 筆，共 ${checkins.length} 筆。</p>` : ''}`
+          : '<p class="mt-3 text-xs text-slate-400">尚無簽到紀錄。</p>';
+
+        const careLogs = Array.isArray(data.care_logs) ? data.care_logs : [];
+        const careLogsHtml = careLogs.length
+          ? `<ul class="mt-3 space-y-3">${careLogs.map((log) => `
+              <li class="rounded-xl border border-violet-100/70 bg-white px-3.5 py-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100">
+                    <i data-lucide="${log.method === '已家訪' ? 'home' : 'phone'}" class="h-3 w-3"></i>${escapeHtml(log.method)}
+                  </span>
+                  <span class="text-[11px] text-slate-400">${escapeHtml(formatEventDateTimeDisplay(log.created_at))}</span>
+                </div>
+                ${log.note ? `<p class="mt-2 text-xs leading-6 text-slate-600">${escapeHtml(log.note)}</p>` : ''}
+              </li>
+            `).join('')}</ul>`
+          : '<p class="mt-3 text-xs text-slate-400">尚無關懷紀錄。</p>';
+
+        elements.adminSafetyDetailContainer.innerHTML = `
+          <div class="rounded-[1.5rem] border border-violet-100/70 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(31,38,135,0.3)]">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-lg font-bold text-violet-950">${name}</h3>
+              ${statusBadge}
+            </div>
+            <dl class="mt-4 space-y-2.5 text-sm">
+              <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">里民電話</dt><dd>${phoneHtml}</dd></div>
+              <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">指定聯絡人</dt><dd>${contactHtml}</dd></div>
+              <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">加入日期</dt><dd class="text-slate-700">${escapeHtml(joinedText)}</dd></div>
+              <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">最後簽到</dt><dd class="text-slate-700">${escapeHtml(lastCheckinText)}</dd></div>
+              <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">連續未簽</dt><dd class="${data.needs_care ? 'font-bold text-rose-600' : 'text-slate-700'}">${escapeHtml(missingText)}</dd></div>
+            </dl>
+          </div>
+
+          ${isActive ? `
+          <div class="rounded-[1.5rem] border border-violet-100/70 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(31,38,135,0.3)]">
+            <p class="text-sm font-bold text-violet-950">標記關懷</p>
+            <p class="mt-1 text-xs leading-6 text-slate-400">記錄本次關心方式與一句備註，僅供里辦內部查看。</p>
+            <div class="mt-3 flex gap-2">
+              <label class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-violet-100 bg-violet-50/40 px-3 py-2.5 text-xs font-semibold text-violet-700 transition has-[:checked]:bg-violet-600 has-[:checked]:text-white has-[:checked]:ring-violet-600">
+                <input type="radio" name="safety-method" value="已電訪" data-safety-method-option class="sr-only" />
+                <i data-lucide="phone" class="h-3.5 w-3.5"></i><span>已電訪</span>
+              </label>
+              <label class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-violet-100 bg-violet-50/40 px-3 py-2.5 text-xs font-semibold text-violet-700 transition has-[:checked]:bg-violet-600 has-[:checked]:text-white has-[:checked]:ring-violet-600">
+                <input type="radio" name="safety-method" value="已家訪" data-safety-method-option class="sr-only" />
+                <i data-lucide="home" class="h-3.5 w-3.5"></i><span>已家訪</span>
+              </label>
+            </div>
+            <textarea data-safety-note-input rows="2" maxlength="200" placeholder="一句備註（選填，例如：家人說一切正常）" class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"></textarea>
+            <button type="button" data-safety-detail-action="care-save" class="mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-violet-600 px-5 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+              <i data-lucide="check" class="h-4 w-4"></i><span>儲存關懷紀錄</span>
+            </button>
+          </div>
+          ` : ''}
+
+          <div class="rounded-[1.5rem] border border-violet-100/70 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(31,38,135,0.3)]">
+            <p class="text-sm font-bold text-violet-950">近期簽到</p>
+            ${checkinsHtml}
+          </div>
+
+          <div class="rounded-[1.5rem] border border-violet-100/70 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(31,38,135,0.3)]">
+            <p class="text-sm font-bold text-violet-950">關懷歷史</p>
+            ${careLogsHtml}
+          </div>
+        `;
+
+        elements.adminSafetyDetailContainer.classList.remove('hidden');
+        renderIcons();
+      }
+
+      async function markSafetyCare(id, method, note) {
+        if (!id || state.admin.safety.careBusy) return;
+
+        const tokenBundle = await getIdentityToken();
+        if (tokenBundle.kind !== 'liff') {
+          showToast('身分驗證失敗，請重新從 LINE 開啟。');
+          return;
+        }
+
+        state.admin.safety.careBusy = true;
+        try {
+          const res = await fetch(`/api/admin/safety/${id}/care`, {
+            method: 'POST',
+            headers: buildAuthHeaders(tokenBundle),
+            body: JSON.stringify({ method, note: note || '' }),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '關懷紀錄儲存失敗');
+          }
+          showToast(result.message || '已記錄。');
+          // 刷新列表（最新關懷會更新）與當前詳情
+          loadAdminSafety({ force: true });
+          if (state.admin.safety.detail.id === id) {
+            openAdminSafetyDetail(id, { force: true });
+          }
+        } catch (err) {
+          showToast(err.message || '關懷紀錄儲存失敗，請稍後再試。');
+        } finally {
+          state.admin.safety.careBusy = false;
+        }
       }
 
       async function loadAdminPlatforms(options = {}) {
