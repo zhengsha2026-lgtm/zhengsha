@@ -120,7 +120,7 @@
 - **定位**：里民每日簽到「我今天平安」；幹部從管理端看誰連續兩天以上沒簽到（待關懷），主動電訪/家訪並留下關懷紀錄
 - **入口**：`?tab=safety` deep-link（圖文選單/官方帳號導流用）；**底部導覽維持 4 個 Tab**，safety 是隱藏第 5 個 panel，只有 URL 帶 tab 才會開
 - **里民端（public/liff.html `safetyPanel`）**：
-  - 未加入：說明卡 + 加入表單（稱呼、本人電話、緊急聯絡人姓名/電話；電話格式後端驗證）；加入即本人同意，`line_user_id` 取自 LINE verify `sub`（不信前端）
+  - 未加入：說明卡 + 加入表單（稱呼、本人電話、緊急聯絡人姓名/電話；電話格式後端驗證）；**稱呼預填 LINE 顯示名稱**（與許願表單 `#user_name` 同一來源，僅欄位為空時帶入、里民可改），稱呼欄下方有小字提示「建議填寫正確姓名或熟悉的外號，方便里辦聯繫」；加入即本人同意，`line_user_id` 取自 LINE verify `sub`（不信前端）
   - 已加入：大顆「我今天平安」簽到鈕（**冪等**：同日再按回 200 不報錯、不重複計次）、今日簽到時間、上次簽到日；「設定」可摺疊編輯稱呼/電話/聯絡人；「退出報平安」= soft delete（`left_at` 設時間），簽到歷史保留
   - 重新加入會**重設 `baseline_date`**（舊簽到不影響未簽天數計算）
 - **管理端（管理首頁第 4 張模組卡「報平安」）**：
@@ -358,7 +358,7 @@
   - 進哪個 Tab 才載該 Tab API：platforms/wish/schedule/safety 第一次進去時載入並快取，切回來不重抓；intro 以靜態為主
   - 政見封面、行程封面、相簿、管理列表縮圖：全部 `loading="lazy"`
 - **報平安模組（已上線；?tab=safety 獨立頁）**
-  - 里民端：未加入（說明 + 加入表單：稱呼/本人電話/緊急聯絡人）/ 已加入（大顆「我今天平安」簽到鈕、冪等、設定摺疊編輯、退出 soft delete）兩種畫面；底部導覽維持 4 Tab 不變，safety 僅 deep-link 進入
+  - 里民端：未加入（說明 + 加入表單：稱呼/本人電話/緊急聯絡人；稱呼預填 LINE 顯示名稱可改）/ 已加入（大顆「我今天平安」簽到鈕、冪等、設定摺疊編輯、退出 soft delete）兩種畫面；底部導覽維持 4 Tab 不變，safety 僅 deep-link 進入
   - 管理端：管理首頁第 4 張模組卡「報平安」→ 名單（四組篩選 chips 含計數、待關懷優先排序、顯示本人與緊急聯絡人電話、一鍵標記關懷）→ 詳情（完整關懷歷史 + 近期簽到 + 補備註關懷）
   - 後端規則：台灣時區後端算今天、`UNIQUE(member_id, checkin_date)` 一天一筆、簽到冪等、missing_days = 今天 − max(最後簽到日, baseline_date)、待關懷 = 活躍且今日未簽且 missing_days ≥ 2、重新加入重設 baseline_date、退出為 soft delete
   - 新增資料表（migration `004_safety_schema.sql`，已於 Supabase 執行）：`safety_members` / `safety_checkins` / `safety_care_logs`
