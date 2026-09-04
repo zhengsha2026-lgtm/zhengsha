@@ -1206,6 +1206,9 @@
                       placeholder="里辦怎麼稱呼您"
                       class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                     />
+                    <p class="mt-1.5 text-xs leading-5 text-slate-400">
+                      建議填寫正確姓名或熟悉的外號，方便里辦聯繫。
+                    </p>
                   </div>
                   <div>
                     <label for="safetyJoinPhone" class="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -5558,6 +5561,11 @@
           if (elements.safetyProfilePhone) elements.safetyProfilePhone.value = m.phone || '';
           if (elements.safetyProfileContactName) elements.safetyProfileContactName.value = m.contact_name || '';
           if (elements.safetyProfileContactPhone) elements.safetyProfileContactPhone.value = m.contact_phone || '';
+        } else {
+          // 未加入：稱呼預填 LINE 顯示名稱（與許願表單 #user_name 同一來源），里民仍可修改
+          if (elements.safetyJoinName && !elements.safetyJoinName.value.trim() && elements.userName) {
+            elements.safetyJoinName.value = elements.userName.value.trim();
+          }
         }
 
         // 收合設定區 + 重置退出二段式確認
