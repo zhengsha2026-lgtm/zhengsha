@@ -656,7 +656,6 @@ app.delete('/api/events/:id/rsvp', async (req, res) => {
 
 const SAFETY_TAIPEI_TZ = 'Asia/Taipei';
 const SAFETY_NAME_MAX_LENGTH = 20;
-const SAFETY_PHONE_MAX_LENGTH = 20;
 const SAFETY_NOTE_MAX_LENGTH = 200;
 
 // 台灣時區的今天，回傳 'YYYY-MM-DD'（後端唯一可信的日期來源，不信前端）
@@ -673,10 +672,11 @@ function dateDaysDiff(fromDateStr, toDateStr) {
   return Math.round((to - from) / 86400000);
 }
 
+// 與許願池同一套電話驗證：選填，空白直接通過；非空只檢查長度上限（30），不驗證格式
 function sanitizeSafetyPhone(value) {
   const trimmed = String(value || '').trim();
   if (!trimmed) return '';
-  if (!/^[0-9+\-()\s#]{5,SAFETY_PHONE_MAX_LENGTH}$/.test(trimmed)) return null;
+  if (trimmed.length > 30) return null;
   return trimmed;
 }
 
@@ -781,12 +781,12 @@ app.post('/api/safety/join', async (req, res) => {
 
   const phone = sanitizeSafetyPhone(req.body && req.body.phone);
   if (phone === null) {
-    return res.status(400).json({ success: false, message: '電話格式不正確。' });
+    return res.status(400).json({ success: false, message: '您的電話長度過長，請檢查後再送出。' });
   }
   const contactName = String((req.body && req.body.contact_name) || '').trim().slice(0, SAFETY_NAME_MAX_LENGTH);
   const contactPhone = sanitizeSafetyPhone(req.body && req.body.contact_phone);
   if (contactPhone === null) {
-    return res.status(400).json({ success: false, message: '聯絡人電話格式不正確。' });
+    return res.status(400).json({ success: false, message: '聯絡人電話長度過長，請檢查後再送出。' });
   }
 
   try {
@@ -895,7 +895,7 @@ app.patch('/api/safety/profile', async (req, res) => {
   if (body.phone !== undefined) {
     const phone = sanitizeSafetyPhone(body.phone);
     if (phone === null) {
-      return res.status(400).json({ success: false, message: '電話格式不正確。' });
+      return res.status(400).json({ success: false, message: '您的電話長度過長，請檢查後再送出。' });
     }
     patch.phone = phone || null;
   }
@@ -909,7 +909,7 @@ app.patch('/api/safety/profile', async (req, res) => {
   if (body.contact_phone !== undefined) {
     const contactPhone = sanitizeSafetyPhone(body.contact_phone);
     if (contactPhone === null) {
-      return res.status(400).json({ success: false, message: '聯絡人電話格式不正確。' });
+      return res.status(400).json({ success: false, message: '聯絡人電話長度過長，請檢查後再送出。' });
     }
     patch.contact_phone = contactPhone || null;
   }
