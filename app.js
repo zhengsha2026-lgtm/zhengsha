@@ -657,6 +657,7 @@ app.delete('/api/events/:id/rsvp', async (req, res) => {
 const SAFETY_TAIPEI_TZ = 'Asia/Taipei';
 const SAFETY_NAME_MAX_LENGTH = 20;
 const SAFETY_NOTE_MAX_LENGTH = 200;
+const SAFETY_SNOOZE_DAYS = 3;
 
 // 台灣時區的今天，回傳 'YYYY-MM-DD'（後端唯一可信的日期來源，不信前端）
 function getTaipeiToday() {
@@ -670,6 +671,13 @@ function dateDaysDiff(fromDateStr, toDateStr) {
   const to = new Date(`${toDateStr}T00:00:00Z`).getTime();
   if (Number.isNaN(from) || Number.isNaN(to)) return 0;
   return Math.round((to - from) / 86400000);
+}
+
+// 台灣日期 + N 天，回傳 'YYYY-MM-DD'（暫不提醒幹部的到期日計算用）
+function addDaysToTaipeiDate(dateStr, days) {
+  const base = new Date(`${dateStr}T00:00:00Z`).getTime();
+  if (Number.isNaN(base)) return null;
+  return new Date(base + days * 86400000).toISOString().slice(0, 10);
 }
 
 // 與許願池同一套電話驗證：選填，空白直接通過；非空只檢查長度上限（30），不驗證格式
@@ -3601,6 +3609,11 @@ function buildSafetyAdminItem(memberRow, checkinRows, latestCare) {
     missingDays = Math.max(0, dateDaysDiff(fromDate, today));
   }
 
+  // 暫不提醒幹部：到期日當天（snooze_until >= today）仍暫停，隔天自動恢復
+  // 暫停只影響 needs_care（待關懷篩選 + 早上幹部推播）；missing_days 與晚間催本人照常
+  const snoozeUntil = memberRow.admin_notify_snooze_until || null;
+  const snoozeActive = Boolean(snoozeUntil) && snoozeUntil >= today;
+
   return {
     id: memberRow.id,
     display_name: memberRow.display_name || '',
@@ -3615,7 +3628,9 @@ function buildSafetyAdminItem(memberRow, checkinRows, latestCare) {
     last_checkin_date: lastCheckin ? lastCheckin.checkin_date : null,
     last_checkin_at: lastCheckin ? lastCheckin.created_at : null,
     missing_days: missingDays,
-    needs_care: !todayCheckin && missingDays >= 2,
+    needs_care: !todayCheckin && missingDays >= 2 && !snoozeActive,
+    admin_notify_snoozed: snoozeActive,
+    admin_notify_snooze_until: snoozeUntil,
     latest_care: latestCare
       ? {
           method: latestCare.method,
@@ -3751,7 +3766,7 @@ app.get('/api/admin/safety/:id', async (req, res) => {
   try {
     const { data: memberRow, error: memberError } = await supabaseAdmin
       .from('safety_members')
-      .select('id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+      .select('id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at, admin_notify_snooze_until')
       .eq('id', memberId)
       .maybeSingle();
     if (memberError) throw memberError;
@@ -3858,6 +3873,90 @@ app.post('/api/admin/safety/:id/care', async (req, res) => {
   } catch (error) {
     console.error('admin/safety care failed:', error);
     return res.status(500).json({ success: false, message: '關懷紀錄儲存失敗，請稍後再試。' });
+  }
+});
+
+// POST /api/admin/safety/:id/snooze：暫不提醒幹部 3 天
+// - 天數後端寫死 3 天（當天+3），不收前端任何參數；要再停必須到期後再按一次
+// - 只關閉待關懷篩選與早上幹部推播；本人晚間催簽照常、missing_days 照算
+// - 標記已電訪/已家訪不會自動暫停（兩個獨立操作）
+// - 關懷歷史寫一筆 method='暫停幹部通知'；無取消暫停功能，到期自動恢復
+app.post('/api/admin/safety/:id/snooze', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/safety snooze auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  const memberId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(memberId) || memberId <= 0) {
+    return res.status(400).json({ success: false, message: '名單編號不正確。' });
+  }
+
+  try {
+    const { data: memberRow, error: memberError } = await supabaseAdmin
+      .from('safety_members')
+      .select('id, left_at')
+      .eq('id', memberId)
+      .maybeSingle();
+    if (memberError) throw memberError;
+    if (!memberRow) {
+      return res.status(404).json({ success: false, message: '找不到這位里民。' });
+    }
+    if (memberRow.left_at) {
+      return res.status(400).json({ success: false, message: '這位里民已退出報平安，無需暫停。' });
+    }
+
+    const today = getTaipeiToday();
+    const until = addDaysToTaipeiDate(today, SAFETY_SNOOZE_DAYS);
+    if (!until || until <= today) {
+      return res.status(500).json({ success: false, message: '暫停日期計算失敗，請稍後再試。' });
+    }
+
+    // 先更新到期日（主要效果），再寫關懷紀錄（稽核軌跡）
+    const { error: updateError } = await supabaseAdmin
+      .from('safety_members')
+      .update({ admin_notify_snooze_until: until })
+      .eq('id', memberId)
+      .is('left_at', null);
+    if (updateError) throw updateError;
+
+    const untilDisplay = until.split('-').join('/');
+    const { data: careLog, error: careError } = await supabaseAdmin
+      .from('safety_care_logs')
+      .insert([
+        {
+          member_id: memberId,
+          method: '暫停幹部通知',
+          note: `至 ${untilDisplay}（${SAFETY_SNOOZE_DAYS} 天）`,
+          created_by: identity.lineUserId,
+        },
+      ])
+      .select('id, member_id, method, note, created_by, created_at')
+      .single();
+    if (careError) {
+      // 暫停已儲存但紀錄寫入失敗：回明確錯誤，管理員重按一次會補上紀錄，不留假紀錄
+      console.error('admin/safety snooze care log failed:', careError);
+      return res.status(500).json({
+        success: false,
+        message: `暫停已儲存（至 ${untilDisplay}），但關懷紀錄寫入失敗，請再按一次以補上紀錄。`,
+        data: { snooze_until: until },
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `已暫停幹部通知 ${SAFETY_SNOOZE_DAYS} 天（至 ${untilDisplay}）。`,
+      data: { snooze_until: until, care: careLog },
+    });
+  } catch (error) {
+    console.error('admin/safety snooze failed:', error);
+    return res.status(500).json({ success: false, message: '暫停幹部通知失敗，請稍後再試。' });
   }
 });
 

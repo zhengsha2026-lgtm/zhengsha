@@ -127,14 +127,14 @@
   - 名單（`GET /api/admin/safety`）：只列活躍會員（`left_at IS NULL`），同時顯示**本人電話與緊急聯絡人電話**（可點擊撥打）
   - 篩選 chips 四組含計數：全部 / 今日已簽 / 今日未簽 / **待關懷**
   - 排序：待關懷優先（未簽天數多者在前）→ 其餘未簽 → 已簽；`missing_days` 與 `needs_care` 由後端計算
-  - 名單上可一鍵標記「已電訪/已家訪」（備註可留空）；詳情頁（`GET /api/admin/safety/:id`）看完整關懷歷史 + 近期簽到紀錄，也可補備註標記關懷（`POST /api/admin/safety/:id/care`）
+  - 名單上可一鍵標記「已電訪/已家訪」（備註可留空）；詳情頁（`GET /api/admin/safety/:id`）看完整關懷歷史 + 近期簽到紀錄，也可補備註標記關懷（`POST /api/admin/safety/:id/care`）；詳情頁另有「**暫不提醒幹部 3 天**」按鈕（見第三期），暫停中改顯示「幹部通知暫停至 YYYY/MM/DD」狀態、名單列顯示 amber chip
   - 後台徽章仍是主要看板（管理員自己上後台看）；第二期新增**排程通知**（見下方，只發本人提醒與幹部彙總，不對外群發）
 - **核心規則（後端唯一可信）**：
   - 「今天」一律用 `Asia/Taipei` 時區由後端計算（`getTaipeiToday()`），不信前端傳的日期
   - 一天一筆簽到：`safety_checkins` 有 `UNIQUE(member_id, checkin_date)`
   - `missing_days` = 今天 − max(最後簽到日, baseline_date)；今日已簽 = 0
-  - 待關懷 = 活躍 且 今日未簽 且 `missing_days >= 2`
-  - 關懷方式只有「已電訪 / 已家訪」兩種（DB CHECK 約束）
+  - 待關懷 = 活躍 且 今日未簽 且 `missing_days >= 2`（且**未處於幹部通知暫停中**，見第三期）
+  - 關懷方式為「已電訪 / 已家訪 / 暫停幹部通知」三種（DB CHECK 約束；第三種由暫停按鈕自動寫入，不開放手動選）
 - **第二期排程通知（Vercel Cron；已上線）**：
   - 端點：`GET /api/cron/safety-reminders/:type`（**路徑式 = Vercel Cron 用**，因 **Cron 不保留 query string**，Logs 只見路徑）＋ `GET|POST /api/cron/safety-reminders`（`?type=` 或 body `{ type }`，本機手動測試用，保留）；驗證 `Authorization: Bearer <CRON_SECRET>`：**未設 CRON_SECRET 回 503、錯誤回 401**
   - 每天**台北 20:00**（`0 12 * * *` UTC）`/resident`：對活躍且今日未簽的里民（**含今天剛加入尚未簽到者**）發本人提醒，文案固定「今天還沒報平安，點這裡補按即可。」+ `?tab=safety` LIFF 連結；已簽到者不發
@@ -143,6 +143,15 @@
   - **家人（contact_phone）永遠不通知**；文案溫和，禁用「出事／意外」等字眼
   - 已於 2026-09-10 線上端到端驗證：401 擋未授權、新路徑 `/resident` 與 `/admin` 正確解析 type、真實推播成功（里民 1/1、管理員 2/2）、重跑冪等略過不重發
   - Hobby 方案 cron 上限 2 jobs/天各一次，本設計已貼滿（未來要加排程需升 Pro 或合併）
+- **第三期「暫不提醒幹部」（已上線）**：
+  - 背景：已電訪/家訪確認平安後，里民未簽到仍是待關懷 → 幹部每天被同一筆打擾；暫停讓幹部靜音 3 天、里民留在系統
+  - 端點：`POST /api/admin/safety/:id/snooze`（requireAdmin；**天數後端寫死 3 天**（`SAFETY_SNOOZE_DAYS`），不收前端參數；已退出會員回 400）
+  - 語義：`snooze_until = 按下當天（Asia/Taipei）+ 3`；**暫停中 = `snooze_until >= 今天`**（到期日當天仍暫停，隔天早上 09:00 推播自動恢復，不需等簽到、不需清除動作）；到期後按鈕才會再出現，**要再停必須再按一次**；無「取消暫停」功能（誤按頂多等 3 天）
+  - **只關閉兩件事**：`needs_care`（→ 待關懷篩選/chip 計數不含此人 + 早上幹部推播 `admin_care` 不含、不計入 N）與排序置頂；**本人晚間催簽（`resident_same_day`）照常發**、`missing_days` 照算、名單仍顯示（顯示 amber「通知暫停至 YYYY/MM/DD」chip）、詳情/關懷歷史照常
+  - 實作：`buildSafetyAdminItem` 加 `snoozeActive` 條件與 `admin_notify_snoozed` / `admin_notify_snooze_until` 回傳欄位（cron 與名單共用同一計算，**不重寫**）；3 個 select 欄位清單（名單/詳情/cron admin）補 `admin_notify_snooze_until`；電訪/家訪**不自動**暫停（兩個獨立操作）
+  - 關懷歷史自動寫一筆：`method='暫停幹部通知'`、`note='至 YYYY/MM/DD（3 天）'`、`created_by`=按下管理員（前端徽章 amber + bell-off 圖示）；先 UPDATE 到期日再 INSERT 紀錄，紀錄寫入失敗會回 500 提示重按補寫（不留假紀錄）
+  - 前端（僅 liff.html）：詳情「標記關懷」卡內 — 暫停中顯示 amber 狀態文字（隱藏按鈕）、未暫停顯示「暫不提醒幹部 3 天」按鈕 + 說明小字；名單列顯示暫停 chip；成功後 toast + 重抓名單與詳情
+  - 新增欄位（migration `006_safety_snooze.sql`，已於 Supabase 執行）：`safety_members.admin_notify_snooze_until date`（NULL=從未暫停；舊值到期後留著無害）+ `safety_care_logs` method CHECK 放寬為三值（DO block 重建約束）
 
 ---
 
@@ -201,12 +210,12 @@
 - `campaign_events`：競選行程主表（title/description/content/start_at/end_at/location/cover_image_path/video_url/rsvp_count/is_published）
 - `campaign_event_photos`：行程相簿照片
 - `event_rsvps`：行程報名紀錄（`UNIQUE(event_id, line_user_id)`）
-- `safety_members`：報平安會員（`line_user_id` UNIQUE、`baseline_date` 起算日、`left_at` soft delete；重新加入重設 baseline_date）
+- `safety_members`：報平安會員（`line_user_id` UNIQUE、`baseline_date` 起算日、`left_at` soft delete；重新加入重設 baseline_date；`admin_notify_snooze_until` 幹部通知暫停到期日，NULL=從未暫停）
 - `safety_checkins`：每日簽到（`UNIQUE(member_id, checkin_date)`，一天一筆；CASCADE 刪除）
-- `safety_care_logs`：關懷紀錄（`method` CHECK：`已電訪`/`已家訪`、`note` 備註、`created_by` 管理員 LINE id；CASCADE 刪除）
+- `safety_care_logs`：關懷紀錄（`method` CHECK：`已電訪`/`已家訪`/`暫停幹部通知`、`note` 備註、`created_by` 管理員 LINE id；CASCADE 刪除）
 - `safety_notification_logs`：報平安通知發送紀錄（`notify_type` CHECK：`resident_same_day`/`admin_care`、`UNIQUE(notify_type, line_user_id, notify_date)` 冪等；**成功才寫**；不 FK `safety_members`，管理員收件人不一定是會員）
 
-> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`（皆已於 Supabase 執行）
+> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`（皆已於 Supabase 執行）
 
 ### 狀態值
 `已收到` / `處理中` / `已回覆` / `已結案`
@@ -389,13 +398,19 @@
   - 管理端：管理首頁第 4 張模組卡「報平安」→ 名單（四組篩選 chips 含計數、待關懷優先排序、顯示本人與緊急聯絡人電話、一鍵標記關懷）→ 詳情（完整關懷歷史 + 近期簽到 + 補備註關懷）
   - 後端規則：台灣時區後端算今天、`UNIQUE(member_id, checkin_date)` 一天一筆、簽到冪等、missing_days = 今天 − max(最後簽到日, baseline_date)、待關懷 = 活躍且今日未簽且 missing_days ≥ 2、重新加入重設 baseline_date、退出為 soft delete
   - 新增資料表（migration `004_safety_schema.sql`，已於 Supabase 執行）：`safety_members` / `safety_checkins` / `safety_care_logs`
-  - API：里民 status/join/profile/checkin/membership（DELETE）；管理 list/detail/care
+  - API：里民 status/join/profile/checkin/membership（DELETE）；管理 list/detail/care/snooze
 - **報平安第二期：排程通知（已上線；Vercel Cron）**
   - `GET /api/cron/safety-reminders/:type`（**Cron 用路徑式** — Vercel Cron 不保留 query string）＋ 舊 `?type=`／POST body 端點保留手動測試；`Bearer <CRON_SECRET>` 驗證（未設 503、錯誤 401）
   - 台北 20:00 催本人（活躍且今日未簽，含當日新加入；文案固定 + `?tab=safety` 連結）；台北 09:00 通知幹部（待關懷人數 + 前 3 筆稱呼 + `?tab=admin` 連結，沒有待關懷不發）
   - 冪等 `safety_notification_logs`（UNIQUE 類型+人+日期，成功才寫）；push 失敗不阻塞、家人永不通知
   - 新增資料表（migration `005_safety_notifications.sql`，已於 Supabase 執行）；`vercel.json` 已加 crons、`.env.example` 已加 `CRON_SECRET`；簽到/加入/退出/待關懷計算零修改
   - 電腦版 admin.html **本期未動**（報平安僅手機 LIFF）
+- **報平安第三期：「暫不提醒幹部」（已上線）**
+  - `POST /api/admin/safety/:id/snooze`：天數後端寫死 3 天（`SAFETY_SNOOZE_DAYS` 常數），不收前端參數；`snooze_until = 當天+3`，`>= 今天` 即暫停中，到期日當天仍暫停、隔天早上幹部推播自動恢復；要再停必須再按一次，無取消暫停功能
+  - 暫停只關閉：待關懷篩選（`needs_care=false`，chip 計數/排序/早上幹部推播都不含）；**晚間催本人照常發**、`missing_days` 照算、名單仍顯示 + amber「通知暫停至 YYYY/MM/DD」chip；電訪/家訪不自動暫停
+  - 關懷歷史自動寫 `method='暫停幹部通知'`、`note='至 YYYY/MM/DD（3 天）'`；實作改動集中在 `buildSafetyAdminItem`（+snooze 條件與兩個回傳欄位）與 3 個 select 欄位清單，**簽到/加入/退出/晚間催本人邏輯零修改**
+  - migration `006_safety_snooze.sql`（已於 Supabase 執行）：`safety_members.admin_notify_snooze_until date` + `safety_care_logs` method CHECK 放寬三值（DO block 重建）
+  - 驗證：單元測試 11/11（+3 跨月/跨年/閏年、到期日當天仍暫停、過期自動恢復、missing_days 不受影響）；新端點無/假 token 401、既有端點回歸 401；liff.html 全部 inline script 語法檢查通過；電腦版 admin.html 本期未動
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版**第二期**：政見管理、行程管理的電腦版（第一期只有許願管理；報平安電腦版也尚未做）
