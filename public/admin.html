@@ -565,11 +565,12 @@ function updateStatusChips() {
     } else {
       chip.className = 'status-chip rounded-full px-5 py-2 text-sm font-semibold transition bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50';
     }
-    // 計數（全部 = 各狀態總和）
+    // 計數：一律用 API 回傳的全域 counts（各狀態總數，不受目前篩選/搜尋/分頁影響）
     let count = null;
     if (key === '') {
-      const sum = Object.values(state.counts).reduce((a, b) => a + (Number(b) || 0), 0);
-      count = state.total || sum;
+      count = Object.prototype.hasOwnProperty.call(state.counts, '全部')
+        ? Number(state.counts['全部']) || 0
+        : Object.values(state.counts).reduce((a, b) => a + (Number(b) || 0), 0);
     } else if (Object.prototype.hasOwnProperty.call(state.counts, key)) {
       count = Number(state.counts[key]) || 0;
     }
