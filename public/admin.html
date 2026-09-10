@@ -19,7 +19,7 @@
       <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-600">
         <i data-lucide="shield-check" class="h-7 w-7"></i>
       </div>
-      <h1 class="text-lg font-bold text-slate-900">許願池管理後台</h1>
+      <h1 class="text-lg font-bold text-slate-900">管理後台</h1>
       <p id="authStatusText" class="mt-2 text-sm leading-6 text-slate-500">正在透過 LINE 驗證身分…</p>
       <div id="authSpinner" class="mx-auto mt-5 h-1.5 w-1.5 animate-ping rounded-full bg-violet-400"></div>
     </div>
@@ -338,6 +338,7 @@ const STATUS_ORDER = ['已收到', '處理中', '已回覆', '已結案'];
 const state = {
   liffId: '',
   authReady: false,
+  module: 'feedback', // 'feedback' | 'safety'
   // 列表
   items: [],
   counts: {},
@@ -350,6 +351,17 @@ const state = {
   detail: null,
   saving: false,
   deleting: false,
+  // 報平安
+  safety: {
+    loaded: false,
+    loading: false,
+    items: [],
+    counts: {},
+    filter: 'all',
+    detail: null,
+    savingCare: false,
+    snoozing: false,
+  },
 };
 
 const elements = {};
@@ -543,7 +555,11 @@ async function loadList() {
     const data = json.data || {};
     state.items = Array.isArray(data.items) ? data.items : [];
     state.counts = data.counts || {};
-    state.total = Number.isFinite(data.total) ? data.total : state.items.length;
+    // 後端契約：分頁總數在 data.pagination.total_count（目前篩選+搜尋下的總筆數，只給分頁用）
+    const pagination = data.pagination || {};
+    state.total = Number.isFinite(pagination.total_count)
+      ? Number(pagination.total_count)
+      : state.items.length;
     renderList();
   } catch (err) {
     console.error('loadList failed:', err);
@@ -1260,6 +1276,32 @@ function bindEvents() {
 
   elements.saveButton.addEventListener('click', saveDetail);
   elements.deleteButton.addEventListener('click', deleteDetail);
+
+  // 模組切換（許願池 / 報平安）
+  document.querySelectorAll('[data-module-tab]').forEach((tab) => {
+    tab.addEventListener('click', () => switchModule(tab.dataset.moduleTab));
+  });
+
+  // 報平安：篩選 chips / 更新 / 返回 / 表單
+  document.querySelectorAll('[data-safety-chip]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      state.safety.filter = chip.dataset.safetyChip || 'all';
+      loadSafetyList();
+    });
+  });
+  elements.safetyRefreshButton.addEventListener('click', () => loadSafetyList());
+  elements.safetyBackButton.addEventListener('click', () => switchSafetyView('list'));
+  elements.safetyCareNote.addEventListener('input', () => {
+    elements.safetyCareNoteCount.textContent = String(elements.safetyCareNote.value.length);
+  });
+  elements.safetyCareSaveButton.addEventListener('click', saveSafetyCare);
+  elements.safetySnoozeButton.addEventListener('click', snoozeSafetyMember);
+
+  // 複製電話（按鈕為動態渲染，用事件委派）
+  elements.safetyDetailView.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-copy-text]');
+    if (btn) copyTextToClipboard(btn.dataset.copyText);
+  });
 
   const doLogout = () => {
     try { liff.logout(); } catch (err) { console.warn('liff.logout failed:', err); }
