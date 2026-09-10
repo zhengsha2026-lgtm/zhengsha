@@ -602,7 +602,7 @@ function renderList() {
     <tr class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40" data-open-detail="${item.id}">
       <td class="px-6 py-4 font-mono text-sm text-slate-400">#${item.id}</td>
       <td class="px-6 py-4">${statusBadgeHtml(item.status)}</td>
-      <td class="px-6 py-4 text-base font-semibold text-slate-800">${escapeHtml(item.user_name || '匿名')}</td>
+      <td class="max-w-[12rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(item.user_name || '')}">${escapeHtml(item.user_name || '匿名')}</td>
       <td class="max-w-[26rem] truncate px-6 py-4 text-base text-slate-600">${escapeHtml((item.content || '').slice(0, 60))}</td>
       <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(item.category || '')}</td>
       <td class="px-6 py-4 text-sm text-slate-500">${item.photo_count > 0 ? `${item.photo_count} 張` : '—'}</td>
@@ -959,7 +959,7 @@ function renderSafetyList() {
       : '<span class="text-slate-400">—</span>';
     return `
       <tr class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40" data-open-safety="${item.id}">
-        <td class="px-6 py-4 text-base font-semibold text-slate-800">${escapeHtml(item.display_name || '未填稱呼')}</td>
+        <td class="max-w-[12rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(item.display_name || '')}">${escapeHtml(item.display_name || '未填稱呼')}</td>
         <td class="px-6 py-4"><div class="flex flex-wrap items-center gap-1.5">${safetyBadgeHtml(item)}${safetySnoozeChipHtml(item)}</div></td>
         <td class="px-6 py-4 text-base">${missingHtml}</td>
         <td class="whitespace-nowrap px-6 py-4 text-base text-slate-600">${item.phone ? escapeHtml(item.phone) : '<span class="text-slate-400">未填寫</span>'}</td>
