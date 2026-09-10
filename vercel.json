@@ -1,5 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/cron/safety-reminders?type=resident", "schedule": "12 12 * * *" },
+    { "path": "/api/cron/safety-reminders?type=admin", "schedule": "0 1 * * *" }
+  ],
   "rewrites": [
     {
       "source": "/",

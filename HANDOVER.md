@@ -128,13 +128,20 @@
   - 篩選 chips 四組含計數：全部 / 今日已簽 / 今日未簽 / **待關懷**
   - 排序：待關懷優先（未簽天數多者在前）→ 其餘未簽 → 已簽；`missing_days` 與 `needs_care` 由後端計算
   - 名單上可一鍵標記「已電訪/已家訪」（備註可留空）；詳情頁（`GET /api/admin/safety/:id`）看完整關懷歷史 + 近期簽到紀錄，也可補備註標記關懷（`POST /api/admin/safety/:id/care`）
-  - 第一期通知方式：**僅後台亮「待關懷」徽章**，不自動對外宣布、不自動 LINE 群發（管理員自己上後台看）
+  - 後台徽章仍是主要看板（管理員自己上後台看）；第二期新增**排程通知**（見下方，只發本人提醒與幹部彙總，不對外群發）
 - **核心規則（後端唯一可信）**：
   - 「今天」一律用 `Asia/Taipei` 時區由後端計算（`getTaipeiToday()`），不信前端傳的日期
   - 一天一筆簽到：`safety_checkins` 有 `UNIQUE(member_id, checkin_date)`
   - `missing_days` = 今天 − max(最後簽到日, baseline_date)；今日已簽 = 0
   - 待關懷 = 活躍 且 今日未簽 且 `missing_days >= 2`
   - 關懷方式只有「已電訪 / 已家訪」兩種（DB CHECK 約束）
+- **第二期排程通知（Vercel Cron；已上線）**：
+  - 端點 `GET|POST /api/cron/safety-reminders?type=resident|admin`（GET 給 Vercel Cron 用，POST 給本機 curl 測試用）；驗證 `Authorization: Bearer <CRON_SECRET>`：**未設 CRON_SECRET 回 503、錯誤回 401**
+  - 每天**台北 20:00**（`12 12 * * *` UTC）`type=resident`：對活躍且今日未簽的里民（**含今天剛加入尚未簽到者**）發本人提醒，文案固定「今天還沒報平安，點這裡補按即可。」+ `?tab=safety` LIFF 連結；已簽到者不發
+  - 每天**台北 09:00**（`0 1 * * *` UTC）`type=admin`：有待關懷（`missing_days >= 2`，**沿用既有 `buildSafetyAdminItem` 計算，不重寫**）時通知 `ADMIN_LINE_USER_IDS` 每位管理員「報平安：目前有 N 位待關懷（前 3 筆稱呼，更多加「等」），請至後台查看。」+ `?tab=admin` 連結；**當天沒有待關懷就不發**
+  - 冪等：`safety_notification_logs` 的 `UNIQUE(notify_type, line_user_id, notify_date)` 保證每人每天每類型最多 1 則，cron 重跑不重發；**成功才寫 log**（push 失敗不佔當天額度、當天不重試）；單人 push 失敗不阻塞其他人，回傳 `attempted/succeeded/failed/skipped`
+  - **家人（contact_phone）永遠不通知**；文案溫和，禁用「出事／意外」等字眼
+  - Hobby 方案 cron 上限 2 jobs/天各一次，本設計已貼滿（未來要加排程需升 Pro 或合併）
 
 ---
 
@@ -196,8 +203,9 @@
 - `safety_members`：報平安會員（`line_user_id` UNIQUE、`baseline_date` 起算日、`left_at` soft delete；重新加入重設 baseline_date）
 - `safety_checkins`：每日簽到（`UNIQUE(member_id, checkin_date)`，一天一筆；CASCADE 刪除）
 - `safety_care_logs`：關懷紀錄（`method` CHECK：`已電訪`/`已家訪`、`note` 備註、`created_by` 管理員 LINE id；CASCADE 刪除）
+- `safety_notification_logs`：報平安通知發送紀錄（`notify_type` CHECK：`resident_same_day`/`admin_care`、`UNIQUE(notify_type, line_user_id, notify_date)` 冪等；**成功才寫**；不 FK `safety_members`，管理員收件人不一定是會員）
 
-> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`（已於 Supabase 執行）
+> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`（皆已於 Supabase 執行）
 
 ### 狀態值
 `已收到` / `處理中` / `已回覆` / `已結案`
@@ -265,6 +273,16 @@
 | GET | `/api/admin/safety/:id` | 單筆詳情（會員資料 + 近期簽到紀錄 + 完整關懷歷史） |
 | POST | `/api/admin/safety/:id/care` | 標記關懷，body `{ method: '已電訪'\|'已家訪', note }` |
 
+### 排程任務 API（Cron）
+
+`/api/cron/*` **不走 LINE ID Token**，改用 `Authorization: Bearer <CRON_SECRET>` 驗證（`CRON_SECRET` 未設定回 503、錯誤回 401）：
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/api/cron/safety-reminders?type=resident` | 台北每天 20:00 催本人（Vercel Cron 自動帶 secret 呼叫） |
+| GET | `/api/cron/safety-reminders?type=admin` | 台北每天 09:00 通知幹部待關懷（Vercel Cron 自動呼叫） |
+| POST | `/api/cron/safety-reminders` | 同上，body `{ type }`，本機 curl 測試用 |
+
 ---
 
 ## 8. 部署與環境變數
@@ -284,7 +302,13 @@
 - `LINE_LOGIN_CHANNEL_ID`
 - `ADMIN_LINE_USER_IDS`（逗號分隔多個 LINE user id，即 LINE verify API 回傳的 `sub`；管理員從 LIFF 登入後可從 `user_feedback.line_user_id` 或後端 log 查得自己的 sub）
 - `ADMIN_LIFF_ID`（管理端電腦版用的第二個 LIFF app ID，Endpoint URL = `https://zhengsha.vercel.app/admin.html`，與里民 LIFF 同一個 LINE Login 頻道；记得也把該網址加入頻道 Callback URL）
+- `CRON_SECRET`（報平安排程通知的 Bearer token，亂數字串如 `openssl rand -hex 32`；Vercel Cron 呼叫 `/api/cron/*` 時自動帶 `Authorization: Bearer <CRON_SECRET>`；未設定 = 排程停用）
 - 以及其他既有的 LINE / LIFF 相關變數
+
+### Vercel Cron（已寫進 `vercel.json`，部署即生效）
+- `12 12 * * *` UTC（= 台北 20:00）→ `GET /api/cron/safety-reminders?type=resident`：催本人
+- `0 1 * * *` UTC（= 台北 09:00）→ `GET /api/cron/safety-reminders?type=admin`：通知幹部
+- Hobby 方案上限 2 個 cron jobs（每天各一次），目前已用滿；執行紀錄可在 Vercel Dashboard → Deployments → Cron Jobs 查看
 
 > `.env` 只存在本機，禁止提交到 GitHub。
 
@@ -363,11 +387,16 @@
   - 後端規則：台灣時區後端算今天、`UNIQUE(member_id, checkin_date)` 一天一筆、簽到冪等、missing_days = 今天 − max(最後簽到日, baseline_date)、待關懷 = 活躍且今日未簽且 missing_days ≥ 2、重新加入重設 baseline_date、退出為 soft delete
   - 新增資料表（migration `004_safety_schema.sql`，已於 Supabase 執行）：`safety_members` / `safety_checkins` / `safety_care_logs`
   - API：里民 status/join/profile/checkin/membership（DELETE）；管理 list/detail/care
+- **報平安第二期：排程通知（已上線；Vercel Cron）**
+  - `GET|POST /api/cron/safety-reminders?type=resident|admin`，`Bearer <CRON_SECRET>` 驗證（未設 503、錯誤 401）
+  - 台北 20:00 催本人（活躍且今日未簽，含當日新加入；文案固定 + `?tab=safety` 連結）；台北 09:00 通知幹部（待關懷人數 + 前 3 筆稱呼 + `?tab=admin` 連結，沒有待關懷不發）
+  - 冪等 `safety_notification_logs`（UNIQUE 類型+人+日期，成功才寫）；push 失敗不阻塞、家人永不通知
+  - 新增資料表（migration `005_safety_notifications.sql`，已於 Supabase 執行）；`vercel.json` 已加 crons、`.env.example` 已加 `CRON_SECRET`；簽到/加入/退出/待關懷計算零修改
   - 電腦版 admin.html **本期未動**（報平安僅手機 LIFF）
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版**第二期**：政見管理、行程管理的電腦版（第一期只有許願管理；報平安電腦版也尚未做）
-- 報平安「待關懷」目前僅後台顯示，**未主動推播提醒幹部**（未來可考慮每日定時 LINE 通知，需注意推播則數成本）
+- 報平安排程通知的**推播則數成本監控**（每日 20:00 催本人會消耗官方帳號推播額度，人數多時需留意；Hobby 方案 cron 2 jobs/天上限已用滿）
 - 許願案件狀態變更後的 **LINE 主動通知里民**（推播進度）尚未做
 - 後台管理的進階功能：批次變更狀態、匯出 CSV、依日期區間篩選
 - 後台管理員身分的**動態新增/移除**（目前需改環境變數重新部署）

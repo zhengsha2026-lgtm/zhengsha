@@ -3861,6 +3861,228 @@ app.post('/api/admin/safety/:id/care', async (req, res) => {
   }
 });
 
+// ============================================================================
+// 報平安第二期：排程通知（Vercel Cron）
+// - GET  /api/cron/safety-reminders?type=resident|admin（Vercel Cron 用，僅支援 GET）
+// - POST /api/cron/safety-reminders  body { type }（本機手動測試用）
+// - 驗證：Authorization: Bearer <CRON_SECRET>；未設 CRON_SECRET 回 503、不符回 401
+// - 冪等：safety_notification_logs UNIQUE(notify_type, line_user_id, notify_date)
+// - 成功才寫 log；單人 push 失敗不阻塞其他人
+// - 家人（contact_phone）不做任何通知
+// ============================================================================
+
+const SAFETY_CRON_TYPES = new Set(['resident', 'admin']);
+const SAFETY_NOTIFY_RESIDENT = 'resident_same_day';
+const SAFETY_NOTIFY_ADMIN = 'admin_care';
+const SAFETY_ADMIN_CARE_NAME_PREVIEW = 3;
+
+function buildSafetyLiffTabUrl(tab) {
+  if (LIFF_ID) return `https://liff.line.me/${LIFF_ID}?tab=${tab}`;
+  return `${LIFF_FORM_URL}?tab=${tab}`;
+}
+
+// 文案固定，語氣溫和，不含「出事／意外」等字眼
+function buildSafetyResidentReminderText() {
+  return ['今天還沒報平安，點這裡補按即可。', buildSafetyLiffTabUrl('safety')].join('\n');
+}
+
+function buildSafetyAdminCareText(careItems) {
+  const count = careItems.length;
+  const nameList = careItems
+    .slice(0, SAFETY_ADMIN_CARE_NAME_PREVIEW)
+    .map((item) => item.display_name || '里民')
+    .join('、');
+  const namesPart = count > SAFETY_ADMIN_CARE_NAME_PREVIEW ? `（${nameList}等）` : `（${nameList}）`;
+  return [
+    `報平安：目前有 ${count} 位待關懷${namesPart}，請至後台查看。`,
+    buildSafetyLiffTabUrl('admin'),
+  ].join('\n');
+}
+
+// 撈今天某類型已發過通知的收件人（冪等排除用）
+async function fetchTodaySafetyNotifiedIds(notifyType, today) {
+  const { data, error } = await supabaseAdmin
+    .from('safety_notification_logs')
+    .select('line_user_id')
+    .eq('notify_type', notifyType)
+    .eq('notify_date', today);
+  if (error) throw error;
+  return new Set((data || []).map((row) => row.line_user_id));
+}
+
+// 成功才寫 log；UNIQUE 擋重複，ignoreDuplicates 防 cron 重跑撞鍵
+async function recordSafetyNotificationLog(lineUserId, notifyType, today) {
+  const { error } = await supabaseAdmin
+    .from('safety_notification_logs')
+    .upsert(
+      [{ line_user_id: lineUserId, notify_type: notifyType, notify_date: today }],
+      { onConflict: 'notify_type,line_user_id,notify_date', ignoreDuplicates: true }
+    );
+  if (error) throw error;
+}
+
+function checkSafetyCronAuth(req) {
+  const secret = process.env.CRON_SECRET || '';
+  if (!secret) {
+    return { ok: false, status: 503, message: '環境變數 CRON_SECRET 尚未設定，排程通知已停用。' };
+  }
+  const authHeader = req.headers && req.headers.authorization;
+  if (authHeader !== `Bearer ${secret}`) {
+    return { ok: false, status: 401, message: '排程通知驗證失敗。' };
+  }
+  return { ok: true };
+}
+
+// type=resident：催本人（活躍且今日未簽，含今天剛加入尚未簽到者）
+async function runSafetyResidentReminders(today) {
+  const { data: members, error: membersError } = await supabaseAdmin
+    .from('safety_members')
+    .select('id, line_user_id')
+    .is('left_at', null);
+  if (membersError) throw membersError;
+
+  const activeMembers = members || [];
+  if (activeMembers.length === 0) {
+    return { attempted: 0, succeeded: 0, failed: 0, skipped: 0 };
+  }
+
+  const { data: todayCheckins, error: checkinsError } = await supabaseAdmin
+    .from('safety_checkins')
+    .select('member_id')
+    .in('member_id', activeMembers.map((m) => m.id))
+    .eq('checkin_date', today);
+  if (checkinsError) throw checkinsError;
+
+  const checkedMemberIds = new Set((todayCheckins || []).map((c) => c.member_id));
+  const uncheckedMembers = activeMembers.filter((m) => !checkedMemberIds.has(m.id));
+
+  const alreadyNotified = await fetchTodaySafetyNotifiedIds(SAFETY_NOTIFY_RESIDENT, today);
+  const targets = uncheckedMembers.filter((m) => m.line_user_id && !alreadyNotified.has(m.line_user_id));
+  const skipped = uncheckedMembers.length - targets.length;
+
+  const messageText = buildSafetyResidentReminderText();
+  let succeeded = 0;
+  let failed = 0;
+  for (const member of targets) {
+    try {
+      await lineClient.pushMessage({
+        to: member.line_user_id,
+        messages: [{ type: 'text', text: messageText }],
+      });
+      await recordSafetyNotificationLog(member.line_user_id, SAFETY_NOTIFY_RESIDENT, today);
+      succeeded += 1;
+    } catch (err) {
+      // 失敗不阻塞其他人、不寫 log（當天不重試，下次 cron 是隔天）
+      console.error('safety resident reminder pushMessage failed for', member.line_user_id, err.message);
+      failed += 1;
+    }
+  }
+
+  return { attempted: targets.length, succeeded, failed, skipped };
+}
+
+// type=admin：通知幹部（待關懷名單，計算沿用既有 buildSafetyAdminItem，不重寫）
+async function runSafetyAdminCareNotifications(today) {
+  const { data: members, error: membersError } = await supabaseAdmin
+    .from('safety_members')
+    .select(
+      'id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at'
+    )
+    .is('left_at', null);
+  if (membersError) throw membersError;
+
+  const activeMembers = members || [];
+  const checkinsByMember = new Map();
+  if (activeMembers.length > 0) {
+    const { data: checkins, error: checkinsError } = await supabaseAdmin
+      .from('safety_checkins')
+      .select('member_id, checkin_date, created_at')
+      .in('member_id', activeMembers.map((m) => m.id));
+    if (checkinsError) throw checkinsError;
+    for (const checkin of checkins || []) {
+      if (!checkinsByMember.has(checkin.member_id)) checkinsByMember.set(checkin.member_id, []);
+      checkinsByMember.get(checkin.member_id).push(checkin);
+    }
+  }
+
+  const careItems = activeMembers
+    .map((m) => buildSafetyAdminItem(m, checkinsByMember.get(m.id) || [], null))
+    .filter((item) => item.needs_care);
+
+  // 當天沒有待關懷 → 不發任何訊息
+  if (careItems.length === 0) {
+    return { attempted: 0, succeeded: 0, failed: 0, skipped: 0, care_count: 0 };
+  }
+
+  const adminIds = [...adminLineUserIds];
+  const alreadyNotified = await fetchTodaySafetyNotifiedIds(SAFETY_NOTIFY_ADMIN, today);
+  const targets = adminIds.filter((id) => !alreadyNotified.has(id));
+  const skipped = adminIds.length - targets.length;
+
+  const messageText = buildSafetyAdminCareText(careItems);
+  let succeeded = 0;
+  let failed = 0;
+  for (const adminId of targets) {
+    try {
+      await lineClient.pushMessage({
+        to: adminId,
+        messages: [{ type: 'text', text: messageText }],
+      });
+      await recordSafetyNotificationLog(adminId, SAFETY_NOTIFY_ADMIN, today);
+      succeeded += 1;
+    } catch (err) {
+      console.error('safety admin care pushMessage failed for', adminId, err.message);
+      failed += 1;
+    }
+  }
+
+  return { attempted: targets.length, succeeded, failed, skipped, care_count: careItems.length };
+}
+
+async function handleSafetyCronRequest(req, res) {
+  const auth = checkSafetyCronAuth(req);
+  if (!auth.ok) {
+    return res.status(auth.status).json({ success: false, message: auth.message });
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+  if (!lineClient) {
+    return res.status(500).json({ success: false, message: 'LINE Messaging API 尚未完成設定。' });
+  }
+
+  const type = String((req.query.type ?? (req.body && req.body.type)) ?? '').trim();
+  if (!SAFETY_CRON_TYPES.has(type)) {
+    return res.status(400).json({ success: false, message: 'type 需為 resident 或 admin。' });
+  }
+
+  try {
+    const today = getTaipeiToday();
+    const result =
+      type === 'resident'
+        ? await runSafetyResidentReminders(today)
+        : await runSafetyAdminCareNotifications(today);
+
+    const message =
+      type === 'admin' && result.care_count === 0
+        ? '當天沒有待關懷名單，未發送通知。'
+        : `已完成：嘗試 ${result.attempted} 人，成功 ${result.succeeded} 人，失敗 ${result.failed} 人，略過（今日已發）${result.skipped} 人。`;
+
+    return res.json({
+      success: true,
+      message,
+      data: { type, today, ...result },
+    });
+  } catch (error) {
+    console.error('safety cron failed:', error);
+    return res.status(500).json({ success: false, message: '排程通知執行失敗。' });
+  }
+}
+
+app.get('/api/cron/safety-reminders', handleSafetyCronRequest);
+app.post('/api/cron/safety-reminders', handleSafetyCronRequest);
+
 app.use((error, req, res, next) => {
   if (error instanceof line.SignatureValidationFailed) {
     console.error('LINE signature validation failed.');
