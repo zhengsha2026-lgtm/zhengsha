@@ -3863,8 +3863,8 @@ app.post('/api/admin/safety/:id/care', async (req, res) => {
 
 // ============================================================================
 // 報平安第二期：排程通知（Vercel Cron）
-// - GET  /api/cron/safety-reminders?type=resident|admin（Vercel Cron 用，僅支援 GET）
-// - POST /api/cron/safety-reminders  body { type }（本機手動測試用）
+// - GET  /api/cron/safety-reminders/:type（Vercel Cron 用；Cron 不保留 query string，故用路徑區分）
+// - GET|POST /api/cron/safety-reminders（?type= 或 body { type }，本機手動測試用，保留）
 // - 驗證：Authorization: Bearer <CRON_SECRET>；未設 CRON_SECRET 回 503、不符回 401
 // - 冪等：safety_notification_logs UNIQUE(notify_type, line_user_id, notify_date)
 // - 成功才寫 log；單人 push 失敗不阻塞其他人
@@ -4052,7 +4052,7 @@ async function handleSafetyCronRequest(req, res) {
     return res.status(500).json({ success: false, message: 'LINE Messaging API 尚未完成設定。' });
   }
 
-  const type = String((req.query.type ?? (req.body && req.body.type)) ?? '').trim();
+  const type = String((req.params.type ?? req.query.type ?? (req.body && req.body.type)) ?? '').trim();
   if (!SAFETY_CRON_TYPES.has(type)) {
     return res.status(400).json({ success: false, message: 'type 需為 resident 或 admin。' });
   }
@@ -4080,6 +4080,9 @@ async function handleSafetyCronRequest(req, res) {
   }
 }
 
+// 路徑式：Vercel Cron 用（Cron 不保留 query string；:type 非法值由 type 驗證擋下）
+app.get('/api/cron/safety-reminders/:type', handleSafetyCronRequest);
+// query / body 式：本機手動測試用（保留）
 app.get('/api/cron/safety-reminders', handleSafetyCronRequest);
 app.post('/api/cron/safety-reminders', handleSafetyCronRequest);
 

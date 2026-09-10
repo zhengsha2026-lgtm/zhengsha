@@ -136,9 +136,9 @@
   - 待關懷 = 活躍 且 今日未簽 且 `missing_days >= 2`
   - 關懷方式只有「已電訪 / 已家訪」兩種（DB CHECK 約束）
 - **第二期排程通知（Vercel Cron；已上線）**：
-  - 端點 `GET|POST /api/cron/safety-reminders?type=resident|admin`（GET 給 Vercel Cron 用，POST 給本機 curl 測試用）；驗證 `Authorization: Bearer <CRON_SECRET>`：**未設 CRON_SECRET 回 503、錯誤回 401**
-  - 每天**台北 20:00**（`12 12 * * *` UTC）`type=resident`：對活躍且今日未簽的里民（**含今天剛加入尚未簽到者**）發本人提醒，文案固定「今天還沒報平安，點這裡補按即可。」+ `?tab=safety` LIFF 連結；已簽到者不發
-  - 每天**台北 09:00**（`0 1 * * *` UTC）`type=admin`：有待關懷（`missing_days >= 2`，**沿用既有 `buildSafetyAdminItem` 計算，不重寫**）時通知 `ADMIN_LINE_USER_IDS` 每位管理員「報平安：目前有 N 位待關懷（前 3 筆稱呼，更多加「等」），請至後台查看。」+ `?tab=admin` 連結；**當天沒有待關懷就不發**
+  - 端點：`GET /api/cron/safety-reminders/:type`（**路徑式 = Vercel Cron 用**，因 **Cron 不保留 query string**，Logs 只見路徑）＋ `GET|POST /api/cron/safety-reminders`（`?type=` 或 body `{ type }`，本機手動測試用，保留）；驗證 `Authorization: Bearer <CRON_SECRET>`：**未設 CRON_SECRET 回 503、錯誤回 401**
+  - 每天**台北 20:00**（`0 12 * * *` UTC）`/resident`：對活躍且今日未簽的里民（**含今天剛加入尚未簽到者**）發本人提醒，文案固定「今天還沒報平安，點這裡補按即可。」+ `?tab=safety` LIFF 連結；已簽到者不發
+  - 每天**台北 09:00**（`0 1 * * *` UTC）`/admin`：有待關懷（`missing_days >= 2`，**沿用既有 `buildSafetyAdminItem` 計算，不重寫**）時通知 `ADMIN_LINE_USER_IDS` 每位管理員「報平安：目前有 N 位待關懷（前 3 筆稱呼，更多加「等」），請至後台查看。」+ `?tab=admin` 連結；**當天沒有待關懷就不發**
   - 冪等：`safety_notification_logs` 的 `UNIQUE(notify_type, line_user_id, notify_date)` 保證每人每天每類型最多 1 則，cron 重跑不重發；**成功才寫 log**（push 失敗不佔當天額度、當天不重試）；單人 push 失敗不阻塞其他人，回傳 `attempted/succeeded/failed/skipped`
   - **家人（contact_phone）永遠不通知**；文案溫和，禁用「出事／意外」等字眼
   - Hobby 方案 cron 上限 2 jobs/天各一次，本設計已貼滿（未來要加排程需升 Pro 或合併）
@@ -279,9 +279,10 @@
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| GET | `/api/cron/safety-reminders?type=resident` | 台北每天 20:00 催本人（Vercel Cron 自動帶 secret 呼叫） |
-| GET | `/api/cron/safety-reminders?type=admin` | 台北每天 09:00 通知幹部待關懷（Vercel Cron 自動呼叫） |
-| POST | `/api/cron/safety-reminders` | 同上，body `{ type }`，本機 curl 測試用 |
+| GET | `/api/cron/safety-reminders/resident` | 台北每天 20:00 催本人（Vercel Cron 用；**Cron 不保留 query string，故 cron 路徑一律用路徑區分**） |
+| GET | `/api/cron/safety-reminders/admin` | 台北每天 09:00 通知幹部待關懷（Vercel Cron 用） |
+| GET | `/api/cron/safety-reminders?type=resident\|admin` | 同上功能，本機 curl 測試用（保留） |
+| POST | `/api/cron/safety-reminders` | 同上，body `{ type }`，本機 curl 測試用（保留） |
 
 ---
 
@@ -306,8 +307,9 @@
 - 以及其他既有的 LINE / LIFF 相關變數
 
 ### Vercel Cron（已寫進 `vercel.json`，部署即生效）
-- `12 12 * * *` UTC（= 台北 20:00）→ `GET /api/cron/safety-reminders?type=resident`：催本人
-- `0 1 * * *` UTC（= 台北 09:00）→ `GET /api/cron/safety-reminders?type=admin`：通知幹部
+- `0 12 * * *` UTC（= 台北 20:00）→ `GET /api/cron/safety-reminders/resident`：催本人
+- `0 1 * * *` UTC（= 台北 09:00）→ `GET /api/cron/safety-reminders/admin`：通知幹部
+- **教訓：Vercel Cron 不保留 query string**（Dashboard Logs 只會看到路徑），cron 端點一律用路徑參數，不靠 `?type=`
 - Hobby 方案上限 2 個 cron jobs（每天各一次），目前已用滿；執行紀錄可在 Vercel Dashboard → Deployments → Cron Jobs 查看
 
 > `.env` 只存在本機，禁止提交到 GitHub。
@@ -388,7 +390,7 @@
   - 新增資料表（migration `004_safety_schema.sql`，已於 Supabase 執行）：`safety_members` / `safety_checkins` / `safety_care_logs`
   - API：里民 status/join/profile/checkin/membership（DELETE）；管理 list/detail/care
 - **報平安第二期：排程通知（已上線；Vercel Cron）**
-  - `GET|POST /api/cron/safety-reminders?type=resident|admin`，`Bearer <CRON_SECRET>` 驗證（未設 503、錯誤 401）
+  - `GET /api/cron/safety-reminders/:type`（**Cron 用路徑式** — Vercel Cron 不保留 query string）＋ 舊 `?type=`／POST body 端點保留手動測試；`Bearer <CRON_SECRET>` 驗證（未設 503、錯誤 401）
   - 台北 20:00 催本人（活躍且今日未簽，含當日新加入；文案固定 + `?tab=safety` 連結）；台北 09:00 通知幹部（待關懷人數 + 前 3 筆稱呼 + `?tab=admin` 連結，沒有待關懷不發）
   - 冪等 `safety_notification_logs`（UNIQUE 類型+人+日期，成功才寫）；push 失敗不阻塞、家人永不通知
   - 新增資料表（migration `005_safety_notifications.sql`，已於 Supabase 執行）；`vercel.json` 已加 crons、`.env.example` 已加 `CRON_SECRET`；簽到/加入/退出/待關懷計算零修改
