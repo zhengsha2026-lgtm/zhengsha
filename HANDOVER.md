@@ -141,6 +141,7 @@
   - 每天**台北 09:00**（`0 1 * * *` UTC）`/admin`：有待關懷（`missing_days >= 2`，**沿用既有 `buildSafetyAdminItem` 計算，不重寫**）時通知 `ADMIN_LINE_USER_IDS` 每位管理員「報平安：目前有 N 位待關懷（前 3 筆稱呼，更多加「等」），請至後台查看。」+ `?tab=admin` 連結；**當天沒有待關懷就不發**
   - 冪等：`safety_notification_logs` 的 `UNIQUE(notify_type, line_user_id, notify_date)` 保證每人每天每類型最多 1 則，cron 重跑不重發；**成功才寫 log**（push 失敗不佔當天額度、當天不重試）；單人 push 失敗不阻塞其他人，回傳 `attempted/succeeded/failed/skipped`
   - **家人（contact_phone）永遠不通知**；文案溫和，禁用「出事／意外」等字眼
+  - 已於 2026-09-10 線上端到端驗證：401 擋未授權、新路徑 `/resident` 與 `/admin` 正確解析 type、真實推播成功（里民 1/1、管理員 2/2）、重跑冪等略過不重發
   - Hobby 方案 cron 上限 2 jobs/天各一次，本設計已貼滿（未來要加排程需升 Pro 或合併）
 
 ---
