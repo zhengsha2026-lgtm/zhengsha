@@ -1187,11 +1187,12 @@
                 </button>
               </div>
 
-              <!-- 未加入：短說明 + 同意加入表單 -->
+              <!-- 未申請（或重送）：說明 + 申請表單（第四期：送出後 pending，幹部核准後才可簽到） -->
               <div id="safetyJoinView" class="hidden mt-6 space-y-5">
                 <div class="rounded-[1.5rem] border border-violet-100/60 bg-violet-50/30 p-4 text-sm leading-7 text-slate-600">
                   每天按一下「我今天平安」，讓里辦知道您一切都好。
                   <span class="font-medium text-violet-700">連續兩天沒按，里辦或您指定的家人會關心您。</span>
+                  送出後由幹部審核，通過即可開始天天報平安。
                 </div>
 
                 <form id="safetyJoinForm" class="space-y-4">
@@ -1222,6 +1223,23 @@
                       class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                     />
                   </div>
+                  <div>
+                    <label for="safetyJoinBirthYear" class="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      出生年 <span class="text-slate-400">（選填）</span>
+                    </label>
+                    <input
+                      id="safetyJoinBirthYear"
+                      type="number"
+                      inputmode="numeric"
+                      min="1900"
+                      max="2100"
+                      placeholder="如 1950"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    />
+                    <p class="mt-1.5 text-xs leading-5 text-slate-400">
+                      僅供里辦幹部參考，不會影響審核結果。
+                    </p>
+                  </div>
                   <div class="rounded-2xl border border-violet-100/60 bg-violet-50/20 p-4">
                     <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">指定聯絡人</p>
                     <p class="mt-1.5 text-xs leading-6 text-slate-500">連續兩天沒按時，除了里辦，也會請這位家人關心您。</p>
@@ -1249,12 +1267,56 @@
                     class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white shadow-[0_12px_30px_-12px_rgba(139,92,246,0.55)] transition hover:bg-violet-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <i data-lucide="heart-handshake" class="h-4 w-4"></i>
-                    <span id="safetyJoinSubmitText">同意並加入報平安</span>
+                    <span id="safetyJoinSubmitText">送出申請</span>
                   </button>
                   <p class="text-center text-xs leading-6 text-slate-400">
-                    加入後可隨時更改聯絡人或退出，退出後不會再收到關心提醒。
+                    幹部核准後即可開始天天報平安；加入後可隨時更改聯絡人或退出。
                   </p>
                 </form>
+              </div>
+
+              <!-- 審核中：不可簽到、不可重複送出 -->
+              <div id="safetyPendingView" class="hidden mt-6 space-y-4">
+                <div class="rounded-[1.5rem] border border-amber-100 bg-amber-50/50 p-5">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                      <i data-lucide="clock-3" class="h-5 w-5 text-amber-600"></i>
+                    </span>
+                    <div>
+                      <p class="text-sm font-semibold text-amber-800">申請審核中</p>
+                      <p class="mt-0.5 text-xs leading-6 text-amber-700/90">
+                        幹部確認通過後，這裡就會出現「我今天平安」大按鈕，請稍候幾天。
+                      </p>
+                    </div>
+                  </div>
+                  <div id="safetyPendingMeta" class="mt-4 space-y-1.5 rounded-2xl bg-white/70 px-4 py-3 text-xs leading-6 text-slate-600"></div>
+                </div>
+              </div>
+
+              <!-- 未通過：顯示原因（如有）+ 可修改資料重新申請 -->
+              <div id="safetyRejectedView" class="hidden mt-6 space-y-4">
+                <div class="rounded-[1.5rem] border border-rose-100 bg-rose-50/50 p-5">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
+                      <i data-lucide="circle-x" class="h-5 w-5 text-rose-600"></i>
+                    </span>
+                    <div>
+                      <p class="text-sm font-semibold text-rose-800">申請未通過</p>
+                      <p class="mt-0.5 text-xs leading-6 text-rose-700/90">
+                        如有疑問請洽里辦；您也可以修改資料後重新申請。
+                      </p>
+                    </div>
+                  </div>
+                  <p id="safetyRejectedReason" class="mt-3 hidden rounded-2xl bg-white/70 px-4 py-3 text-xs leading-6 text-slate-600"></p>
+                  <button
+                    type="button"
+                    id="safetyReapplyButton"
+                    class="mt-4 inline-flex h-10 items-center gap-1.5 rounded-full bg-rose-600 px-5 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>修改資料重新申請</span>
+                  </button>
+                </div>
               </div>
 
               <!-- 已加入：今日簽到 + 設定 -->
@@ -2122,8 +2184,11 @@
         },
         safety: {
           // 里民端報平安：joined / checkin 狀態（點進 safety tab 才載）
+          // 第四期申請制：approvalStatus = null(未申請) / 'pending' / 'rejected' / 'approved'
           meta: { loading: false, error: null, refreshedAt: null },
           joined: false,
+          approvalStatus: null,
+          rejectReason: '',
           checkedInToday: false,
           todayCheckinAt: null,
           today: '',
@@ -2262,9 +2327,15 @@
         safetyErrorText: document.getElementById('safetyErrorText'),
         safetyRetryButton: document.getElementById('safetyRetryButton'),
         safetyJoinView: document.getElementById('safetyJoinView'),
+        safetyPendingView: document.getElementById('safetyPendingView'),
+        safetyPendingMeta: document.getElementById('safetyPendingMeta'),
+        safetyRejectedView: document.getElementById('safetyRejectedView'),
+        safetyRejectedReason: document.getElementById('safetyRejectedReason'),
+        safetyReapplyButton: document.getElementById('safetyReapplyButton'),
         safetyJoinForm: document.getElementById('safetyJoinForm'),
         safetyJoinName: document.getElementById('safetyJoinName'),
         safetyJoinPhone: document.getElementById('safetyJoinPhone'),
+        safetyJoinBirthYear: document.getElementById('safetyJoinBirthYear'),
         safetyJoinContactName: document.getElementById('safetyJoinContactName'),
         safetyJoinContactPhone: document.getElementById('safetyJoinContactPhone'),
         safetyJoinSubmit: document.getElementById('safetyJoinSubmit'),
@@ -2881,6 +2952,19 @@
             handleSafetyJoin();
           });
         }
+        if (elements.safetyReapplyButton) {
+          // rejected → 打開申請表單並預填原資料（重送 = 同一列改回 pending）
+          elements.safetyReapplyButton.addEventListener('click', () => {
+            if (elements.safetyRejectedView) elements.safetyRejectedView.classList.add('hidden');
+            if (elements.safetyJoinView) elements.safetyJoinView.classList.remove('hidden');
+            const m = state.safety.member || {};
+            if (elements.safetyJoinName) elements.safetyJoinName.value = m.display_name || elements.safetyJoinName.value;
+            if (elements.safetyJoinPhone) elements.safetyJoinPhone.value = m.phone || elements.safetyJoinPhone.value;
+            if (elements.safetyJoinBirthYear) elements.safetyJoinBirthYear.value = m.birth_year || '';
+            if (elements.safetyJoinContactName) elements.safetyJoinContactName.value = m.contact_name || '';
+            if (elements.safetyJoinContactPhone) elements.safetyJoinContactPhone.value = m.contact_phone || '';
+          });
+        }
         if (elements.safetyCheckinButton) {
           elements.safetyCheckinButton.addEventListener('click', () => handleSafetyCheckin());
         }
@@ -2947,6 +3031,11 @@
               // 電話改由 <a href="tel:"> 原生處理，此分支僅保留相容
             } else if (action === 'care-call' || action === 'care-visit') {
               markSafetyCare(id, action === 'care-call' ? '已電訪' : '已家訪', '');
+            } else if (action === 'approve') {
+              approveSafetyMember(id);
+            } else if (action === 'reject') {
+              // 列表上直接不通過（不帶原因；要寫原因請進詳情）
+              rejectSafetyMember(id, '');
             }
           });
         }
@@ -2964,6 +3053,13 @@
                 return;
               }
               markSafetyCare(state.admin.safety.detail.id, methodInput.value, note);
+            } else if (action === 'snooze') {
+              snoozeSafetyMember(state.admin.safety.detail.id);
+            } else if (action === 'approve') {
+              approveSafetyMember(state.admin.safety.detail.id);
+            } else if (action === 'reject') {
+              const reasonInput = elements.adminSafetyDetailContainer.querySelector('[data-safety-reject-reason]');
+              rejectSafetyMember(state.admin.safety.detail.id, reasonInput ? reasonInput.value.trim() : '');
             }
           });
         }
@@ -5496,6 +5592,8 @@
         setSafetyLoadingVisible(true);
         setSafetyError(null);
         if (elements.safetyJoinView) elements.safetyJoinView.classList.add('hidden');
+        if (elements.safetyPendingView) elements.safetyPendingView.classList.add('hidden');
+        if (elements.safetyRejectedView) elements.safetyRejectedView.classList.add('hidden');
         if (elements.safetyMemberView) elements.safetyMemberView.classList.add('hidden');
 
         try {
@@ -5511,6 +5609,8 @@
 
           const data = result.data || {};
           state.safety.joined = Boolean(data.joined);
+          state.safety.approvalStatus = data.approval_status || null;
+          state.safety.rejectReason = data.reject_reason || '';
           state.safety.member = data.member || null;
           state.safety.checkedInToday = Boolean(data.checked_in_today);
           state.safety.todayCheckinAt = data.today_checkin_at || null;
@@ -5527,11 +5627,50 @@
       }
 
       function renderSafetyView() {
+        // 第四期四態：approved（joined）→ 簽到大按鈕；pending → 審核中卡；
+        // rejected → 未通過卡（可重送）；null → 申請表單
+        const showJoin = !state.safety.joined && state.safety.approvalStatus !== 'pending' && state.safety.approvalStatus !== 'rejected';
+        const showPending = !state.safety.joined && state.safety.approvalStatus === 'pending';
+        const showRejected = !state.safety.joined && state.safety.approvalStatus === 'rejected';
+
         if (elements.safetyJoinView) {
-          elements.safetyJoinView.classList.toggle('hidden', state.safety.joined);
+          elements.safetyJoinView.classList.toggle('hidden', !showJoin);
+        }
+        if (elements.safetyPendingView) {
+          elements.safetyPendingView.classList.toggle('hidden', !showPending);
+        }
+        if (elements.safetyRejectedView) {
+          elements.safetyRejectedView.classList.toggle('hidden', !showRejected);
         }
         if (elements.safetyMemberView) {
           elements.safetyMemberView.classList.toggle('hidden', !state.safety.joined);
+        }
+
+        if (showPending) {
+          // 審核中：顯示送出的申請資料摘要 + 申請時間
+          const m = state.safety.member || {};
+          if (elements.safetyPendingMeta) {
+            const rows = [];
+            if (m.display_name) rows.push(`稱呼：${m.display_name}`);
+            if (m.phone) rows.push(`您的電話：${m.phone}`);
+            if (m.birth_year) rows.push(`出生年：${m.birth_year}`);
+            if (m.contact_name) rows.push(`聯絡人：${m.contact_name}${m.contact_phone ? `（${m.contact_phone}）` : ''}`);
+            const appliedText = m.applied_at ? formatEventDateTimeDisplay(m.applied_at) : '';
+            if (appliedText) rows.push(`送出時間：${appliedText}`);
+            elements.safetyPendingMeta.innerHTML = rows
+              .map((line) => `<p class="flex items-start gap-1.5"><span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-400"></span><span>${escapeHtml(line)}</span></p>`)
+              .join('');
+          }
+        }
+
+        if (showRejected && elements.safetyRejectedReason) {
+          // 未通過：有 reason 顯示，沒有就藏
+          if (state.safety.rejectReason) {
+            elements.safetyRejectedReason.textContent = `未通過原因：${state.safety.rejectReason}`;
+            elements.safetyRejectedReason.classList.remove('hidden');
+          } else {
+            elements.safetyRejectedReason.classList.add('hidden');
+          }
         }
 
         if (state.safety.joined) {
@@ -5561,8 +5700,8 @@
           if (elements.safetyProfilePhone) elements.safetyProfilePhone.value = m.phone || '';
           if (elements.safetyProfileContactName) elements.safetyProfileContactName.value = m.contact_name || '';
           if (elements.safetyProfileContactPhone) elements.safetyProfileContactPhone.value = m.contact_phone || '';
-        } else {
-          // 未加入：稱呼預填 LINE 顯示名稱（與許願表單 #user_name 同一來源），里民仍可修改
+        } else if (showJoin) {
+          // 尚未申請（或 rejected 重送後）：稱呼預填 LINE 顯示名稱（與許願表單 #user_name 同一來源），里民仍可修改
           if (elements.safetyJoinName && !elements.safetyJoinName.value.trim() && elements.userName) {
             elements.safetyJoinName.value = elements.userName.value.trim();
           }
@@ -5599,39 +5738,44 @@
 
         state.safety.joining = true;
         if (elements.safetyJoinSubmit) elements.safetyJoinSubmit.disabled = true;
-        if (elements.safetyJoinSubmitText) elements.safetyJoinSubmitText.textContent = '正在加入...';
+        if (elements.safetyJoinSubmitText) elements.safetyJoinSubmitText.textContent = '正在送出...';
 
         try {
+          const birthYearRaw = elements.safetyJoinBirthYear ? elements.safetyJoinBirthYear.value.trim() : '';
           const res = await fetch('/api/safety/join', {
             method: 'POST',
             headers: buildAuthHeaders(tokenBundle),
             body: JSON.stringify({
               display_name: displayName,
               phone: elements.safetyJoinPhone ? elements.safetyJoinPhone.value.trim() : '',
+              birth_year: birthYearRaw ? Number(birthYearRaw) : null,
               contact_name: elements.safetyJoinContactName ? elements.safetyJoinContactName.value.trim() : '',
               contact_phone: elements.safetyJoinContactPhone ? elements.safetyJoinContactPhone.value.trim() : '',
             }),
           });
           const result = await res.json();
           if (!res.ok || !result.success) {
-            throw new Error(result.message || '加入報平安失敗');
+            throw new Error(result.message || '送出申請失敗');
           }
 
+          // 送出成功 → pending（幹部核准後才 joined）
           const data = result.data || {};
-          state.safety.joined = true;
+          state.safety.joined = false;
+          state.safety.approvalStatus = data.approval_status || 'pending';
+          state.safety.rejectReason = '';
           state.safety.member = data.member || null;
           state.safety.checkedInToday = false;
           state.safety.todayCheckinAt = null;
           state.safety.today = data.today || state.safety.today;
           state.safety.meta.refreshedAt = Date.now();
           renderSafetyView();
-          showToast(result.message || '已加入報平安。');
+          showToast(result.message || '申請已送出，請等候幹部審核。');
         } catch (err) {
-          showToast(err.message || '加入報平安失敗，請稍後再試。');
+          showToast(err.message || '送出申請失敗，請稍後再試。');
         } finally {
           state.safety.joining = false;
           if (elements.safetyJoinSubmit) elements.safetyJoinSubmit.disabled = false;
-          if (elements.safetyJoinSubmitText) elements.safetyJoinSubmitText.textContent = '同意並加入報平安';
+          if (elements.safetyJoinSubmitText) elements.safetyJoinSubmitText.textContent = '送出申請';
         }
       }
 
@@ -5788,6 +5932,7 @@
 
       const SAFETY_ADMIN_FILTER_META = [
         { key: 'all', label: '全部' },
+        { key: 'pending', label: '待審核' },
         { key: 'checked', label: '今日已簽' },
         { key: 'unchecked', label: '今日未簽' },
         { key: 'care', label: '待關懷' },
@@ -5815,9 +5960,9 @@
           }
 
           const data = result.data || {};
-          // 後端回全部 items（filter=all）+ counts；chips 切換由前端即時過濾
+          // 後端回全部 items（filter=all，= approved + pending）+ counts；chips 切換由前端即時過濾
           state.admin.safety.items = Array.isArray(data.items) ? data.items : [];
-          state.admin.safety.counts = data.counts || { all: 0, checked: 0, unchecked: 0, care: 0 };
+          state.admin.safety.counts = data.counts || { all: 0, checked: 0, unchecked: 0, care: 0, pending: 0 };
           state.admin.safety.refreshedAt = Date.now();
           renderAdminSafetyChips();
           renderAdminSafetyList();
@@ -5859,6 +6004,9 @@
       }
 
       function getSafetyBadge(item) {
+        if (item.approval_status === 'pending') {
+          return '<span class="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-600 ring-1 ring-sky-100"><i data-lucide="user-check" class="h-3 w-3"></i>待審核</span>';
+        }
         if (item.needs_care) {
           return '<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100"><i data-lucide="bell-ring" class="h-3 w-3"></i>待關懷</span>';
         }
@@ -5871,10 +6019,13 @@
       function renderAdminSafetyList() {
         if (!elements.adminSafetyListContainer) return;
         const filter = state.admin.safety.filter || 'all';
+        // 第四期：pending 不算今日未簽/待關懷；checked/unchecked/care 僅對 approved 有意義
         const items = (state.admin.safety.items || []).filter((item) => {
-          if (filter === 'checked') return item.checked_in_today;
-          if (filter === 'unchecked') return !item.checked_in_today;
-          if (filter === 'care') return item.needs_care;
+          const isApproved = item.approval_status !== 'pending';
+          if (filter === 'pending') return item.approval_status === 'pending';
+          if (filter === 'checked') return isApproved && item.checked_in_today;
+          if (filter === 'unchecked') return isApproved && !item.checked_in_today;
+          if (filter === 'care') return isApproved && item.needs_care;
           return true;
         });
 
@@ -5883,6 +6034,7 @@
           if (elements.adminSafetyListEmptyHint && items.length === 0) {
             const hints = {
               all: '等里民從「報平安」頁面加入後，名單會出現在這裡。',
+              pending: '目前沒有待審核的申請。',
               checked: '今天還沒有人簽到。',
               unchecked: '今天大家都已簽到，太棒了。',
               care: '目前沒有待關懷的里民。',
@@ -5892,6 +6044,7 @@
         }
 
         elements.adminSafetyListContainer.innerHTML = items.map((item) => {
+          const isPending = item.approval_status === 'pending';
           const id = escapeHtml(String(item.id));
           const name = escapeHtml(item.display_name || '未填稱呼');
           const lastCheckinText = item.last_checkin_at
@@ -5899,7 +6052,13 @@
             : item.last_checkin_date
               ? formatSafetyDateForDisplay(item.last_checkin_date)
               : '從未簽到';
-          const missingText = item.checked_in_today ? '—' : `${item.missing_days} 天`;
+          const missingText = isPending || item.checked_in_today ? '—' : `${item.missing_days} 天`;
+          const appliedText = isPending && item.applied_at
+            ? `<p class="mt-0.5 text-[11px] leading-5 text-slate-400">申請時間：${escapeHtml(formatEventDateTimeDisplay(item.applied_at))}</p>`
+            : '';
+          const birthText = isPending && item.birth_year
+            ? `<p class="mt-0.5 text-[11px] leading-5 text-slate-400">出生年：${escapeHtml(String(item.birth_year))}（僅供參考）</p>`
+            : '';
           const phoneHtml = item.phone
             ? `<a href="tel:${escapeHtml(item.phone)}" class="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:underline">${escapeHtml(item.phone)}</a>`
             : '<span class="text-xs text-slate-400">未填寫</span>';
@@ -5922,21 +6081,32 @@
                   </div>
                   <p class="mt-1.5 text-[11px] leading-5 text-slate-500">里民電話：${phoneHtml}</p>
                   <p class="mt-0.5 text-[11px] leading-5 text-slate-500">${contactHtml}</p>
+                  ${appliedText}
+                  ${birthText}
                 </div>
                 <div class="shrink-0 text-right">
-                  <p class="text-[11px] text-slate-400">連續未簽</p>
-                  <p class="text-sm font-bold ${item.needs_care ? 'text-rose-600' : 'text-slate-600'}">${missingText}</p>
+                  <p class="text-[11px] text-slate-400">${isPending ? '審核' : '連續未簽'}</p>
+                  <p class="text-sm font-bold ${item.needs_care ? 'text-rose-600' : 'text-slate-600'}">${isPending ? '—' : escapeHtml(missingText)}</p>
                 </div>
               </div>
-              <p class="mt-2 text-[11px] leading-5 text-slate-400">最後簽到：${escapeHtml(lastCheckinText)}</p>
-              ${latestCareHtml}
+              ${isPending ? '' : `<p class="mt-2 text-[11px] leading-5 text-slate-400">最後簽到：${escapeHtml(lastCheckinText)}</p>`}
+              ${isPending ? '' : latestCareHtml}
               <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-violet-100/70 pt-3">
+                ${isPending ? `
+                <button type="button" data-safety-action="approve" data-safety-id="${id}" class="inline-flex h-8 items-center gap-1 rounded-full bg-emerald-600 px-3 text-[11px] font-semibold text-white transition hover:bg-emerald-500 active:scale-95">
+                  <i data-lucide="check" class="h-3 w-3"></i><span>核准</span>
+                </button>
+                <button type="button" data-safety-action="reject" data-safety-id="${id}" class="inline-flex h-8 items-center gap-1 rounded-full bg-white px-3 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95">
+                  <i data-lucide="x" class="h-3 w-3"></i><span>不通過</span>
+                </button>
+                ` : `
                 <button type="button" data-safety-action="care-call" data-safety-id="${id}" class="inline-flex h-8 items-center gap-1 rounded-full bg-violet-50 px-3 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-100 active:scale-95">
                   <i data-lucide="phone" class="h-3 w-3"></i><span>已電訪</span>
                 </button>
                 <button type="button" data-safety-action="care-visit" data-safety-id="${id}" class="inline-flex h-8 items-center gap-1 rounded-full bg-violet-50 px-3 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-100 active:scale-95">
                   <i data-lucide="home" class="h-3 w-3"></i><span>已家訪</span>
                 </button>
+                `}
                 <button type="button" data-safety-action="detail" data-safety-id="${id}" class="ml-auto inline-flex h-8 items-center gap-1 rounded-full bg-white px-3 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95">
                   <span>關懷詳情</span>
                   <i data-lucide="chevron-right" class="h-3 w-3"></i>
@@ -5998,9 +6168,13 @@
 
         const name = escapeHtml(data.display_name || '未填稱呼');
         const isActive = data.is_active !== false;
+        const isApproved = data.approval_status === 'approved';
+        const isPending = data.approval_status === 'pending';
         const statusBadge = !isActive
           ? '<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200"><i data-lucide="log-out" class="h-3 w-3"></i>已退出</span>'
-          : getSafetyBadge(data);
+          : data.approval_status === 'rejected'
+            ? '<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100"><i data-lucide="circle-x" class="h-3 w-3"></i>未通過</span>'
+            : getSafetyBadge(data);
         const phoneHtml = data.phone
           ? `<a href="tel:${escapeHtml(data.phone)}" class="text-sm font-medium text-violet-600 hover:underline">${escapeHtml(data.phone)}</a>`
           : '<span class="text-sm text-slate-400">未填寫</span>';
@@ -6012,8 +6186,11 @@
           : data.last_checkin_date
             ? formatSafetyDateForDisplay(data.last_checkin_date)
             : '從未簽到';
-        const missingText = data.checked_in_today ? '—' : `${data.missing_days} 天`;
+        const missingText = !isApproved || data.checked_in_today ? '—' : `${data.missing_days} 天`;
         const joinedText = data.joined_at ? formatEventDateTimeDisplay(data.joined_at) : '—';
+        const appliedText = data.applied_at ? formatEventDateTimeDisplay(data.applied_at) : '—';
+        const reviewedText = data.reviewed_at ? formatEventDateTimeDisplay(data.reviewed_at) : '—';
+        const birthText = data.birth_year ? `${escapeHtml(String(data.birth_year))} 年（僅供參考）` : '未填寫';
 
         const checkins = Array.isArray(data.checkins) ? data.checkins : [];
         const checkinsHtml = checkins.length
@@ -6049,13 +6226,34 @@
             <dl class="mt-4 space-y-2.5 text-sm">
               <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">里民電話</dt><dd>${phoneHtml}</dd></div>
               <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">指定聯絡人</dt><dd>${contactHtml}</dd></div>
+              <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">出生年</dt><dd class="text-slate-700">${birthText}</dd></div>
               <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">加入日期</dt><dd class="text-slate-700">${escapeHtml(joinedText)}</dd></div>
+              <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">申請時間</dt><dd class="text-slate-700">${escapeHtml(appliedText)}</dd></div>
+              ${isApproved ? `
               <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">最後簽到</dt><dd class="text-slate-700">${escapeHtml(lastCheckinText)}</dd></div>
               <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">連續未簽</dt><dd class="${data.needs_care ? 'font-bold text-rose-600' : 'text-slate-700'}">${escapeHtml(missingText)}</dd></div>
+              ` : ''}
+              <div class="flex items-start justify-between gap-4"><dt class="text-slate-400">審核時間</dt><dd class="text-slate-700">${escapeHtml(reviewedText)}</dd></div>
             </dl>
           </div>
 
-          ${isActive ? `
+          ${isActive && isPending ? `
+          <div class="rounded-[1.5rem] border border-sky-100/70 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(31,38,135,0.3)]">
+            <p class="text-sm font-bold text-violet-950">審核申請</p>
+            <p class="mt-1 text-xs leading-6 text-slate-400">核准後對方即可開始天天報平安，並從核准當天起算未簽天數；不通過對方可修改資料後重新申請。</p>
+            <textarea data-safety-reject-reason rows="2" maxlength="200" placeholder="不通過原因（選填，對方看得到）" class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"></textarea>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button type="button" data-safety-detail-action="approve" class="inline-flex h-10 items-center gap-2 rounded-full bg-emerald-600 px-5 text-sm font-semibold text-white transition hover:bg-emerald-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+                <i data-lucide="check" class="h-4 w-4"></i><span>核准加入</span>
+              </button>
+              <button type="button" data-safety-detail-action="reject" class="inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+                <i data-lucide="x" class="h-4 w-4"></i><span>不通過</span>
+              </button>
+            </div>
+          </div>
+          ` : ''}
+
+          ${isActive && isApproved ? `
           <div class="rounded-[1.5rem] border border-violet-100/70 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(31,38,135,0.3)]">
             <p class="text-sm font-bold text-violet-950">標記關懷</p>
             <p class="mt-1 text-xs leading-6 text-slate-400">記錄本次關心方式與一句備註，僅供里辦內部查看。</p>
@@ -6165,6 +6363,73 @@
           }
         } catch (err) {
           showToast(err.message || '暫停幹部通知失敗，請稍後再試。');
+        } finally {
+          state.admin.safety.careBusy = false;
+        }
+      }
+
+      // 核准加入申請（核准當天重設 baseline_date；清殘留暫停，均由後端處理）
+      async function approveSafetyMember(id) {
+        if (!id || state.admin.safety.careBusy) return;
+
+        const tokenBundle = await getIdentityToken();
+        if (tokenBundle.kind !== 'liff') {
+          showToast('身分驗證失敗，請重新從 LINE 開啟。');
+          return;
+        }
+
+        state.admin.safety.careBusy = true;
+        try {
+          const res = await fetch(`/api/admin/safety/${id}/approve`, {
+            method: 'POST',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '核准失敗');
+          }
+          showToast(result.message || '已核准。');
+          // 核准改變名單組成（pending → checked/unchecked）→ 名單與詳情都要重抓
+          loadAdminSafety({ force: true });
+          if (state.admin.safety.detail.id === id) {
+            openAdminSafetyDetail(id, { force: true });
+          }
+        } catch (err) {
+          showToast(err.message || '核准失敗，請稍後再試。');
+        } finally {
+          state.admin.safety.careBusy = false;
+        }
+      }
+
+      // 不通過申請（reason 選填；rejected 不進名單，對方可修改資料後重新申請）
+      async function rejectSafetyMember(id, reason) {
+        if (!id || state.admin.safety.careBusy) return;
+
+        const tokenBundle = await getIdentityToken();
+        if (tokenBundle.kind !== 'liff') {
+          showToast('身分驗證失敗，請重新從 LINE 開啟。');
+          return;
+        }
+
+        state.admin.safety.careBusy = true;
+        try {
+          const res = await fetch(`/api/admin/safety/${id}/reject`, {
+            method: 'POST',
+            headers: buildAuthHeaders(tokenBundle),
+            body: JSON.stringify({ reason: reason || '' }),
+          });
+          const result = await res.json();
+          if (!res.ok || !result.success) {
+            throw new Error(result.message || '操作失敗');
+          }
+          showToast(result.message || '已標記為不通過。');
+          // rejected 不進名單 → 名單重抓；詳情若開著也重抓（顯示未通過狀態）
+          loadAdminSafety({ force: true });
+          if (state.admin.safety.detail.id === id) {
+            openAdminSafetyDetail(id, { force: true });
+          }
+        } catch (err) {
+          showToast(err.message || '操作失敗，請稍後再試。');
         } finally {
           state.admin.safety.careBusy = false;
         }

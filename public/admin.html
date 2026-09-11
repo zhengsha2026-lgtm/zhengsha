@@ -220,6 +220,7 @@
           <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div class="flex flex-wrap items-center gap-2.5">
               <button type="button" data-safety-chip="all" class="safety-chip rounded-full px-5 py-2 text-sm font-semibold transition">全部</button>
+              <button type="button" data-safety-chip="pending" class="safety-chip rounded-full px-5 py-2 text-sm font-semibold transition">待審核</button>
               <button type="button" data-safety-chip="checked" class="safety-chip rounded-full px-5 py-2 text-sm font-semibold transition">今日已簽</button>
               <button type="button" data-safety-chip="unchecked" class="safety-chip rounded-full px-5 py-2 text-sm font-semibold transition">今日未簽</button>
               <button type="button" data-safety-chip="care" class="safety-chip rounded-full px-5 py-2 text-sm font-semibold transition">待關懷</button>
@@ -275,6 +276,29 @@
             <div class="space-y-6 lg:col-span-2">
               <div class="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm">
                 <div id="safetyMemberInfo"></div>
+              </div>
+
+              <!-- 審核申請卡：僅 pending 顯示（第四期申請制） -->
+              <div id="safetyApprovalCard" class="hidden rounded-2xl border border-sky-200/70 bg-sky-50/30 p-7 shadow-sm">
+                <p class="text-base font-bold text-slate-900">審核申請</p>
+                <p class="mt-1.5 text-sm leading-6 text-slate-500">
+                  核准後對方即可開始天天報平安，未簽天數從核准當天重新起算；不通過對方可修改資料後重新申請。
+                </p>
+                <label class="mt-5 block text-sm font-semibold text-slate-500">不通過原因（選填，對方看得到）</label>
+                <textarea id="safetyRejectReason" rows="3" maxlength="200" placeholder="例如：資料不完整，請補充聯絡方式…"
+                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white p-4 text-base leading-7 text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"></textarea>
+                <div class="mt-4 flex flex-wrap gap-3">
+                  <button id="safetyApproveButton" type="button"
+                    class="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 text-base font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">
+                    <i data-lucide="check" class="h-5 w-5"></i>
+                    <span>核准加入</span>
+                  </button>
+                  <button id="safetyRejectButton" type="button"
+                    class="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-white text-base font-bold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                    <span>不通過</span>
+                  </button>
+                </div>
               </div>
 
               <div id="safetyCareCard" class="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm">
@@ -361,6 +385,8 @@ const state = {
     detail: null,
     savingCare: false,
     snoozing: false,
+    approving: false,
+    rejecting: false,
   },
 };
 
@@ -385,6 +411,7 @@ function cacheElements() {
     'safetyDetailView', 'safetyBackButton', 'safetyMemberInfo', 'safetyCareTimeline', 'safetyCheckinList',
     'safetyCareCard', 'safetyCareMethodSelect', 'safetyCareNote', 'safetyCareNoteCount', 'safetyCareSaveButton',
     'safetySnoozeButton', 'safetySnoozeButtonWrap', 'safetySnoozeActive', 'safetySnoozeActiveText', 'safetyInactiveNote',
+    'safetyApprovalCard', 'safetyRejectReason', 'safetyApproveButton', 'safetyRejectButton',
     'toast',
   ];
   ids.forEach((id) => { elements[id] = document.getElementById(id); });
@@ -831,9 +858,10 @@ async function deleteDetail() {
 // - 電訪/家訪不自動暫停；已退出會員只可看、不可操作
 // ============================================================================
 
-const SAFETY_FILTER_LABELS = { all: '全部', checked: '今日已簽', unchecked: '今日未簽', care: '待關懷' };
+const SAFETY_FILTER_LABELS = { all: '全部', pending: '待審核', checked: '今日已簽', unchecked: '今日未簽', care: '待關懷' };
 const SAFETY_EMPTY_HINTS = {
   all: '等里民從「報平安」頁面加入後，名單會出現在這裡。',
+  pending: '目前沒有待審核的申請。',
   checked: '今天還沒有人簽到。',
   unchecked: '今天大家都已簽到，太棒了。',
   care: '目前沒有待關懷的里民。',
@@ -882,6 +910,12 @@ function safetyLastCheckinText(item) {
 function safetyBadgeHtml(item) {
   if (item.is_active === false) {
     return '<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-slate-500 ring-1 ring-slate-200"><i data-lucide="log-out" class="h-3.5 w-3.5"></i>已退出</span>';
+  }
+  if (item.approval_status === 'pending') {
+    return '<span class="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-sm font-bold text-sky-600 ring-1 ring-sky-200"><i data-lucide="user-check" class="h-3.5 w-3.5"></i>待審核</span>';
+  }
+  if (item.approval_status === 'rejected') {
+    return '<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 text-sm font-bold text-rose-600 ring-1 ring-rose-200"><i data-lucide="circle-x" class="h-3.5 w-3.5"></i>未通過</span>';
   }
   if (item.needs_care) {
     return '<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 text-sm font-bold text-rose-600 ring-1 ring-rose-200"><i data-lucide="bell-ring" class="h-3.5 w-3.5"></i>待關懷</span>';
@@ -948,7 +982,8 @@ function renderSafetyList() {
   updateSafetyChips();
 
   const rows = state.safety.items.map((item) => {
-    const missingHtml = item.checked_in_today
+    const isPending = item.approval_status === 'pending';
+    const missingHtml = isPending || item.checked_in_today
       ? '<span class="text-slate-400">—</span>'
       : `<span class="${item.needs_care ? 'font-bold text-rose-600' : 'font-semibold text-slate-700'}">${item.missing_days} 天</span>`;
     const contactText = item.contact_name || item.contact_phone
@@ -957,14 +992,18 @@ function renderSafetyList() {
     const snoozeHtml = item.admin_notify_snoozed
       ? `<span class="font-semibold text-amber-600">${formatDateOnly(item.admin_notify_snooze_until)}</span>`
       : '<span class="text-slate-400">—</span>';
+    const lastCheckinHtml = isPending
+      ? (item.applied_at ? `<span class="text-slate-500">申請於 ${formatDateTime(item.applied_at)}</span>` : '<span class="text-slate-400">—</span>')
+      : escapeHtml(safetyLastCheckinText(item));
+    const birthSuffix = isPending && item.birth_year ? ` <span class="text-xs text-slate-400">（${escapeHtml(String(item.birth_year))} 年生）</span>` : '';
     return `
       <tr class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40" data-open-safety="${item.id}">
-        <td class="max-w-[12rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(item.display_name || '')}">${escapeHtml(item.display_name || '未填稱呼')}</td>
+        <td class="max-w-[12rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(item.display_name || '')}">${escapeHtml(item.display_name || '未填稱呼')}${birthSuffix}</td>
         <td class="px-6 py-4"><div class="flex flex-wrap items-center gap-1.5">${safetyBadgeHtml(item)}${safetySnoozeChipHtml(item)}</div></td>
         <td class="px-6 py-4 text-base">${missingHtml}</td>
         <td class="whitespace-nowrap px-6 py-4 text-base text-slate-600">${item.phone ? escapeHtml(item.phone) : '<span class="text-slate-400">未填寫</span>'}</td>
         <td class="px-6 py-4 text-base text-slate-600">${contactText}</td>
-        <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-500">${escapeHtml(safetyLastCheckinText(item))}</td>
+        <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-500">${lastCheckinHtml}</td>
         <td class="whitespace-nowrap px-6 py-4 text-sm">${snoozeHtml}</td>
         <td class="px-6 py-4 text-right">
           <span class="inline-flex items-center gap-1 text-sm font-semibold text-violet-600">
@@ -1037,11 +1076,13 @@ function renderSafetyDetail() {
   if (!d) return;
 
   const isActive = d.is_active !== false;
+  const isPending = d.approval_status === 'pending';
+  const isApproved = d.approval_status === 'approved';
   const snoozed = Boolean(d.admin_notify_snoozed);
 
-  // 右欄：會員資訊（電話可複製）
-  const missingHtml = d.checked_in_today
-    ? '<span class="text-emerald-600">今日已簽</span>'
+  // 右欄：會員資訊（電話可複製）；pending 尚未起算未簽天數、也無法簽到
+  const missingHtml = !isApproved || d.checked_in_today
+    ? '<span class="text-slate-400">—</span>'
     : `<span class="${d.needs_care ? 'text-rose-600' : 'text-slate-800'}">${d.missing_days} 天</span>`;
   elements.safetyMemberInfo.innerHTML = `
     <div class="flex items-start justify-between gap-4">
@@ -1058,9 +1099,12 @@ function renderSafetyDetail() {
       ${safetyInfoRowHtml('里民電話', d.phone ? `${escapeHtml(d.phone)}${copyButtonHtml(d.phone, '複製里民電話')}` : '<span class="font-normal text-slate-400">未填寫</span>')}
       ${safetyInfoRowHtml('聯絡人', d.contact_name ? escapeHtml(d.contact_name) : '<span class="font-normal text-slate-400">未指定</span>')}
       ${safetyInfoRowHtml('聯絡人電話', d.contact_phone ? `${escapeHtml(d.contact_phone)}${copyButtonHtml(d.contact_phone, '複製聯絡人電話')}` : '<span class="font-normal text-slate-400">未填寫</span>')}
+      ${safetyInfoRowHtml('出生年', d.birth_year ? `${escapeHtml(String(d.birth_year))} 年（僅供參考）` : '<span class="font-normal text-slate-400">未填寫</span>')}
       ${safetyInfoRowHtml('未簽天數', missingHtml)}
       ${safetyInfoRowHtml('加入日', escapeHtml(formatDateTime(d.joined_at) || '—'))}
-      ${safetyInfoRowHtml('最後簽到', escapeHtml(safetyLastCheckinText(d)))}
+      ${safetyInfoRowHtml('申請時間', escapeHtml(formatDateTime(d.applied_at) || '—'))}
+      ${safetyInfoRowHtml('審核時間', escapeHtml(formatDateTime(d.reviewed_at) || '—'))}
+      ${safetyInfoRowHtml('最後簽到', isApproved ? escapeHtml(safetyLastCheckinText(d)) : '<span class="font-normal text-slate-400">—</span>')}
     </div>`;
 
   // 左欄：關懷歷史（已電訪/已家訪/暫停幹部通知）
@@ -1098,23 +1142,30 @@ function renderSafetyDetail() {
     elements.safetyCheckinList.innerHTML = '<p class="text-sm text-slate-400">尚無簽到紀錄</p>';
   }
 
-  // 右欄：標記關懷（已退出 → 唯讀）
-  elements.safetyCareMethodSelect.disabled = !isActive;
-  elements.safetyCareNote.disabled = !isActive;
-  elements.safetyCareSaveButton.disabled = !isActive;
-  elements.safetyCareCard.classList.toggle('opacity-60', !isActive);
+  // 右欄：審核申請卡（僅活躍且 pending 顯示；核准/不通過後自動收起）
+  const showApprovalCard = isActive && isPending;
+  elements.safetyApprovalCard.classList.toggle('hidden', !showApprovalCard);
+  elements.safetyRejectReason.value = '';
+  updateSafetyApprovalButtons();
+
+  // 右欄：標記關懷（已退出或未核准 → 唯讀）
+  const careEnabled = isActive && isApproved;
+  elements.safetyCareMethodSelect.disabled = !careEnabled;
+  elements.safetyCareNote.disabled = !careEnabled;
+  elements.safetyCareSaveButton.disabled = !careEnabled;
+  elements.safetyCareCard.classList.toggle('opacity-60', !careEnabled);
   elements.safetyCareMethodSelect.value = '已電訪';
   elements.safetyCareNote.value = '';
   elements.safetyCareNoteCount.textContent = '0';
 
-  // 右欄：幹部通知（暫停中隱藏按鈕、顯示到期日；已退出全部隱藏僅顯示提示）
-  const showSnoozeActive = isActive && snoozed;
+  // 右欄：幹部通知（暫停中隱藏按鈕、顯示到期日；已退出/未核准全部隱藏僅顯示提示）
+  const showSnoozeActive = isActive && isApproved && snoozed;
   elements.safetySnoozeActive.classList.toggle('hidden', !showSnoozeActive);
   elements.safetySnoozeActive.classList.toggle('flex', showSnoozeActive);
   if (showSnoozeActive) {
     elements.safetySnoozeActiveText.textContent = `幹部通知暫停至 ${formatDateOnly(d.admin_notify_snooze_until)}，到期自動恢復。`;
   }
-  elements.safetySnoozeButtonWrap.classList.toggle('hidden', !isActive || snoozed);
+  elements.safetySnoozeButtonWrap.classList.toggle('hidden', !careEnabled || snoozed);
   elements.safetySnoozeButton.disabled = state.safety.snoozing;
   elements.safetyInactiveNote.classList.toggle('hidden', isActive);
 
@@ -1209,6 +1260,97 @@ async function snoozeSafetyMember() {
   }
 }
 
+// 審核按鈕還原（與 care/snooze 同模式：操作中禁用 + spinner）
+function updateSafetyApprovalButtons() {
+  const busy = state.safety.approving || state.safety.rejecting;
+  elements.safetyApproveButton.disabled = busy;
+  elements.safetyRejectButton.disabled = busy;
+  elements.safetyApproveButton.innerHTML = state.safety.approving
+    ? '<i data-lucide="loader-2" class="h-5 w-5 animate-spin"></i><span>核准中…</span>'
+    : '<i data-lucide="check" class="h-5 w-5"></i><span>核准加入</span>';
+  elements.safetyRejectButton.innerHTML = state.safety.rejecting
+    ? '<i data-lucide="loader-2" class="h-5 w-5 animate-spin"></i><span>處理中…</span>'
+    : '<i data-lucide="x" class="h-5 w-5"></i><span>不通過</span>';
+  renderIcons();
+}
+
+// 核准加入申請（第四期）：核准後未簽天數從核准當天重新起算
+async function approveSafetyMember() {
+  if (state.safety.approving || state.safety.rejecting || !state.safety.detail) return;
+  const d = state.safety.detail;
+  if (d.is_active === false || d.approval_status !== 'pending') return;
+
+  const confirmed = window.confirm(
+    `確定核准「${d.display_name || '未填稱呼'}」加入報平安嗎？\n\n` +
+    `核准後對方即可開始天天報平安，未簽天數從核准當天重新起算。`
+  );
+  if (!confirmed) return;
+
+  state.safety.approving = true;
+  updateSafetyApprovalButtons();
+
+  try {
+    const res = await authedFetch(`/api/admin/safety/${encodeURIComponent(d.id)}/approve`, { method: 'POST' });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `核准失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '已核准加入。');
+    // 核准改變名單組成（pending → 今日未簽）→ 名單與詳情都要重抓
+    await openSafetyDetail(d.id);
+    loadSafetyList();
+  } catch (err) {
+    console.error('approveSafetyMember failed:', err);
+    showToast(err.message || '核准失敗，請稍後再試');
+  } finally {
+    state.safety.approving = false;
+    updateSafetyApprovalButtons();
+  }
+}
+
+// 不通過申請（第四期）：reason 選填 ≤ 200 字，對方看得到；對方可修改資料後重新申請
+async function rejectSafetyMember() {
+  if (state.safety.approving || state.safety.rejecting || !state.safety.detail) return;
+  const d = state.safety.detail;
+  if (d.is_active === false || d.approval_status !== 'pending') return;
+
+  const reason = elements.safetyRejectReason.value.trim();
+  const confirmed = window.confirm(
+    `確定將「${d.display_name || '未填稱呼'}」標記為不通過嗎？\n\n` +
+    (reason ? `原因：${reason}\n\n` : '') +
+    `不通過後對方可修改資料後重新申請。`
+  );
+  if (!confirmed) return;
+
+  state.safety.rejecting = true;
+  updateSafetyApprovalButtons();
+
+  try {
+    const res = await authedFetch(`/api/admin/safety/${encodeURIComponent(d.id)}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `操作失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '已標記為不通過。');
+    // rejected 不進名單 → 名單重抓；詳情若開著也重抓（顯示未通過狀態）
+    await openSafetyDetail(d.id);
+    loadSafetyList();
+  } catch (err) {
+    console.error('rejectSafetyMember failed:', err);
+    showToast(err.message || '操作失敗，請稍後再試');
+  } finally {
+    state.safety.rejecting = false;
+    updateSafetyApprovalButtons();
+  }
+}
+
 async function copyTextToClipboard(text) {
   const value = String(text || '').trim();
   if (!value) return;
@@ -1296,6 +1438,8 @@ function bindEvents() {
   });
   elements.safetyCareSaveButton.addEventListener('click', saveSafetyCare);
   elements.safetySnoozeButton.addEventListener('click', snoozeSafetyMember);
+  elements.safetyApproveButton.addEventListener('click', approveSafetyMember);
+  elements.safetyRejectButton.addEventListener('click', rejectSafetyMember);
 
   // 複製電話（按鈕為動態渲染，用事件委派）
   elements.safetyDetailView.addEventListener('click', (e) => {

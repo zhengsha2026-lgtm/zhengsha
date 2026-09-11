@@ -123,13 +123,14 @@
 ### 報平安（里民端 + 管理端；?tab=safety 獨立頁，不進底部導覽）
 - **定位**：里民每日簽到「我今天平安」；幹部從管理端看誰連續兩天以上沒簽到（待關懷），主動電訪/家訪並留下關懷紀錄
 - **入口**：`?tab=safety` deep-link（圖文選單/官方帳號導流用）；**底部導覽維持 4 個 Tab**，safety 是隱藏第 5 個 panel，只有 URL 帶 tab 才會開
-- **里民端（public/liff.html `safetyPanel`）**：
-  - 未加入：說明卡 + 加入表單（稱呼、本人電話、緊急聯絡人姓名/電話）；**電話驗證與許願池同一套**：選填空白直接通過、非空只檢查長度 ≤ 30 不驗格式，過長時錯誤訊息區分「您的電話」/「聯絡人電話」；**稱呼預填 LINE 顯示名稱**（與許願表單 `#user_name` 同一來源，僅欄位為空時帶入、里民可改），稱呼欄下方有小字提示「建議填寫正確姓名或熟悉的外號，方便里辦聯繫」；**「您的電話」預填** `localStorage['zhengsha_resident_phone']`（與許願池送出後儲存同一 key，僅欄位為空時帶入）；加入即本人同意，`line_user_id` 取自 LINE verify `sub`（不信前端）
-  - 已加入：大顆「我今天平安」簽到鈕（**冪等**：同日再按回 200 不報錯、不重複計次）、今日簽到時間、上次簽到日；「設定」可摺疊編輯稱呼/電話/聯絡人；「退出報平安」= soft delete（`left_at` 設時間），簽到歷史保留
-  - 重新加入會**重設 `baseline_date`**（舊簽到不影響未簽天數計算）
+- **里民端（public/liff.html `safetyPanel`）**（第四期起為「申請 → 幹部核准」制，四態）：
+  - 未加入／未通過：說明卡 + 申請表單（稱呼、本人電話、出生年〔**選填**，西元 1900–今年〕、緊急聯絡人姓名/電話）；**電話驗證與許願池同一套**：選填空白直接通過、非空只檢查長度 ≤ 30 不驗格式，過長時錯誤訊息區分「您的電話」/「聯絡人電話」；**稱呼預填 LINE 顯示名稱**（與許願表單 `#user_name` 同一來源，僅欄位為空時帶入、里民可改），稱呼欄下方有小字提示「建議填寫正確姓名或熟悉的外號，方便里辦聯繫」；**「您的電話」預填** `localStorage['zhengsha_resident_phone']`（與許願池送出後儲存同一 key，僅欄位為空時帶入）；未通過（rejected）者表單預填原資料、上方顯示幹部留的不通過原因（`reject_reason`），可修改後重新申請
+  - 審核中（pending）：顯示「申請已送出、等候里辦審核」狀態卡，**不可簽到、不可改資料、不可撤回**
+  - 已加入（approved）：大顆「我今天平安」簽到鈕（**冪等**：同日再按回 200 不報錯、不重複計次）、今日簽到時間、上次簽到日；「設定」可摺疊編輯稱呼/電話/聯絡人；「退出報平安」= soft delete（`left_at` 設時間），簽到歷史保留
+  - 送出申請即本人同意，`line_user_id` 取自 LINE verify `sub`（不信前端）；核准或重新加入會**重設 `baseline_date`**（舊簽到不影響未簽天數計算；pending 申請時不重設，**核准當天才重設**）
 - **管理端（管理首頁第 4 張模組卡「報平安」）**：
   - 名單（`GET /api/admin/safety`）：只列活躍會員（`left_at IS NULL`），同時顯示**本人電話與緊急聯絡人電話**（可點擊撥打）
-  - 篩選 chips 四組含計數：全部 / 今日已簽 / 今日未簽 / **待關懷**
+  - 篩選 chips 五組含計數：全部 / **待審核** / 今日已簽 / 今日未簽 / **待關懷**（第四期起「全部」= approved + pending；**rejected 不進名單**）
   - 排序：待關懷優先（未簽天數多者在前）→ 其餘未簽 → 已簽；`missing_days` 與 `needs_care` 由後端計算
   - 名單上可一鍵標記「已電訪/已家訪」（備註可留空）；詳情頁（`GET /api/admin/safety/:id`）看完整關懷歷史 + 近期簽到紀錄，也可補備註標記關懷（`POST /api/admin/safety/:id/care`）；詳情頁另有「**暫不提醒幹部 3 天**」按鈕（見第三期），暫停中改顯示「幹部通知暫停至 YYYY/MM/DD」狀態、名單列顯示 amber chip
   - 後台徽章仍是主要看板（管理員自己上後台看）；第二期新增**排程通知**（見下方，只發本人提醒與幹部彙總，不對外群發）
@@ -156,6 +157,13 @@
   - 關懷歷史自動寫一筆：`method='暫停幹部通知'`、`note='至 YYYY/MM/DD（3 天）'`、`created_by`=按下管理員（前端徽章 amber + bell-off 圖示）；先 UPDATE 到期日再 INSERT 紀錄，紀錄寫入失敗會回 500 提示重按補寫（不留假紀錄）
   - 前端（僅 liff.html）：詳情「標記關懷」卡內 — 暫停中顯示 amber 狀態文字（隱藏按鈕）、未暫停顯示「暫不提醒幹部 3 天」按鈕 + 說明小字；名單列顯示暫停 chip；成功後 toast + 重抓名單與詳情
   - 新增欄位（migration `006_safety_snooze.sql`，已於 Supabase 執行）：`safety_members.admin_notify_snooze_until date`（NULL=從未暫停；舊值到期後留著無害）+ `safety_care_logs` method CHECK 放寬為三值（DO block 重建約束）
+- **第四期「申請＋核准」制（本次變更）**：
+  - 背景：新加入者須幹部審核才生效，避免匿名亂填直接進名單；既有簽到／催簽／暫停邏輯**零改動**，只在上面加狀態閘門
+  - 狀態機：`approval_status` ∈ `pending`（新申請預設）→ `approved`（核准，行為與第四期前完全相同）／`rejected`（不通過，可修改後重新申請）；**核准前：不能簽到、不進晚間催本人（`resident_same_day`）、不進早上幹部通知（`admin_care`）、不算待關懷／今日未簽**；兩個 cron 與名單/care/snooze 端點一律加 `approval_status = 'approved'` 條件
+  - 端點（皆 requireAdmin）：`POST /api/admin/safety/:id/approve`（適用 pending 與 rejected〔幹部反悔可直接核准〕；核准動作 = 寫 `reviewed_at`/`reviewed_by`、清 `reject_reason`、**`baseline_date` 重設為核准當天**〔避免一核准就待關懷〕、清殘留暫停 `admin_notify_snooze_until`；已 approved 回 200 冪等）與 `POST /api/admin/safety/:id/reject`（**僅 pending 可不通過**，approved 要移除請走里民自行退出；body `{ reason }` 選填 ≤ 200 字、rejected 可再改 reason 維持 rejected）
+  - 里民端 `/api/safety/join` 改為送出申請：approved 未退出 → 409 已加入；pending → 409 審核中；rejected／已退出／無列 → 同一列寫成 pending（更新表單資料、`applied_at` 重置、清 `reviewed_*`/`reject_reason`；已退出者清 `left_at` 與殘留暫停）；**pending 期間不可改資料（`PATCH /api/safety/profile` 與 `DELETE /api/safety/membership` 均回 403/400 擋下）、不可撤回**；出生年 `birth_year int` 選填（1900 ≤ 值 ≤ 今年）
+  - 管理端（liff.html 盾牌 + admin.html 電腦版同步）：chips 加「待審核」；pending 列顯示 sky「待審核」badge、未簽天數與最後簽到顯示「—」、稱呼後綴「（YYYY 年生）」、最後簽到欄改顯示申請時間；詳情頁 pending 顯示「審核申請」卡（核准／不通過＋原因 textarea），pending 時「標記關懷」與「暫不提醒幹部」皆唯讀隱藏；核准/不通過後重抓詳情與列表同步計數
+  - 新增欄位（migration `007_safety_approval.sql`，已於 Supabase 執行）：`safety_members` 加 `approval_status text NOT NULL DEFAULT 'pending'`（CHECK 三值；**既有列 migration 內一律 backfill 為 `approved`**，行為不變）、`applied_at timestamptz NOT NULL DEFAULT now()`、`reviewed_at timestamptz`、`reviewed_by text`、`birth_year int`、`reject_reason text`
 
 ---
 
@@ -214,12 +222,12 @@
 - `campaign_events`：競選行程主表（title/description/content/start_at/end_at/location/cover_image_path/video_url/rsvp_count/is_published）
 - `campaign_event_photos`：行程相簿照片
 - `event_rsvps`：行程報名紀錄（`UNIQUE(event_id, line_user_id)`）
-- `safety_members`：報平安會員（`line_user_id` UNIQUE、`baseline_date` 起算日、`left_at` soft delete；重新加入重設 baseline_date；`admin_notify_snooze_until` 幹部通知暫停到期日，NULL=從未暫停）
+- `safety_members`：報平安會員（`line_user_id` UNIQUE、`baseline_date` 起算日、`left_at` soft delete；重新加入重設 baseline_date；`admin_notify_snooze_until` 幹部通知暫停到期日，NULL=從未暫停；第四期審核欄位：`approval_status`〔CHECK：`pending`/`approved`/`rejected`，DEFAULT `pending`〕、`applied_at` 申請時間、`reviewed_at`/`reviewed_by` 審核時間與審核人、`birth_year` 出生年〔選填〕、`reject_reason` 不通過原因〔≤ 200 字，里民看得到〕）
 - `safety_checkins`：每日簽到（`UNIQUE(member_id, checkin_date)`，一天一筆；CASCADE 刪除）
 - `safety_care_logs`：關懷紀錄（`method` CHECK：`已電訪`/`已家訪`/`暫停幹部通知`、`note` 備註、`created_by` 管理員 LINE id；CASCADE 刪除）
 - `safety_notification_logs`：報平安通知發送紀錄（`notify_type` CHECK：`resident_same_day`/`admin_care`、`UNIQUE(notify_type, line_user_id, notify_date)` 冪等；**成功才寫**；不 FK `safety_members`，管理員收件人不一定是會員）
 
-> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`（皆已於 Supabase 執行）
+> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`、申請審核欄位詳見 `007_safety_approval.sql`（皆已於 Supabase 執行）
 
 ### 狀態值
 `已收到` / `處理中` / `已回覆` / `已結案`
@@ -247,11 +255,11 @@
 | GET | `/api/events/:id` | 單筆行程詳情（含封面 signed URL、相簿 signed URL、`my_rsvp`） |
 | POST | `/api/events/:id/rsvp` | 報名行程（已結束 `start_at < now` 擋新增） |
 | DELETE | `/api/events/:id/rsvp` | 取消報名（**不擋已結束**） |
-| GET | `/api/safety/status` | 我的報平安狀態（joined、今日是否已簽、上次簽到日） |
-| POST | `/api/safety/join` | 加入報平安（本人同意；重新加入重設 baseline_date） |
-| PATCH | `/api/safety/profile` | 修改稱呼/本人電話/緊急聯絡人 |
-| POST | `/api/safety/checkin` | 今日簽到（**冪等**：同日再按回 200 不重複計次） |
-| DELETE | `/api/safety/membership` | 退出報平安（soft delete，簽到歷史保留） |
+| GET | `/api/safety/status` | 我的報平安狀態（joined、`approval_status`〔null/pending/rejected/approved，前端據此切四態〕、rejected 時附 `reject_reason`、今日是否已簽、上次簽到日） |
+| POST | `/api/safety/join` | 送出加入申請（第四期：新申請/重新申請寫成 `pending`；已 approved → 409 已加入、pending → 409 審核中；出生年選填 1900–今年） |
+| PATCH | `/api/safety/profile` | 修改稱呼/本人電話/緊急聯絡人（**僅 approved**；pending 回 403） |
+| POST | `/api/safety/checkin` | 今日簽到（**冪等**：同日再按回 200 不重複計次；**僅 approved**，pending/rejected 回 403） |
+| DELETE | `/api/safety/membership` | 退出報平安（soft delete，簽到歷史保留；**僅 approved**，pending/rejected 回 403 無需退出） |
 
 ### 管理員端 API（許願池後台管理）
 
@@ -283,9 +291,11 @@
 | DELETE | `/api/admin/events/:id/album/:photoId` | 刪除單張相簿照片 |
 | POST | `/api/admin/events/:id/notify-rsvp` | 發訊給已報名里民（文案後端寫死） |
 | POST | `/api/admin/events/:id/notify-wish-pool` | 發訊給許願池里民（文案後端寫死） |
-| GET | `/api/admin/safety` | 報平安名單（活躍會員），支援 `filter=all/checked/unchecked/care`，回傳各組計數與 derived 欄位（checked_in_today / missing_days / needs_care / latest_care） |
-| GET | `/api/admin/safety/:id` | 單筆詳情（會員資料 + 近期簽到紀錄 + 完整關懷歷史） |
-| POST | `/api/admin/safety/:id/care` | 標記關懷，body `{ method: '已電訪'\|'已家訪', note }` |
+| GET | `/api/admin/safety` | 報平安名單（活躍會員），支援 `filter=all/pending/checked/unchecked/care`，回傳各組計數與 derived 欄位（checked_in_today / missing_days / needs_care / latest_care；pending 成員 missing_days 為 0、needs_care 恆 false） |
+| GET | `/api/admin/safety/:id` | 單筆詳情（會員資料 + 審核欄位 + 近期簽到紀錄 + 完整關懷歷史） |
+| POST | `/api/admin/safety/:id/care` | 標記關懷，body `{ method: '已電訪'\|'已家訪', note }`（**僅 approved**，否則 400） |
+| POST | `/api/admin/safety/:id/approve` | 核准加入申請（第四期；pending/rejected → approved，重設 `baseline_date` 為核准當天、清 `reject_reason` 與殘留暫停；已 approved 冪等回 200） |
+| POST | `/api/admin/safety/:id/reject` | 不通過申請（第四期；**僅 pending**，approved 回 400；body `{ reason }` 選填 ≤ 200 字） |
 
 ### 排程任務 API（Cron）
 
@@ -423,6 +433,12 @@
   - 不做：刪除會員、通知家人、電腦版里民簽到；inline script 語法檢查通過
   - 後續修正（commit `f09f1cf`）：登入／驗證中畫面標題統一「管理後台」；模組分頁切換事件綁定補齊；許願狀態 chips 計數改用 API 回傳**全域 `counts`**（不隨篩選/搜尋/分頁變動）、分頁總數改讀 `data.pagination.total_count`（原誤讀不存在的 `data.total`，會讓「全部」chip 數字跟著篩選跑）
   - 後續修正（commit `21edb59`）：報平安稱呼與許願里民姓名過長時 `max-w-[12rem] truncate` 單行省略 + hover `title` 顯示全名，不再擠壓後方欄位；詳情頁仍顯示完整名稱
+- **報平安第四期：「申請＋核准」制（已上線）**
+  - 里民端四態：未加入/未通過（表單 + 出生年選填）/ 審核中（不可簽到改資料撤回）/ 已加入（既有行為）；未通過顯示原因可重新申請
+  - 管理端（手機 liff.html + 電腦 admin.html 同步）：chips 加「待審核」、pending 列待審核 badge + 申請時間、詳情審核卡（核准/不通過＋原因）、pending 時關懷/暫停唯讀
+  - 後端：`POST /api/admin/safety/:id/approve`（pending/rejected → approved、`baseline_date` 重設核准當天、清 reject_reason 與殘留暫停、冪等）與 `POST /api/admin/safety/:id/reject`（僅 pending、reason ≤ 200 字）；裡民 join 改送申請、profile/checkin/membership/care/snooze/兩個 cron 全部加 approved 閘門
+  - migration `007_safety_approval.sql`（已於 Supabase 執行）：`safety_members` 加 6 欄（`approval_status` CHECK 三值 DEFAULT `pending`、既有列 backfill `approved`、`applied_at`、`reviewed_at`、`reviewed_by`、`birth_year int`、`reject_reason`）
+  - 驗證：`node --check app.js` 通過；admin.html/liff.html 全部 inline script 語法檢查通過（檢查器需先剝除 HTML 註解，否則註解內 `<script>` 字樣會誤判）
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版**第三期**：政見管理、行程管理的電腦版（已有許願管理與報平安管理）

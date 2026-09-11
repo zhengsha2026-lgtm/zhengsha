@@ -658,6 +658,7 @@ const SAFETY_TAIPEI_TZ = 'Asia/Taipei';
 const SAFETY_NAME_MAX_LENGTH = 20;
 const SAFETY_NOTE_MAX_LENGTH = 200;
 const SAFETY_SNOOZE_DAYS = 3;
+const SAFETY_REJECT_REASON_MAX_LENGTH = 200;
 
 // 台灣時區的今天，回傳 'YYYY-MM-DD'（後端唯一可信的日期來源，不信前端）
 function getTaipeiToday() {
@@ -688,11 +689,25 @@ function sanitizeSafetyPhone(value) {
   return trimmed;
 }
 
-// 查自己的活躍會員資料（left_at IS NULL）
+// 出生年選填（第四期申請制）：整數 1900 ~ 台北時區當年；空值通過
+function sanitizeSafetyBirthYear(value) {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null };
+  const n = Number(value);
+  if (!Number.isInteger(n) || String(value).trim() === '') return { ok: false, value: null };
+  const thisYear = Number(
+    new Intl.DateTimeFormat('en-US', { timeZone: SAFETY_TAIPEI_TZ, year: 'numeric' }).format(new Date())
+  );
+  if (n < 1900 || n > thisYear) return { ok: false, value: null };
+  return { ok: true, value: n };
+}
+
+// 查自己的活躍會員資料（left_at IS NULL；含 pending / rejected，供各端點自行判斷 approval_status）
 async function findActiveSafetyMember(lineUserId) {
   const { data, error } = await supabaseAdmin
     .from('safety_members')
-    .select('id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+    .select(
+      'id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at, approval_status, applied_at, reviewed_at, reviewed_by, birth_year, reject_reason'
+    )
     .eq('line_user_id', lineUserId)
     .is('left_at', null)
     .maybeSingle();
@@ -709,10 +724,18 @@ function buildSafetyMemberData(row) {
     contact_phone: row.contact_phone || '',
     joined_at: row.joined_at,
     baseline_date: row.baseline_date,
+    approval_status: row.approval_status || 'approved',
+    applied_at: row.applied_at || null,
+    birth_year: row.birth_year || null,
+    reject_reason: row.reject_reason || null,
   };
 }
 
-// GET /api/safety/status：我的報平安狀態
+// GET /api/safety/status：我的報平安狀態（第四期起回傳 approval_status 供前端切換四態）
+// - 無列 / 已退出 → joined:false + approval_status:null（前端顯申請表單）
+// - pending       → joined:false + approval_status:'pending'（審核中，不可簽到）
+// - rejected      → joined:false + approval_status:'rejected' + reject_reason（可再申請）
+// - approved      → joined:true（現有簽到 UI 不變）
 app.get('/api/safety/status', async (req, res) => {
   let identity;
   try {
@@ -731,7 +754,35 @@ app.get('/api/safety/status', async (req, res) => {
     if (!member) {
       return res.json({
         success: true,
-        data: { joined: false, member: null, today, checked_in_today: false, today_checkin_at: null, last_checkin_date: null },
+        data: {
+          joined: false,
+          member: null,
+          approval_status: null,
+          reject_reason: null,
+          today,
+          checked_in_today: false,
+          today_checkin_at: null,
+          last_checkin_date: null,
+        },
+      });
+    }
+
+    const approvalStatus = member.approval_status || 'approved';
+
+    // pending / rejected：還不是有效會員，直接回組織資料（不查簽到）
+    if (approvalStatus !== 'approved') {
+      return res.json({
+        success: true,
+        data: {
+          joined: false,
+          member: buildSafetyMemberData(member),
+          approval_status: approvalStatus,
+          reject_reason: approvalStatus === 'rejected' ? member.reject_reason || '' : null,
+          today,
+          checked_in_today: false,
+          today_checkin_at: null,
+          last_checkin_date: null,
+        },
       });
     }
 
@@ -757,6 +808,8 @@ app.get('/api/safety/status', async (req, res) => {
       data: {
         joined: true,
         member: buildSafetyMemberData(member),
+        approval_status: 'approved',
+        reject_reason: null,
         today,
         checked_in_today: Boolean(todayCheckin),
         today_checkin_at: todayCheckin ? todayCheckin.created_at : null,
@@ -769,7 +822,12 @@ app.get('/api/safety/status', async (req, res) => {
   }
 });
 
-// POST /api/safety/join：加入報平安（本人同意）
+// POST /api/safety/join：送出加入申請（第四期申請制）
+// - 已 approved 未退出 → 409 已加入（維持）
+// - pending → 409 審核中（不可重複當新件）
+// - rejected / 已退出 / 無列 → 同一列寫成 pending：更新表單資料、applied_at 重置、
+//   清 reviewed_* 與 reject_reason；已退出者清 left_at 與殘留暫停（snooze_until）
+// - baseline_date 不在此時重設（核准時才重設，避免核准前就算天數）
 app.post('/api/safety/join', async (req, res) => {
   let identity;
   try {
@@ -796,40 +854,66 @@ app.post('/api/safety/join', async (req, res) => {
   if (contactPhone === null) {
     return res.status(400).json({ success: false, message: '聯絡人電話長度過長，請檢查後再送出。' });
   }
+  const birthYearCheck = sanitizeSafetyBirthYear(req.body && req.body.birth_year);
+  if (!birthYearCheck.ok) {
+    return res.status(400).json({ success: false, message: '出生年請填西元年（1900 至今年），或留空。' });
+  }
 
   try {
     const today = getTaipeiToday();
+    const nowIso = new Date().toISOString();
 
-    // 已是活躍會員：擋重複加入
+    // 撈自己的列（left_at IS NULL，含 pending / rejected）
     const existing = await findActiveSafetyMember(identity.lineUserId);
     if (existing) {
-      return res.status(409).json({ success: false, message: '您已加入報平安。' });
+      if (existing.approval_status === 'approved') {
+        return res.status(409).json({ success: false, message: '您已加入報平安。' });
+      }
+      if (existing.approval_status === 'pending') {
+        return res.status(409).json({ success: false, message: '申請審核中，請耐心等候幹部確認。' });
+      }
+      // rejected：同一列重送（更新表單資料、重置申請時間、清審核紀錄）
     }
 
-    // 查是否有退出紀錄（同一人同一列）
-    const { data: leftMember, error: findError } = await supabaseAdmin
-      .from('safety_members')
-      .select('id, left_at')
-      .eq('line_user_id', identity.lineUserId)
-      .not('left_at', 'is', null)
-      .maybeSingle();
-    if (findError) throw findError;
+    // 查是否有退出紀錄（同一人同一列；再申請同樣走 pending）
+    let leftMember = null;
+    if (!existing) {
+      const { data: leftRow, error: findError } = await supabaseAdmin
+        .from('safety_members')
+        .select('id, left_at')
+        .eq('line_user_id', identity.lineUserId)
+        .not('left_at', 'is', null)
+        .maybeSingle();
+      if (findError) throw findError;
+      leftMember = leftRow;
+    }
+
+    // 申請 payload（pending 起點）
+    const applicationFields = {
+      display_name: displayName,
+      phone: phone || null,
+      contact_name: contactName || null,
+      contact_phone: contactPhone || null,
+      birth_year: birthYearCheck.value,
+      approval_status: 'pending',
+      applied_at: nowIso,
+      reviewed_at: null,
+      reviewed_by: null,
+      reject_reason: null,
+    };
 
     let row;
-    if (leftMember) {
-      // 重新加入：復用同一列、清空 left_at、重設 baseline_date（退久了回來不會立刻變待關懷）
+    if (existing || leftMember) {
+      const targetId = existing ? existing.id : leftMember.id;
       const { data: updated, error: updateError } = await supabaseAdmin
         .from('safety_members')
         .update({
-          display_name: displayName,
-          phone: phone || null,
-          contact_name: contactName || null,
-          contact_phone: contactPhone || null,
-          baseline_date: today,
+          ...applicationFields,
           left_at: null,
+          admin_notify_snooze_until: null,
         })
-        .eq('id', leftMember.id)
-        .select('id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+        .eq('id', targetId)
+        .select('id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at, approval_status, applied_at, birth_year, reject_reason')
         .single();
       if (updateError) throw updateError;
       row = updated;
@@ -839,19 +923,16 @@ app.post('/api/safety/join', async (req, res) => {
         .insert([
           {
             line_user_id: identity.lineUserId,
-            display_name: displayName,
-            phone: phone || null,
-            contact_name: contactName || null,
-            contact_phone: contactPhone || null,
+            ...applicationFields,
             baseline_date: today,
           },
         ])
-        .select('id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+        .select('id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at, approval_status, applied_at, birth_year, reject_reason')
         .single();
       if (insertError) {
-        // UNIQUE 衝突 = 並發重複加入
+        // UNIQUE 衝突 = 並發重複申請
         if (insertError.code === '23505') {
-          return res.status(409).json({ success: false, message: '您已加入報平安。' });
+          return res.status(409).json({ success: false, message: '申請已送出或審核中，請勿重複送出。' });
         }
         throw insertError;
       }
@@ -860,12 +941,21 @@ app.post('/api/safety/join', async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: '已加入報平安，謝謝您讓我們一起守護彼此。',
-      data: { joined: true, member: buildSafetyMemberData(row), today, checked_in_today: false, today_checkin_at: null, last_checkin_date: null },
+      message: '申請已送出，幹部審核通過後即可開始天天報平安。',
+      data: {
+        joined: false,
+        member: buildSafetyMemberData(row),
+        approval_status: 'pending',
+        reject_reason: null,
+        today,
+        checked_in_today: false,
+        today_checkin_at: null,
+        last_checkin_date: null,
+      },
     });
   } catch (error) {
     console.error('safety join failed:', error);
-    return res.status(500).json({ success: false, message: '加入報平安失敗，請稍後再試。' });
+    return res.status(500).json({ success: false, message: '送出申請失敗，請稍後再試。' });
   }
 });
 
@@ -927,6 +1017,10 @@ app.patch('/api/safety/profile', async (req, res) => {
     if (!member) {
       return res.status(404).json({ success: false, message: '您尚未加入報平安。' });
     }
+    // 僅已核准會員可改資料；pending 期間不開放編輯（要改請重送申請），rejected 同
+    if (member.approval_status !== 'approved') {
+      return res.status(403).json({ success: false, message: '申請審核中或未通過，暫時無法修改資料。' });
+    }
 
     const { data: updated, error } = await supabaseAdmin
       .from('safety_members')
@@ -961,6 +1055,12 @@ app.post('/api/safety/checkin', async (req, res) => {
     const member = await findActiveSafetyMember(identity.lineUserId);
     if (!member) {
       return res.status(404).json({ success: false, message: '您尚未加入報平安。' });
+    }
+    if (member.approval_status === 'pending') {
+      return res.status(403).json({ success: false, message: '申請審核中，幹部確認通過後即可簽到。' });
+    }
+    if (member.approval_status === 'rejected') {
+      return res.status(403).json({ success: false, message: '申請尚未通過，暫時無法簽到。' });
     }
 
     // 已簽：冪等回 200
@@ -1030,6 +1130,10 @@ app.delete('/api/safety/membership', async (req, res) => {
     const member = await findActiveSafetyMember(identity.lineUserId);
     if (!member) {
       return res.status(404).json({ success: false, message: '您尚未加入報平安。' });
+    }
+    // 僅已核准會員可退出；pending 無退出概念（第一期無撤回申請功能）
+    if (member.approval_status !== 'approved') {
+      return res.status(403).json({ success: false, message: '申請審核中或未通過，無需退出。' });
     }
 
     const { error } = await supabaseAdmin
@@ -3586,11 +3690,14 @@ app.post('/api/admin/events/:id/notify-wish-pool', async (req, res) => {
 //   - 第一期通知：僅後台亮「待關懷」，不自動對外宣布、不自動群發
 // ============================================================================
 
-const SAFETY_ADMIN_FILTERS = new Set(['all', 'checked', 'unchecked', 'care']);
+const SAFETY_ADMIN_FILTERS = new Set(['all', 'checked', 'unchecked', 'care', 'pending']);
 
-// 由會員 + 簽到紀錄計算 derived 欄位
+// 與會員 + 簽到紀錄計算 derived 欄位
+// 第四期：approval_status 進入回傳；needs_care 僅對 approved 有效
+// （pending 不算待關懷/今日未簽；rejected 不會進名單但此函式仍可安全呼叫）
 function buildSafetyAdminItem(memberRow, checkinRows, latestCare) {
   const today = getTaipeiToday();
+  const approvalStatus = memberRow.approval_status || 'approved';
   const todayCheckin = checkinRows.find((c) => c.checkin_date === today) || null;
   let lastCheckin = null;
   for (const c of checkinRows) {
@@ -3622,13 +3729,19 @@ function buildSafetyAdminItem(memberRow, checkinRows, latestCare) {
     contact_phone: memberRow.contact_phone || '',
     joined_at: memberRow.joined_at,
     baseline_date: memberRow.baseline_date,
+    approval_status: approvalStatus,
+    birth_year: memberRow.birth_year || null,
+    applied_at: memberRow.applied_at || null,
+    reviewed_at: memberRow.reviewed_at || null,
+    reviewed_by: memberRow.reviewed_by || null,
+    reject_reason: memberRow.reject_reason || null,
     today,
     checked_in_today: Boolean(todayCheckin),
     today_checkin_at: todayCheckin ? todayCheckin.created_at : null,
     last_checkin_date: lastCheckin ? lastCheckin.checkin_date : null,
     last_checkin_at: lastCheckin ? lastCheckin.created_at : null,
     missing_days: missingDays,
-    needs_care: !todayCheckin && missingDays >= 2 && !snoozeActive,
+    needs_care: approvalStatus === 'approved' && !todayCheckin && missingDays >= 2 && !snoozeActive,
     admin_notify_snoozed: snoozeActive,
     admin_notify_snooze_until: snoozeUntil,
     latest_care: latestCare
@@ -3642,7 +3755,9 @@ function buildSafetyAdminItem(memberRow, checkinRows, latestCare) {
   };
 }
 
-// GET /api/admin/safety：報平安名單（活躍會員）+ 四組篩選計數
+// GET /api/admin/safety：報平安名單 + 五組篩選計數（第四期：+ pending 待審核）
+// 名單 = 活躍（left_at IS NULL）且 approval_status IN (approved, pending)
+// rejected 不顯示（里民再申請時會以 pending 回到名單）
 // 注意：村里規模（數十人）下直接撈全部簽到/關懷紀錄後在 Node 端彙總；
 // 名單成長到上千人時可改 PostgREST aggregate 或 RPC 優化
 app.get('/api/admin/safety', async (req, res) => {
@@ -3664,8 +3779,11 @@ app.get('/api/admin/safety', async (req, res) => {
     const [{ data: members, error: membersError }] = await Promise.all([
       supabaseAdmin
         .from('safety_members')
-        .select('id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at')
+        .select(
+          'id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at, approval_status, applied_at, reviewed_at, reviewed_by, birth_year, reject_reason'
+        )
         .is('left_at', null)
+        .neq('approval_status', 'rejected')
         .order('display_name', { ascending: true }),
     ]);
     if (membersError) throw membersError;
@@ -3706,29 +3824,41 @@ app.get('/api/admin/safety', async (req, res) => {
       buildSafetyAdminItem(m, checkinsByMember.get(m.id) || [], latestCareByMember.get(m.id) || null)
     );
 
-    // 排序：待關懷優先（未簽天數多者在前），再來其餘未簽，最後已簽
+    // 排序：待審核最上（新申請在前）→ 待關懷（未簽天數多者在前）→ 其餘未簽 → 已簽
     items.sort((a, b) => {
+      const aPending = a.approval_status === 'pending';
+      const bPending = b.approval_status === 'pending';
+      if (aPending !== bPending) return aPending ? -1 : 1;
+      if (aPending && bPending) {
+        return String(b.applied_at || '').localeCompare(String(a.applied_at || ''));
+      }
       if (a.needs_care !== b.needs_care) return a.needs_care ? -1 : 1;
       if (a.checked_in_today !== b.checked_in_today) return a.checked_in_today ? 1 : -1;
       if (a.missing_days !== b.missing_days) return b.missing_days - a.missing_days;
       return a.display_name.localeCompare(b.display_name, 'zh-TW');
     });
 
+    // 計數：全部 = approved + pending；checked/unchecked/care 僅 approved；pending = 待審核數
+    const approvedItems = items.filter((i) => i.approval_status === 'approved');
+    const pendingItems = items.filter((i) => i.approval_status === 'pending');
     const counts = {
       all: items.length,
-      checked: items.filter((i) => i.checked_in_today).length,
-      unchecked: items.filter((i) => !i.checked_in_today).length,
-      care: items.filter((i) => i.needs_care).length,
+      checked: approvedItems.filter((i) => i.checked_in_today).length,
+      unchecked: approvedItems.filter((i) => !i.checked_in_today).length,
+      care: approvedItems.filter((i) => i.needs_care).length,
+      pending: pendingItems.length,
     };
 
     const filteredItems =
       filter === 'checked'
-        ? items.filter((i) => i.checked_in_today)
+        ? approvedItems.filter((i) => i.checked_in_today)
         : filter === 'unchecked'
-          ? items.filter((i) => !i.checked_in_today)
+          ? approvedItems.filter((i) => !i.checked_in_today)
           : filter === 'care'
-            ? items.filter((i) => i.needs_care)
-            : items;
+            ? approvedItems.filter((i) => i.needs_care)
+            : filter === 'pending'
+              ? pendingItems
+              : items;
 
     return res.json({
       success: true,
@@ -3766,7 +3896,9 @@ app.get('/api/admin/safety/:id', async (req, res) => {
   try {
     const { data: memberRow, error: memberError } = await supabaseAdmin
       .from('safety_members')
-      .select('id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at, admin_notify_snooze_until')
+      .select(
+        'id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at, admin_notify_snooze_until, approval_status, applied_at, reviewed_at, reviewed_by, birth_year, reject_reason'
+      )
       .eq('id', memberId)
       .maybeSingle();
     if (memberError) throw memberError;
@@ -3847,7 +3979,7 @@ app.post('/api/admin/safety/:id/care', async (req, res) => {
   try {
     const { data: memberRow, error: memberError } = await supabaseAdmin
       .from('safety_members')
-      .select('id, left_at')
+      .select('id, left_at, approval_status')
       .eq('id', memberId)
       .maybeSingle();
     if (memberError) throw memberError;
@@ -3856,6 +3988,9 @@ app.post('/api/admin/safety/:id/care', async (req, res) => {
     }
     if (memberRow.left_at) {
       return res.status(400).json({ success: false, message: '這位里民已退出報平安，無需關懷。' });
+    }
+    if (memberRow.approval_status !== 'approved') {
+      return res.status(400).json({ success: false, message: '申請尚未核准，無法標記關懷。' });
     }
 
     const { data: inserted, error: insertError } = await supabaseAdmin
@@ -3901,7 +4036,7 @@ app.post('/api/admin/safety/:id/snooze', async (req, res) => {
   try {
     const { data: memberRow, error: memberError } = await supabaseAdmin
       .from('safety_members')
-      .select('id, left_at')
+      .select('id, left_at, approval_status')
       .eq('id', memberId)
       .maybeSingle();
     if (memberError) throw memberError;
@@ -3910,6 +4045,9 @@ app.post('/api/admin/safety/:id/snooze', async (req, res) => {
     }
     if (memberRow.left_at) {
       return res.status(400).json({ success: false, message: '這位里民已退出報平安，無需暫停。' });
+    }
+    if (memberRow.approval_status !== 'approved') {
+      return res.status(400).json({ success: false, message: '申請尚未核准，暫停幹部通知僅對已核准會員有意義。' });
     }
 
     const today = getTaipeiToday();
@@ -3957,6 +4095,135 @@ app.post('/api/admin/safety/:id/snooze', async (req, res) => {
   } catch (error) {
     console.error('admin/safety snooze failed:', error);
     return res.status(500).json({ success: false, message: '暫停幹部通知失敗，請稍後再試。' });
+  }
+});
+
+// POST /api/admin/safety/:id/approve：核准加入申請（第四期）
+// - 適用 pending 與 rejected（幹部反悔可直接核准）；已 approved 冪等回 200
+// - 核准動作：approval_status='approved'、寫入 reviewed_at / reviewed_by、
+//   清 reject_reason、baseline_date 重設為核准當天（台灣日期，避免一核准就待關懷）、
+//   清 admin_notify_snooze_until（重申請前殘留的暫停無意義）
+// - 不寫 safety_care_logs（審核軌跡 = reviewed_* 欄位；關懷紀錄是另一件事）
+app.post('/api/admin/safety/:id/approve', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/safety approve auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  const memberId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(memberId) || memberId <= 0) {
+    return res.status(400).json({ success: false, message: '名單編號不正確。' });
+  }
+
+  try {
+    const { data: memberRow, error: memberError } = await supabaseAdmin
+      .from('safety_members')
+      .select('id, left_at, approval_status, display_name')
+      .eq('id', memberId)
+      .maybeSingle();
+    if (memberError) throw memberError;
+    if (!memberRow) {
+      return res.status(404).json({ success: false, message: '找不到這位里民。' });
+    }
+    if (memberRow.left_at) {
+      return res.status(400).json({ success: false, message: '這位里民已退出報平安。' });
+    }
+    if (memberRow.approval_status === 'approved') {
+      return res.json({ success: true, message: '此申請已核准，無需重複操作。', data: { approval_status: 'approved' } });
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('safety_members')
+      .update({
+        approval_status: 'approved',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: identity.lineUserId,
+        reject_reason: null,
+        baseline_date: getTaipeiToday(),
+        admin_notify_snooze_until: null,
+      })
+      .eq('id', memberId)
+      .select('id, approval_status, reviewed_at, reviewed_by, baseline_date')
+      .single();
+    if (updateError) throw updateError;
+
+    return res.json({
+      success: true,
+      message: '已核准加入，對方現在可以開始天天報平安。',
+      data: { approval: updated },
+    });
+  } catch (error) {
+    console.error('admin/safety approve failed:', error);
+    return res.status(500).json({ success: false, message: '核准失敗，請稍後再試。' });
+  }
+});
+
+// POST /api/admin/safety/:id/reject：不通過申請（第四期）
+// - 僅 pending 可不通過（approved 要移除請走里民自行退出；第一期無此按鈕）
+// - reason 選填 ≤ 200 字；rejected 可再改 reason（維持 rejected）
+app.post('/api/admin/safety/:id/reject', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/safety reject auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  const memberId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(memberId) || memberId <= 0) {
+    return res.status(400).json({ success: false, message: '名單編號不正確。' });
+  }
+
+  const reason = String((req.body && req.body.reason) || '').trim().slice(0, SAFETY_REJECT_REASON_MAX_LENGTH);
+
+  try {
+    const { data: memberRow, error: memberError } = await supabaseAdmin
+      .from('safety_members')
+      .select('id, left_at, approval_status')
+      .eq('id', memberId)
+      .maybeSingle();
+    if (memberError) throw memberError;
+    if (!memberRow) {
+      return res.status(404).json({ success: false, message: '找不到這位里民。' });
+    }
+    if (memberRow.left_at) {
+      return res.status(400).json({ success: false, message: '這位里民已退出報平安。' });
+    }
+    if (memberRow.approval_status === 'approved') {
+      return res.status(400).json({ success: false, message: '已核准的會員不可改為不通過。' });
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('safety_members')
+      .update({
+        approval_status: 'rejected',
+        reject_reason: reason || null,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: identity.lineUserId,
+      })
+      .eq('id', memberId)
+      .select('id, approval_status, reject_reason, reviewed_at, reviewed_by')
+      .single();
+    if (updateError) throw updateError;
+
+    return res.json({
+      success: true,
+      message: '已標記為不通過，對方可修改資料後重新申請。',
+      data: { approval: updated },
+    });
+  } catch (error) {
+    console.error('admin/safety reject failed:', error);
+    return res.status(500).json({ success: false, message: '操作失敗，請稍後再試。' });
   }
 });
 
@@ -4033,11 +4300,13 @@ function checkSafetyCronAuth(req) {
 }
 
 // type=resident：催本人（活躍且今日未簽，含今天剛加入尚未簽到者）
+// 第四期：僅已核准會員（pending / rejected 不催）
 async function runSafetyResidentReminders(today) {
   const { data: members, error: membersError } = await supabaseAdmin
     .from('safety_members')
     .select('id, line_user_id')
-    .is('left_at', null);
+    .is('left_at', null)
+    .eq('approval_status', 'approved');
   if (membersError) throw membersError;
 
   const activeMembers = members || [];
@@ -4081,13 +4350,15 @@ async function runSafetyResidentReminders(today) {
 }
 
 // type=admin：通知幹部（待關懷名單，計算沿用既有 buildSafetyAdminItem，不重寫）
+// 第四期：僅撈已核准會員（needs_care 對 pending 恆 false，撈取直接排除更省）
 async function runSafetyAdminCareNotifications(today) {
   const { data: members, error: membersError } = await supabaseAdmin
     .from('safety_members')
     .select(
-      'id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at'
+      'id, line_user_id, display_name, phone, contact_name, contact_phone, joined_at, baseline_date, left_at, admin_notify_snooze_until, approval_status'
     )
-    .is('left_at', null);
+    .is('left_at', null)
+    .eq('approval_status', 'approved');
   if (membersError) throw membersError;
 
   const activeMembers = members || [];
