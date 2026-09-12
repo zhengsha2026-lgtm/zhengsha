@@ -651,7 +651,7 @@ app.delete('/api/events/:id/rsvp', async (req, res) => {
 //   1. 加入必須本人同意（LIFF ID Token 的 sub）
 //   2. 一天只計一次簽到（台灣日期，後端計算）；已簽再按為冪等（200，不報錯）
 //   3. 退出 = left_at 設時間（soft delete）；重新加入重設 baseline_date
-//   4. 待關懷 = 活躍且今日未簽且 missing_days >= 2（管理端計算）
+//   4. 待關懷 = 活躍且今日未簽且 missing_days >= SAFETY_CARE_MISSING_DAYS（管理端計算）
 // ============================================================================
 
 const SAFETY_TAIPEI_TZ = 'Asia/Taipei';
@@ -659,6 +659,10 @@ const SAFETY_NAME_MAX_LENGTH = 20;
 const SAFETY_NOTE_MAX_LENGTH = 200;
 const SAFETY_SNOOZE_DAYS = 3;
 const SAFETY_REJECT_REASON_MAX_LENGTH = 200;
+// 待關懷門檻（日曆天）：距最後簽到日（或 baseline_date）>= 3 天才算待關懷。
+// 例：週一簽過 → 週二(1)、週三(2) 不算 → 週四(3) 早上 09:00 才通知幹部、才進待關懷
+// （chips 待關懷 / filter=care / 排序置頂 / cron admin 全讀 buildSafetyAdminItem 的 needs_care，單一事實來源）
+const SAFETY_CARE_MISSING_DAYS = 3;
 
 // 台灣時區的今天，回傳 'YYYY-MM-DD'（後端唯一可信的日期來源，不信前端）
 function getTaipeiToday() {
@@ -3720,7 +3724,7 @@ app.post('/api/admin/events/:id/notify-wish-pool', async (req, res) => {
 //   - derived 欄位後端計算：checked_in_today / today_checkin_at / last_checkin_date
 //     / last_checkin_at / missing_days / needs_care
 //   - missing_days = 今天(台灣) - max(最後簽到日, baseline_date)；今天已簽 = 0
-//   - 待關懷（needs_care）= 活躍且今日未簽且 missing_days >= 2
+//   - 待關懷（needs_care）= 活躍且今日未簽且 missing_days >= SAFETY_CARE_MISSING_DAYS(3)
 //   - 第一期通知：僅後台亮「待關懷」，不自動對外宣布、不自動群發
 // ============================================================================
 
@@ -3775,7 +3779,8 @@ function buildSafetyAdminItem(memberRow, checkinRows, latestCare) {
     last_checkin_date: lastCheckin ? lastCheckin.checkin_date : null,
     last_checkin_at: lastCheckin ? lastCheckin.created_at : null,
     missing_days: missingDays,
-    needs_care: approvalStatus === 'approved' && !todayCheckin && missingDays >= 2 && !snoozeActive,
+    needs_care:
+      approvalStatus === 'approved' && !todayCheckin && missingDays >= SAFETY_CARE_MISSING_DAYS && !snoozeActive,
     admin_notify_snoozed: snoozeActive,
     admin_notify_snooze_until: snoozeUntil,
     latest_care: latestCare

@@ -121,7 +121,7 @@
   - 政見封面、行程封面、相簿、管理列表縮圖全部 `loading="lazy"`，非當前 Tab 不急著載
 
 ### 報平安（里民端 + 管理端；?tab=safety 獨立頁，不進底部導覽）
-- **定位**：里民每日簽到「我今天平安」；幹部從管理端看誰連續兩天以上沒簽到（待關懷），主動電訪/家訪並留下關懷紀錄
+- **定位**：里民每日簽到「我今天平安」；幹部從管理端看誰連續多天沒簽到（待關懷，見核心規則門檻），主動電訪/家訪並留下關懷紀錄
 - **入口**：`?tab=safety` deep-link（圖文選單/官方帳號導流用）；**底部導覽維持 4 個 Tab**，safety 是隱藏第 5 個 panel，只有 URL 帶 tab 才會開
 - **里民端（public/liff.html `safetyPanel`）**（第四期起為「申請 → 幹部核准」制，四態）：
   - 未加入／未通過：說明卡 + 申請表單（稱呼、本人電話、出生年〔**選填**，西元 1900–今年〕、緊急聯絡人姓名/電話）；**電話驗證與許願池同一套**：選填空白直接通過、非空只檢查長度 ≤ 30 不驗格式，過長時錯誤訊息區分「您的電話」/「聯絡人電話」；**稱呼預填 LINE 顯示名稱**（與許願表單 `#user_name` 同一來源，僅欄位為空時帶入、里民可改），稱呼欄下方有小字提示「建議填寫正確姓名或熟悉的外號，方便里辦聯繫」；**「您的電話」預填** `localStorage['zhengsha_resident_phone']`（與許願池送出後儲存同一 key，僅欄位為空時帶入）；未通過（rejected）者表單預填原資料、上方顯示幹部留的不通過原因（`reject_reason`），可修改後重新申請
@@ -139,12 +139,12 @@
   - 一天一筆簽到：`safety_checkins` 有 `UNIQUE(member_id, checkin_date)`
   - `missing_days` = 今天 − max(最後簽到日, baseline_date)；今日已簽 = 0
   - `streak` 連續簽到天數（`calculateSafetyStreak`，**只做顯示、不影響任何既有邏輯**）：從今天往回數 `safety_checkins.checkin_date`，日期須一天天相連、缺一天就停；今天未簽 = 0、已簽至少 1；**不跨過 `baseline_date`**（更早的舊簽到不接）；只數本會員的列；不存欄位不加表，status/checkin 回傳時現算
-  - 待關懷 = 活躍 且 今日未簽 且 `missing_days >= 2`（且**未處於幹部通知暫停中**，見第三期）
+  - 待關懷 = 活躍 且 今日未簽 且 `missing_days >= SAFETY_CARE_MISSING_DAYS(3)`（且**未處於幹部通知暫停中**，見第三期）；**門檻常數單一來源**（`app.js` 頂部），chips 待關懷／`filter=care`／排序置頂／cron admin 全讀 `buildSafetyAdminItem` 的 `needs_care`，改一處全部同步。例：**週一簽過 → 週二(1)、週三(2) 仍不算 → 週四(3) 早上 09:00 才通知幹部、才進待關懷**（即兩個完整日沒簽，隔天早才提醒）；晚間催本人不受門檻影響（今日未簽 20:00 照催）
   - 關懷方式為「已電訪 / 已家訪 / 暫停幹部通知」三種（DB CHECK 約束；第三種由暫停按鈕自動寫入，不開放手動選）
 - **第二期排程通知（Vercel Cron；已上線）**：
   - 端點：`GET /api/cron/safety-reminders/:type`（**路徑式 = Vercel Cron 用**，因 **Cron 不保留 query string**，Logs 只見路徑）＋ `GET|POST /api/cron/safety-reminders`（`?type=` 或 body `{ type }`，本機手動測試用，保留）；驗證 `Authorization: Bearer <CRON_SECRET>`：**未設 CRON_SECRET 回 503、錯誤回 401**
   - 每天**台北 20:00**（`0 12 * * *` UTC）`/resident`：對活躍且今日未簽的里民（**含今天剛加入尚未簽到者**）發本人提醒，文案固定「今天還沒報平安，點這裡補按即可。」+ `?tab=safety` LIFF 連結；已簽到者不發
-  - 每天**台北 09:00**（`0 1 * * *` UTC）`/admin`：有待關懷（`missing_days >= 2`，**沿用既有 `buildSafetyAdminItem` 計算，不重寫**）時通知 `ADMIN_LINE_USER_IDS` 每位管理員「報平安：目前有 N 位待關懷（前 3 筆稱呼，更多加「等」），請至後台查看。」+ `?tab=admin` 連結；**當天沒有待關懷就不發**
+  - 每天**台北 09:00**（`0 1 * * *` UTC）`/admin`：有待關懷（`missing_days >= 3`〔`SAFETY_CARE_MISSING_DAYS`〕，**沿用既有 `buildSafetyAdminItem` 計算，不重寫**）時通知 `ADMIN_LINE_USER_IDS` 每位管理員「報平安：目前有 N 位待關懷（前 3 筆稱呼，更多加「等」），請至後台查看。」+ `?tab=admin` 連結；**當天沒有待關懷就不發**（文案不變，門檻提高後人變少、通知變晚：週一簽 → 週四早才發）
   - 冪等：`safety_notification_logs` 的 `UNIQUE(notify_type, line_user_id, notify_date)` 保證每人每天每類型最多 1 則，cron 重跑不重發；**成功才寫 log**（push 失敗不佔當天額度、當天不重試）；單人 push 失敗不阻塞其他人，回傳 `attempted/succeeded/failed/skipped`
   - **家人（contact_phone）永遠不通知**；文案溫和，禁用「出事／意外」等字眼
   - 已於 2026-09-10 線上端到端驗證：401 擋未授權、新路徑 `/resident` 與 `/admin` 正確解析 type、真實推播成功（里民 1/1、管理員 2/2）、重跑冪等略過不重發
@@ -411,7 +411,7 @@
 - **報平安模組（已上線；?tab=safety 獨立頁）**
   - 里民端：未加入（說明 + 加入表單：稱呼/本人電話/緊急聯絡人；稱呼預填 LINE 顯示名稱、電話預填許願池 localStorage，皆可改）/ 已加入（大顆「我今天平安」簽到鈕、冪等、設定摺疊編輯、退出 soft delete）兩種畫面；底部導覽維持 4 Tab 不變，safety 僅 deep-link 進入
   - 管理端：管理首頁第 4 張模組卡「報平安」→ 名單（四組篩選 chips 含計數、待關懷優先排序、顯示本人與緊急聯絡人電話、一鍵標記關懷）→ 詳情（完整關懷歷史 + 近期簽到 + 補備註關懷）
-  - 後端規則：台灣時區後端算今天、`UNIQUE(member_id, checkin_date)` 一天一筆、簽到冪等、missing_days = 今天 − max(最後簽到日, baseline_date)、待關懷 = 活躍且今日未簽且 missing_days ≥ 2、重新加入重設 baseline_date、退出為 soft delete
+  - 後端規則：台灣時區後端算今天、`UNIQUE(member_id, checkin_date)` 一天一筆、簽到冪等、missing_days = 今天 − max(最後簽到日, baseline_date)、待關懷 = 活躍且今日未簽且 missing_days ≥ 3（`SAFETY_CARE_MISSING_DAYS`，2026-09-12 起；原為 ≥ 2，週一簽→週四早才通知幹部）、重新加入重設 baseline_date、退出為 soft delete
   - 新增資料表（migration `004_safety_schema.sql`，已於 Supabase 執行）：`safety_members` / `safety_checkins` / `safety_care_logs`
   - API：里民 status/join/profile/checkin/membership（DELETE）；管理 list/detail/care/snooze
 - **報平安第二期：排程通知（已上線；Vercel Cron）**
