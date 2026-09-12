@@ -126,7 +126,7 @@
 - **里民端（public/liff.html `safetyPanel`）**（第四期起為「申請 → 幹部核准」制，四態）：
   - 未加入／未通過：說明卡 + 申請表單（稱呼、本人電話、出生年〔**選填**，西元 1900–今年〕、緊急聯絡人姓名/電話）；**電話驗證與許願池同一套**：選填空白直接通過、非空只檢查長度 ≤ 30 不驗格式，過長時錯誤訊息區分「您的電話」/「聯絡人電話」；**稱呼預填 LINE 顯示名稱**（與許願表單 `#user_name` 同一來源，僅欄位為空時帶入、里民可改），稱呼欄下方有小字提示「建議填寫正確姓名或熟悉的外號，方便里辦聯繫」；**「您的電話」預填** `localStorage['zhengsha_resident_phone']`（與許願池送出後儲存同一 key，僅欄位為空時帶入）；未通過（rejected）者表單預填原資料、上方顯示幹部留的不通過原因（`reject_reason`），可修改後重新申請
   - 審核中（pending）：顯示「申請已送出、等候里辦審核」狀態卡，**不可簽到、不可改資料、不可撤回**
-  - 已加入（approved）：大顆「我今天平安」簽到鈕（**冪等**：同日再按回 200 不報錯、不重複計次）、今日簽到時間、上次簽到日；「設定」可摺疊編輯稱呼/電話/聯絡人；「退出報平安」= soft delete（`left_at` 設時間），簽到歷史保留
+  - 已加入（approved）：大顆「我今天平安」簽到鈕（**冪等**：同日再按回 200 不報錯、不重複計次）、今日簽到時間、上次簽到日；**今日已簽時另顯示「連續 N 天」**（text-2xl emerald，給長者看的大字；後端現算 `streak`，今日未簽 = 0 不顯示）；「設定」可摺疊編輯稱呼/電話/聯絡人；「退出報平安」= soft delete（`left_at` 設時間），簽到歷史保留
   - 送出申請即本人同意，`line_user_id` 取自 LINE verify `sub`（不信前端）；核准或重新加入會**重設 `baseline_date`**（舊簽到不影響未簽天數計算；pending 申請時不重設，**核准當天才重設**）
 - **管理端（管理首頁第 4 張模組卡「報平安」）**：
   - 名單（`GET /api/admin/safety`）：只列活躍會員（`left_at IS NULL`），同時顯示**本人電話與緊急聯絡人電話**（可點擊撥打）
@@ -138,6 +138,7 @@
   - 「今天」一律用 `Asia/Taipei` 時區由後端計算（`getTaipeiToday()`），不信前端傳的日期
   - 一天一筆簽到：`safety_checkins` 有 `UNIQUE(member_id, checkin_date)`
   - `missing_days` = 今天 − max(最後簽到日, baseline_date)；今日已簽 = 0
+  - `streak` 連續簽到天數（`calculateSafetyStreak`，**只做顯示、不影響任何既有邏輯**）：從今天往回數 `safety_checkins.checkin_date`，日期須一天天相連、缺一天就停；今天未簽 = 0、已簽至少 1；**不跨過 `baseline_date`**（更早的舊簽到不接）；只數本會員的列；不存欄位不加表，status/checkin 回傳時現算
   - 待關懷 = 活躍 且 今日未簽 且 `missing_days >= 2`（且**未處於幹部通知暫停中**，見第三期）
   - 關懷方式為「已電訪 / 已家訪 / 暫停幹部通知」三種（DB CHECK 約束；第三種由暫停按鈕自動寫入，不開放手動選）
 - **第二期排程通知（Vercel Cron；已上線）**：
@@ -255,10 +256,10 @@
 | GET | `/api/events/:id` | 單筆行程詳情（含封面 signed URL、相簿 signed URL、`my_rsvp`） |
 | POST | `/api/events/:id/rsvp` | 報名行程（已結束 `start_at < now` 擋新增） |
 | DELETE | `/api/events/:id/rsvp` | 取消報名（**不擋已結束**） |
-| GET | `/api/safety/status` | 我的報平安狀態（joined、`approval_status`〔null/pending/rejected/approved，前端據此切四態〕、rejected 時附 `reject_reason`、今日是否已簽、上次簽到日） |
+| GET | `/api/safety/status` | 我的報平安狀態（joined、`approval_status`〔null/pending/rejected/approved，前端據此切四態〕、rejected 時附 `reject_reason`、今日是否已簽、上次簽到日、approved 時另附 `streak` 連續簽到天數〔後端現算，今日未簽 = 0〕） |
 | POST | `/api/safety/join` | 送出加入申請（第四期：新申請/重新申請寫成 `pending`；已 approved → 409 已加入、pending → 409 審核中；出生年選填 1900–今年） |
 | PATCH | `/api/safety/profile` | 修改稱呼/本人電話/緊急聯絡人（**僅 approved**；pending 回 403） |
-| POST | `/api/safety/checkin` | 今日簽到（**冪等**：同日再按回 200 不重複計次；**僅 approved**，pending/rejected 回 403） |
+| POST | `/api/safety/checkin` | 今日簽到（**冪等**：同日再按回 200 不重複計次；**僅 approved**，pending/rejected 回 403；成功 payload 一律帶更新後的 `streak`） |
 | DELETE | `/api/safety/membership` | 退出報平安（soft delete，簽到歷史保留；**僅 approved**，pending/rejected 回 403 無需退出） |
 
 ### 管理員端 API（許願池後台管理）

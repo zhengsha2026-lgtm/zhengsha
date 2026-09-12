@@ -731,6 +731,33 @@ function buildSafetyMemberData(row) {
   };
 }
 
+// 連續簽到天數（顯示用，不存欄位、每次現算）：從今天（台北日期）往回數 safety_checkins，
+// checkin_date 必須一天天相連，缺一天就停
+// - 今天未簽 → 0（前端不顯示）；今天已簽 → 至少 1
+// - 不跨過 baseline_date（核准/重新加入的起算日），更早的舊簽到不接
+// - 只查本會員的列（member_id 過濾）
+async function calculateSafetyStreak(memberId, baselineDate) {
+  const today = getTaipeiToday();
+  const { data, error } = await supabaseAdmin
+    .from('safety_checkins')
+    .select('checkin_date')
+    .eq('member_id', memberId)
+    .gte('checkin_date', baselineDate)
+    .order('checkin_date', { ascending: false });
+  if (error) throw error;
+
+  const dates = new Set((data || []).map((row) => row.checkin_date));
+  if (!dates.has(today)) return 0;
+
+  let streak = 1;
+  let cursor = addDaysToTaipeiDate(today, -1);
+  while (cursor && cursor >= baselineDate && dates.has(cursor)) {
+    streak += 1;
+    cursor = addDaysToTaipeiDate(cursor, -1);
+  }
+  return streak;
+}
+
 // GET /api/safety/status：我的報平安狀態（第四期起回傳 approval_status 供前端切換四態）
 // - 無列 / 已退出 → joined:false + approval_status:null（前端顯申請表單）
 // - pending       → joined:false + approval_status:'pending'（審核中，不可簽到）
@@ -803,6 +830,9 @@ app.get('/api/safety/status', async (req, res) => {
       .maybeSingle();
     if (lastError) throw lastError;
 
+    // 連續簽到天數（顯示用）：今天未簽 = 0，前端不顯示
+    const streak = await calculateSafetyStreak(member.id, member.baseline_date);
+
     return res.json({
       success: true,
       data: {
@@ -814,6 +844,7 @@ app.get('/api/safety/status', async (req, res) => {
         checked_in_today: Boolean(todayCheckin),
         today_checkin_at: todayCheckin ? todayCheckin.created_at : null,
         last_checkin_date: lastCheckin ? lastCheckin.checkin_date : null,
+        streak,
       },
     });
   } catch (error) {
@@ -1072,10 +1103,11 @@ app.post('/api/safety/checkin', async (req, res) => {
       .maybeSingle();
     if (findError) throw findError;
     if (existing) {
+      const streak = await calculateSafetyStreak(member.id, member.baseline_date);
       return res.json({
         success: true,
         message: '今天已經報過平安囉。',
-        data: { already_checked_in: true, checkin_date: existing.checkin_date, checkin_at: existing.created_at },
+        data: { already_checked_in: true, checkin_date: existing.checkin_date, checkin_at: existing.created_at, streak },
       });
     }
 
@@ -1093,19 +1125,21 @@ app.post('/api/safety/checkin', async (req, res) => {
           .eq('member_id', member.id)
           .eq('checkin_date', today)
           .maybeSingle();
+        const streak = await calculateSafetyStreak(member.id, member.baseline_date);
         return res.json({
           success: true,
           message: '今天已經報過平安囉。',
-          data: { already_checked_in: true, checkin_date: again ? again.checkin_date : today, checkin_at: again ? again.created_at : null },
+          data: { already_checked_in: true, checkin_date: again ? again.checkin_date : today, checkin_at: again ? again.created_at : null, streak },
         });
       }
       throw insertError;
     }
 
+    const streak = await calculateSafetyStreak(member.id, member.baseline_date);
     return res.status(201).json({
       success: true,
       message: '已記錄您今天平安，謝謝。',
-      data: { already_checked_in: false, checkin_date: inserted.checkin_date, checkin_at: inserted.created_at },
+      data: { already_checked_in: false, checkin_date: inserted.checkin_date, checkin_at: inserted.created_at, streak },
     });
   } catch (error) {
     console.error('safety checkin failed:', error);

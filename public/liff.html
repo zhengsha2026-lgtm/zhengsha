@@ -1331,7 +1331,8 @@
                     <i data-lucide="check-circle-2" class="hidden h-8 w-8 group-disabled:block"></i>
                     <span id="safetyCheckinLabel" class="px-4 text-center text-sm font-bold leading-6">我今天平安</span>
                   </button>
-                  <p id="safetyCheckinDate" class="mt-4 hidden text-sm font-medium text-emerald-600"></p>
+                  <p id="safetyCheckinStreak" class="mt-4 hidden text-2xl font-bold leading-9 text-emerald-600"></p>
+                  <p id="safetyCheckinDate" class="mt-2 hidden text-sm font-medium text-emerald-600"></p>
                   <p class="mt-2 text-center text-xs leading-6 text-slate-400">
                     連續兩天沒按，里辦或您指定的家人會關心您。
                   </p>
@@ -2191,6 +2192,7 @@
           rejectReason: '',
           checkedInToday: false,
           todayCheckinAt: null,
+          streak: 0,
           today: '',
           member: null,
           joining: false,
@@ -2343,6 +2345,7 @@
         safetyMemberView: document.getElementById('safetyMemberView'),
         safetyCheckinButton: document.getElementById('safetyCheckinButton'),
         safetyCheckinLabel: document.getElementById('safetyCheckinLabel'),
+        safetyCheckinStreak: document.getElementById('safetyCheckinStreak'),
         safetyCheckinDate: document.getElementById('safetyCheckinDate'),
         safetySettingsToggle: document.getElementById('safetySettingsToggle'),
         safetySettingsBody: document.getElementById('safetySettingsBody'),
@@ -5614,6 +5617,7 @@
           state.safety.member = data.member || null;
           state.safety.checkedInToday = Boolean(data.checked_in_today);
           state.safety.todayCheckinAt = data.today_checkin_at || null;
+          state.safety.streak = Number.isInteger(data.streak) ? data.streak : 0;
           state.safety.today = data.today || '';
           state.safety.meta.refreshedAt = Date.now();
           renderSafetyView();
@@ -5674,12 +5678,21 @@
         }
 
         if (state.safety.joined) {
-          // 大按鈕狀態：未簽可按；已簽 disabled + 「今天已報平安」+ 日期
+          // 大按鈕狀態：未簽可按；已簽 disabled + 「今天已報平安」+ 連續天數 + 日期
           if (elements.safetyCheckinButton) {
             elements.safetyCheckinButton.disabled = state.safety.checkedInToday;
           }
           if (elements.safetyCheckinLabel) {
             elements.safetyCheckinLabel.textContent = state.safety.checkedInToday ? '今天已報平安' : '我今天平安';
+          }
+          // 連續簽到天數：僅今日已簽才顯示（後端現算，未簽 = 0 不顯示）
+          if (elements.safetyCheckinStreak) {
+            if (state.safety.checkedInToday && state.safety.streak > 0) {
+              elements.safetyCheckinStreak.textContent = `連續 ${state.safety.streak} 天`;
+              elements.safetyCheckinStreak.classList.remove('hidden');
+            } else {
+              elements.safetyCheckinStreak.classList.add('hidden');
+            }
           }
           if (elements.safetyCheckinDate) {
             if (state.safety.checkedInToday) {
@@ -5805,6 +5818,7 @@
           const data = result.data || {};
           state.safety.checkedInToday = true;
           state.safety.todayCheckinAt = data.checkin_at || new Date().toISOString();
+          if (Number.isInteger(data.streak)) state.safety.streak = data.streak;
           if (data.checkin_date) state.safety.today = data.checkin_date;
           renderSafetyView();
           showToast(result.message || '已記錄您今天平安。');
