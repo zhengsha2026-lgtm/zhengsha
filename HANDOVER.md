@@ -4,6 +4,8 @@
 > 任何新的開發者（人或 AI）請先完整閱讀本文件，再開始修改程式。  
 > 以本文件與 GitHub 程式碼為準，不要依對話記憶自行假設。
 
+> **術語對照（2026-09-13 起）**：裡民端「許願池」對外顯示名稱已改為**「有事找里長」**（分段「我要反映／我的案件」、管理端模組名「反映管理」、列表欄位「反映內容」、行程通知按鈕「通知曾反映過的里民」）。**對內代號不變**：API 路徑（`/api/feedback` 等）、資料表（`user_feedback`）、deep-link `?tab=wish`、Storage bucket `wish-photos` 全部保留。本文件中「許願／許願池／wish」字樣一律指同一模組。LINE webhook 關鍵字新增「找里長」「有事找里長」，舊「許願池」「表單」保留。
+
 ---
 
 ## 1. 專案是什麼
@@ -37,13 +39,13 @@
 ### 頁面
 - 核心政見（單欄主打卡 + 左圖右文卡，有封面圖、摘要、支持數）
 - 候選人介紹（英雄區照片放大前置 + 真情信獨立主打卡 + 初心過渡 + 三張能力卡條列）
-- 里民許願池（表單層次優化：身分卡縮為一列、切換加強、內容框為主體、送出鈕紫色）
-- 我的許願列表（依狀態分組、卡片層次、時間精簡、身分列隱藏）
-- 我的許願列表上方**進度篩選**（全部 / 處理中 / 已完成，與「我要許願／我的許願」同套 segmented control 視覺）：
+- 有事找里長（原「里民許願池」；表單層次優化：身分卡縮為一列、切換加強、內容框為主體、送出鈕紫色）
+- 我的案件列表（原「我的許願」；依狀態分組、卡片層次、時間精簡、身分列隱藏）
+- 我的案件列表上方**進度篩選**（全部 / 處理中 / 已完成，與「我要反映／我的案件」同套 segmented control 視覺）：
   - 純前端過濾 `state.wish.list`，不打新 API；處理中 = `已收到`/`處理中`/`已回覆`，已完成 = `已結案`（含未來可能的 `已取消`）
   - 按鈕顯示筆數 `(N)`：列表**載入完成後**（`finally`、`loading=false` 之後）才重算；從未載入不顯示、載入中顯示 `—`（避免 `(0)` 誤導）
-  - 空狀態依篩選顯示（「目前沒有處理中的許願」等）
-- 我的許願（列表 + 詳情）
+  - 空狀態依篩選顯示（「目前沒有處理中的反映」等）
+- 我的案件（列表 + 詳情）
 - 競選行程（里民端：主打 hero 卡 + 即將到來/過往足跡分組 + 詳情 modal + 16:9 封面與相簿 + 影片外連 + 報名/取消報名；管理端可看到報名人數）
 - 報平安（?tab=safety 直開，不進底部導覽：每日簽到 + 個人資料/緊急聯絡人管理；管理端有待關懷名單與關懷紀錄）
 
@@ -440,6 +442,12 @@
   - 後端：`POST /api/admin/safety/:id/approve`（pending/rejected → approved、`baseline_date` 重設核准當天、清 reject_reason 與殘留暫停、冪等）與 `POST /api/admin/safety/:id/reject`（僅 pending、reason ≤ 200 字）；裡民 join 改送申請、profile/checkin/membership/care/snooze/兩個 cron 全部加 approved 閘門
   - migration `007_safety_approval.sql`（已於 Supabase 執行）：`safety_members` 加 6 欄（`approval_status` CHECK 三值 DEFAULT `pending`、既有列 backfill `approved`、`applied_at`、`reviewed_at`、`reviewed_by`、`birth_year int`、`reject_reason`）
   - 驗證：`node --check app.js` 通過；admin.html/liff.html 全部 inline script 語法檢查通過（檢查器需先剝除 HTML 註解，否則註解內 `<script>` 字樣會誤判）
+- **顯示名稱改版：許願池 → 有事找里長（已上線）**
+  - 只改人看得到的中文文案；API 路徑／資料表／`?tab=wish`／bucket `wish-photos`／程式碼識別字（wish、feedback）全部不變，無 migration
+  - 裡民端（liff.html）：底部 Tab「有事找里長」、面板標籤與分段「我要反映／我的案件」、送出中／成功橫幅／toast、三組空狀態文案、詳情「里民心聲」標籤里民端保留
+  - 管理端：liff 盾牌模組名「反映管理」＋詳情內容標籤「反映內容」；admin.html header／模組分頁「有事找里長」＋列表欄位「反映內容」＋空狀態與刪除文案
+  - 後端訊息（app.js）：feedback 相關 API 回傳 message 全部改「反映」用語；行程通知按鈕與相關訊息改「通知曾反映過的里民」；邀請文案（webhook 預設回覆）改「有事找里長」表單
+  - LINE webhook 關鍵字：新增「找里長」「有事找里長」，舊「許願池」「表單」保留可用
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版**第三期**：政見管理、行程管理的電腦版（已有許願管理與報平安管理）

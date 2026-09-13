@@ -1324,7 +1324,7 @@ app.post('/api/feedback', async (req, res) => {
       console.error('user_feedback insert failed:', insertFeedbackError);
       return res.status(500).json({
         success: false,
-        message: '許願內容儲存失敗，請稍後再試一次。',
+        message: '反映內容儲存失敗，請稍後再試一次。',
       });
     }
 
@@ -1366,7 +1366,7 @@ app.post('/api/feedback', async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: '感謝您的許願，我們已收到並會儘速處理。',
+      message: '感謝您的反映，我們已收到並會儘速處理。',
       data: {
         id: feedbackId,
         created_at: insertedFeedback.created_at,
@@ -1416,7 +1416,7 @@ app.get('/api/my-feedback', async (req, res) => {
       console.error('my-feedback list fetch failed:', error);
       return res.status(500).json({
         success: false,
-        message: '我的許願清單讀取失敗，請稍後再試。',
+        message: '我的案件清單讀取失敗，請稍後再試。',
       });
     }
 
@@ -1472,7 +1472,7 @@ app.get('/api/my-feedback/:id', async (req, res) => {
   if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
     return res.status(400).json({
       success: false,
-      message: '許願編號不正確。',
+      message: '反映編號不正確。',
     });
   }
 
@@ -1490,20 +1490,20 @@ app.get('/api/my-feedback/:id', async (req, res) => {
       if (code === 'PGRST116') {
         return res.status(404).json({
           success: false,
-          message: '找不到這筆許願紀錄。',
+          message: '找不到這筆反映紀錄。',
         });
       }
       console.error('my-feedback detail fetch failed:', fetchError);
       return res.status(500).json({
         success: false,
-        message: '許願內容讀取失敗，請稍後再試。',
+        message: '反映內容讀取失敗，請稍後再試。',
       });
     }
 
     if (feedbackRow.line_user_id !== identity.lineUserId) {
       return res.status(403).json({
         success: false,
-        message: '您沒有權限檢視這筆許願內容。',
+        message: '您沒有權限檢視這筆反映內容。',
       });
     }
 
@@ -1691,7 +1691,7 @@ app.get('/api/admin/feedback', async (req, res) => {
       console.error('admin/feedback list fetch failed:', error);
       return res.status(500).json({
         success: false,
-        message: '許願列表讀取失敗，請稍後再試。',
+        message: '反映列表讀取失敗，請稍後再試。',
       });
     }
 
@@ -1787,7 +1787,7 @@ app.get('/api/admin/feedback/:id', async (req, res) => {
   if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
     return res.status(400).json({
       success: false,
-      message: '許願編號不正確。',
+      message: '反映編號不正確。',
     });
   }
 
@@ -1805,13 +1805,13 @@ app.get('/api/admin/feedback/:id', async (req, res) => {
       if (code === 'PGRST116') {
         return res.status(404).json({
           success: false,
-          message: '找不到這筆許願紀錄。',
+          message: '找不到這筆反映紀錄。',
         });
       }
       console.error('admin/feedback detail fetch failed:', fetchError);
       return res.status(500).json({
         success: false,
-        message: '許願內容讀取失敗，請稍後再試。',
+        message: '反映內容讀取失敗，請稍後再試。',
       });
     }
 
@@ -1927,7 +1927,7 @@ app.patch('/api/admin/feedback/:id', async (req, res) => {
   if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
     return res.status(400).json({
       success: false,
-      message: '許願編號不正確。',
+      message: '反映編號不正確。',
     });
   }
 
@@ -1978,7 +1978,7 @@ app.patch('/api/admin/feedback/:id', async (req, res) => {
       if (code === 'PGRST116') {
         return res.status(404).json({
           success: false,
-          message: '找不到這筆許願紀錄。',
+          message: '找不到這筆反映紀錄。',
         });
       }
       console.error('admin patch fetch failed:', fetchError);
@@ -2014,7 +2014,7 @@ app.patch('/api/admin/feedback/:id', async (req, res) => {
       console.error('admin patch update failed:', updateError);
       return res.status(500).json({
         success: false,
-        message: '許願狀態更新失敗，請稍後再試。',
+        message: '反映狀態更新失敗，請稍後再試。',
       });
     }
 
@@ -2046,7 +2046,7 @@ app.patch('/api/admin/feedback/:id', async (req, res) => {
 
     return res.json({
       success: true,
-      message: '已儲存進度，里民端「我的許願」將同步顯示最新狀態。',
+      message: '已儲存進度，里民端「我的案件」將同步顯示最新狀態。',
       data: {
         id: updatedRow.id,
         status: updatedRow.status,
@@ -2087,7 +2087,7 @@ app.delete('/api/admin/feedback/:id', async (req, res) => {
   if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
     return res.status(400).json({
       success: false,
-      message: '許願編號不正確。',
+      message: '反映編號不正確。',
     });
   }
 
@@ -2109,7 +2109,7 @@ app.delete('/api/admin/feedback/:id', async (req, res) => {
     if (!target) {
       return res.status(404).json({
         success: false,
-        message: '找不到這筆許願紀錄，可能已被刪除。',
+        message: '找不到這筆反映紀錄，可能已被刪除。',
       });
     }
 
@@ -2141,7 +2141,7 @@ app.delete('/api/admin/feedback/:id', async (req, res) => {
       console.error('admin feedback delete failed:', deleteError);
       return res.status(500).json({
         success: false,
-        message: '許願刪除失敗，請稍後再試。',
+        message: '反映刪除失敗，請稍後再試。',
       });
     }
 
@@ -2157,7 +2157,7 @@ app.delete('/api/admin/feedback/:id', async (req, res) => {
 
     return res.json({
       success: true,
-      message: '許願已刪除，照片與處理紀錄已一併移除。',
+      message: '反映已刪除，照片與處理紀錄已一併移除。',
       data: {
         id: feedbackId,
         photo_count: photoPaths.length,
@@ -3665,7 +3665,7 @@ app.post('/api/admin/events/:id/notify-wish-pool', async (req, res) => {
       console.error('notify-wish-pool fetch failed:', feedbackError);
       return res.status(500).json({
         success: false,
-        message: '許願池里民名單讀取失敗，請稍後再試。',
+        message: '反映里民名單讀取失敗，請稍後再試。',
       });
     }
 
@@ -3679,7 +3679,7 @@ app.post('/api/admin/events/:id/notify-wish-pool', async (req, res) => {
     if (attempted === 0) {
       return res.json({
         success: true,
-        message: '目前沒有曾使用許願池的里民，無需通知。',
+        message: '目前沒有曾反映過的里民，無需通知。',
         data: { attempted: 0, succeeded: 0, failed: 0 },
       });
     }
@@ -4934,7 +4934,7 @@ function buildExcerpt(text, maxLen = 60) {
 }
 
 function buildFeedbackInvitation() {
-  return `您好！我是里長參選人${CANDIDATE_NAME}。如果您有任何建議、許願或需要協助的地方，歡迎點擊下方連結填寫「里民許願池表單」，讓我為您服務：${LIFF_FORM_URL}`;
+  return `您好！我是里長參選人${CANDIDATE_NAME}。如果您有任何建議或需要協助的地方，歡迎點擊下方連結填寫「有事找里長」表單，讓我為您服務：${LIFF_FORM_URL}`;
 }
 
 async function handleEvent(event) {
@@ -4952,6 +4952,8 @@ async function handleEvent(event) {
     ping: '系統正常運作中，歡迎隨時傳訊給我。',
     表單: buildFeedbackInvitation(),
     許願池: buildFeedbackInvitation(),
+    找里長: buildFeedbackInvitation(),
+    有事找里長: buildFeedbackInvitation(),
   };
 
   const replyText = specialCommandResponses[incomingText] || buildFeedbackInvitation();

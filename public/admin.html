@@ -49,12 +49,12 @@
           </div>
           <div>
             <h1 class="text-lg font-bold text-slate-900">管理後台</h1>
-            <p class="text-xs text-slate-400">電腦版 · 許願池 / 報平安</p>
+            <p class="text-xs text-slate-400">電腦版 · 有事找里長 / 報平安</p>
           </div>
         </div>
         <nav class="hidden items-center gap-1 rounded-full bg-slate-100/80 p-1 md:flex" aria-label="模組切換">
           <button type="button" data-module-tab="feedback" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
-            <i data-lucide="message-square" class="h-4 w-4"></i><span>許願池</span>
+            <i data-lucide="message-square" class="h-4 w-4"></i><span>有事找里長</span>
           </button>
           <button type="button" data-module-tab="safety" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
             <i data-lucide="heart-pulse" class="h-4 w-4"></i><span>報平安</span>
@@ -100,7 +100,7 @@
                 <th class="px-6 py-4 font-semibold">編號</th>
                 <th class="px-6 py-4 font-semibold">狀態</th>
                 <th class="px-6 py-4 font-semibold">里民</th>
-                <th class="px-6 py-4 font-semibold">內容摘要</th>
+                <th class="px-6 py-4 font-semibold">反映內容</th>
                 <th class="px-6 py-4 font-semibold">分類</th>
                 <th class="px-6 py-4 font-semibold">照片</th>
                 <th class="px-6 py-4 font-semibold">送出時間</th>
@@ -109,7 +109,7 @@
             </thead>
             <tbody id="listTableBody"></tbody>
           </table>
-          <div id="listEmpty" class="hidden px-6 py-20 text-center text-base text-slate-400">目前沒有符合條件的許願</div>
+          <div id="listEmpty" class="hidden px-6 py-20 text-center text-base text-slate-400">目前沒有符合條件的反映</div>
           <div id="listLoading" class="hidden px-6 py-20 text-center text-base text-slate-400">載入中…</div>
         </div>
 
@@ -201,11 +201,11 @@
 
             <div class="rounded-2xl border border-rose-200 bg-rose-50/50 p-7">
               <p class="text-base font-bold text-rose-700">危險區</p>
-              <p class="mt-1.5 text-xs leading-5 text-slate-500">刪除此許願將一併移除照片與處理紀錄，無法復原。</p>
+              <p class="mt-1.5 text-xs leading-5 text-slate-500">刪除此反映將一併移除照片與處理紀錄，無法復原。</p>
               <button id="deleteButton" type="button"
                 class="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60">
                 <i data-lucide="trash-2" class="h-4 w-4"></i>
-                <span>刪除此許願</span>
+                <span>刪除此反映</span>
               </button>
             </div>
           </div>
@@ -816,17 +816,17 @@ async function deleteDetail() {
   const photoNote = (Array.isArray(d.photos) && d.photos.length > 0) ? `，含 ${d.photos.length} 張照片` : '';
 
   const confirmed = window.confirm(
-    `確定要刪除這筆許願嗎？\n\n` +
+    `確定要刪除這筆反映嗎？\n\n` +
     `編號：#${d.id}\n` +
     `申請人：${d.user_name || '匿名'}\n` +
-    `內容摘要：${previewText || '（無內容）'}\n` +
+    `反映內容：${previewText || '（無內容）'}\n` +
     `刪除後照片與處理紀錄將一併移除${photoNote}，無法復原。`
   );
   if (!confirmed) return;
 
   state.deleting = true;
   elements.deleteButton.disabled = true;
-  elements.deleteButton.innerHTML = '<i data-lucide="loader-2" class="h-3.5 w-3.5 animate-spin"></i><span>刪除中…</span>';
+  elements.deleteButton.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5 animate-spin"></i><span>刪除中…</span>';
   renderIcons();
 
   try {
@@ -837,7 +837,7 @@ async function deleteDetail() {
     if (!res.ok || !json || json.success === false) {
       throw new Error((json && json.message) || `刪除失敗（HTTP ${res.status}）`);
     }
-    showToast(json.message || '許願已刪除。');
+    showToast(json.message || '反映已刪除。');
     state.detail = null;
     switchView('list');
     await loadList();
@@ -847,7 +847,7 @@ async function deleteDetail() {
   } finally {
     state.deleting = false;
     elements.deleteButton.disabled = false;
-    elements.deleteButton.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>刪除此許願</span>';
+    elements.deleteButton.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>刪除此反映</span>';
     renderIcons();
   }
 }

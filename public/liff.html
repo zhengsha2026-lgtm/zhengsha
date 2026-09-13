@@ -407,7 +407,7 @@
 
             <div class="mt-6 rounded-[1.75rem] border border-white/60 bg-white/68 p-5 shadow-sm">
               <p class="text-sm leading-7 text-slate-600">
-                您填寫的聯絡資訊僅用於本服務案件聯繫，搭配 LINE 身分驗證，案件進度可從「我的許願」追蹤。
+                您填寫的聯絡資訊僅用於本服務案件聯繫，搭配 LINE 身分驗證，案件進度可從「我的案件」追蹤。
               </p>
             </div>
           </div>
@@ -694,7 +694,7 @@
           >
             <div class="rounded-[1.75rem] border border-violet-100/60 bg-white p-5 shadow-[0_12px_40px_rgba(31,38,135,0.07)] sm:p-6">
               <div>
-                <p class="text-[11px] font-semibold uppercase tracking-[0.3em] text-violet-500">里民許願池</p>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.3em] text-violet-500">有事找里長</p>
                 <h2 class="mt-2 text-2xl font-bold tracking-tight text-violet-950">
                   您的每一則意見，我們都會認真接住
                 </h2>
@@ -704,7 +704,7 @@
                 <div
                   id="wishSegmentedControl"
                   class="relative flex h-12 w-full select-none items-center rounded-full border border-violet-100/60 bg-violet-50/50 p-1"
-                  aria-label="許願池頁籤切換"
+                  aria-label="有事找里長頁籤切換"
                 >
                   <span
                     id="wishSegmentSlider"
@@ -716,7 +716,7 @@
                     class="relative z-10 flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-bold text-violet-700 transition-colors duration-300"
                   >
                     <i data-lucide="pen-line" class="h-4 w-4"></i>
-                    <span>我要許願</span>
+                    <span>我要反映</span>
                   </button>
                   <button
                     type="button"
@@ -724,7 +724,7 @@
                     class="relative z-10 flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-slate-400 transition-colors duration-300"
                   >
                     <i data-lucide="inbox" class="h-4 w-4"></i>
-                    <span>我的許願</span>
+                    <span>我的案件</span>
                   </button>
                 </div>
               </div>
@@ -965,7 +965,7 @@
 
                   <div id="wishListView" class="hidden">
                     <div id="wishListHeader" class="mb-3 flex items-center justify-between">
-                      <p class="text-[11px] font-semibold uppercase tracking-[0.3em] text-violet-500">我的許願追蹤</p>
+                      <p class="text-[11px] font-semibold uppercase tracking-[0.3em] text-violet-500">我的案件追蹤</p>
                       <button
                         id="wishListRefreshButton"
                         type="button"
@@ -979,7 +979,7 @@
                     <div
                       id="wishListFilterControl"
                       class="relative mb-4 flex h-10 w-full select-none items-center rounded-full border border-violet-100/60 bg-violet-50/50 p-1"
-                      aria-label="許願進度篩選"
+                      aria-label="案件進度篩選"
                     >
                       <span
                         id="wishListFilterSlider"
@@ -1024,9 +1024,9 @@
                       <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
                         <i data-lucide="sparkles" class="h-6 w-6"></i>
                       </div>
-                      <p id="wishListEmptyTitle" class="mt-4 text-base font-semibold text-violet-950">還沒有任何許願</p>
+                      <p id="wishListEmptyTitle" class="mt-4 text-base font-semibold text-violet-950">還沒有任何反映</p>
                       <p id="wishListEmptyDesc" class="mt-2 text-sm leading-7 text-slate-500">
-                        切換到「我要許願」填寫表單，送出後就會在這裡看到處理進度哦。
+                        切換到「我要反映」填寫表單，送出後就會在這裡看到處理進度哦。
                       </p>
                     </div>
 
@@ -1441,9 +1441,9 @@
                     <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
                       <i data-lucide="message-square-heart" class="h-5 w-5"></i>
                     </div>
-                    <p class="mt-4 text-base font-semibold text-violet-950">許願管理</p>
+                    <p class="mt-4 text-base font-semibold text-violet-950">反映管理</p>
                     <p class="mt-2 text-xs leading-6 text-slate-500">
-                      查看與處理里民許願、更新進度與回覆
+                      查看與處理里民反映、更新進度與回覆
                     </p>
                     <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
                       <span>進入</span>
@@ -1517,7 +1517,7 @@
                     <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
                     <span>返回管理首頁</span>
                   </button>
-                  <p class="text-sm font-semibold text-violet-950">許願管理</p>
+                  <p class="text-sm font-semibold text-violet-950">反映管理</p>
                 </div>
 
                 <div id="adminChipsRow" class="flex flex-wrap gap-2"></div>
@@ -1543,7 +1543,7 @@
                   <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
                     <i data-lucide="inbox" class="h-6 w-6"></i>
                   </div>
-                  <p class="mt-4 text-base font-semibold text-violet-950">尚無符合條件的許願</p>
+                  <p class="mt-4 text-base font-semibold text-violet-950">尚無符合條件的反映</p>
                   <p id="adminListEmptyHint" class="mt-2 text-sm leading-7 text-slate-500">
                     嘗試調整搜尋關鍵字或切換狀態篩選。
                   </p>
@@ -1920,7 +1920,7 @@
                 class="absolute top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 opacity-0 transition"
               ></span>
               <i data-lucide="message-square-heart" class="h-[18px] w-[18px]"></i>
-              <span class="mt-1 text-[11px] font-medium">里民許願池</span>
+              <span class="mt-1 text-[11px] font-medium">有事找里長</span>
             </button>
             <button
               type="button"
@@ -2411,7 +2411,7 @@
         renderIcons();
 
         // 許願池：先不打 API（保持 inline script 載入時的空白狀態，不預設 platforms 訊息）
-        setWishStatus('已就緒，進入許願池即可載入。', 'info');
+        setWishStatus('已就緒，進入「有事找里長」即可載入。', 'info');
 
         try {
           const config = await fetchRuntimeConfig();
@@ -4254,7 +4254,7 @@
             >
               <img
                 src="${photo.previewUrl}"
-                alt="第 ${index + 1} 張許願照片預覽"
+                alt="第 ${index + 1} 張反映照片預覽"
                 class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                 loading="lazy"
               />
@@ -4510,7 +4510,7 @@
           return;
         }
 
-        toggleSubmitting(true, '正在送出許願...');
+        toggleSubmitting(true, '正在送出反映...');
         setWishStatus('資料送出中，請稍候...', 'info');
 
         try {
@@ -4521,7 +4521,7 @@
             setPhotoProgress('visible', '正在與伺服器核發照片上傳金鑰...', 8);
             uploadResult = await issueSignedUrlsAndUploadPhotos(tokenBundle, headers);
             payload.photos = uploadResult.photoRows;
-            setPhotoProgress('visible', '照片已就緒，正在儲存您的許願內容...', 92);
+            setPhotoProgress('visible', '照片已就緒，正在儲存您的反映內容...', 92);
           }
 
           const response = await fetch('/api/feedback', {
@@ -4546,7 +4546,7 @@
           elements.content.value = '';
           clearPhotos();
 
-          setWishStatus(result.message || '感謝您的許願，我們已收到。', 'success');
+          setWishStatus(result.message || '感謝您的反映，我們已收到。', 'success');
           showSuccessCelebration(result && result.data ? result.data : null);
         } catch (error) {
           console.error('Submit secure flow failed:', error);
@@ -4648,10 +4648,10 @@
               <i data-lucide="check" class="h-6 w-6"></i>
             </span>
             <div class="min-w-0 flex-1">
-              <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">許願已送到</p>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">反映已送到</p>
               <h3 class="mt-2 text-xl font-semibold tracking-tight text-violet-950">感謝您的每一則意見</h3>
               <p class="mt-3 text-sm leading-7 text-slate-600">
-                您的許願已在 <span class="font-semibold text-slate-800">${createdAtText}</span> 被認真接住。我們會在 1~3 個工作天內了解狀況，並把處理進度寫回「我的許願」。
+                您的反映已在 <span class="font-semibold text-slate-800">${createdAtText}</span> 被認真接住。我們會在 1~3 個工作天內了解狀況，並把處理進度寫回「我的案件」。
               </p>
               ${wishId ? `<p class="mt-3 text-[11px] font-medium text-slate-400">案件編號 #${String(wishId)}</p>` : ''}
             </div>
@@ -4666,7 +4666,7 @@
           </div>
           <div class="relative mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p class="text-xs leading-6 text-slate-500">
-              未來可以從<span class="mx-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-600">「里民許願池」</span>頁面查看進度。
+              未來可以從<span class="mx-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-600">「有事找里長」</span>頁面查看進度。
             </p>
             <button
               type="button"
@@ -4679,7 +4679,7 @@
         `;
         document.body.appendChild(banner);
         renderIcons();
-        showToast('許願已送出，期待為您服務 ❤️');
+        showToast('反映已送出，期待為您服務 ❤️');
 
         const remove = () => {
           if (banner && banner.parentNode) {
@@ -4960,7 +4960,7 @@
           renderWishListState();
           if (isAuth) {
             setWishStatus('身分驗證失敗，請重新從 LINE 開啟 LIFF。', 'warning');
-            showToast('請重新從 LINE 開啟 LIFF 再查看「我的許願」');
+            showToast('請重新從 LINE 開啟 LIFF 再查看「我的案件」');
           }
         } finally {
           state.wish.listMeta.loading = false;
@@ -4973,15 +4973,15 @@
       const WISH_FILTER_DONE_STATUSES = ['已結案', '已取消'];
       const WISH_FILTER_EMPTY_COPY = {
         all: {
-          title: '還沒有任何許願',
-          desc: '切換到「我要許願」填寫表單，送出後就會在這裡看到處理進度哦。',
+          title: '還沒有任何反映',
+          desc: '切換到「我要反映」填寫表單，送出後就會在這裡看到處理進度哦。',
         },
         open: {
-          title: '目前沒有處理中的許願',
-          desc: '切回「全部」查看其他案件，或到「我要許願」送出新的許願。',
+          title: '目前沒有處理中的反映',
+          desc: '切回「全部」查看其他案件，或到「我要反映」送出新的反映。',
         },
         done: {
-          title: '目前沒有已完成的許願',
+          title: '目前沒有已完成的反映',
           desc: '案件結案後就會顯示在這裡。',
         },
       };
@@ -5404,7 +5404,7 @@
               class="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-[0.99]"
             >
               <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
-              <span>回到我的許願列表</span>
+              <span>回到我的案件列表</span>
             </button>
             <button
               type="button"
@@ -5412,7 +5412,7 @@
               class="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-rose-400 to-pink-500 px-4 text-xs font-semibold text-white shadow-float transition hover:-translate-y-0.5 active:scale-[0.99]"
             >
               <i data-lucide="pen-line" class="h-3.5 w-3.5"></i>
-              <span>我要再許一個願</span>
+              <span>我要再反映</span>
             </button>
           </div>
         `;
@@ -7199,7 +7199,7 @@
                 </button>
                 <button type="button" data-event-edit-action="notify-wish-pool" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-50 active:scale-95">
                   <i data-lucide="megaphone" class="h-3.5 w-3.5"></i>
-                  <span>通知曾使用許願池的里民</span>
+                  <span>通知曾反映過的里民</span>
                 </button>
               </div>
               <p id="eventNotifyStatus" class="mt-2 text-[11px] text-slate-400"></p>
@@ -7557,7 +7557,7 @@
         if (!edit.data) return;
 
         const statusEl = document.getElementById('eventNotifyStatus');
-        if (statusEl) statusEl.textContent = '發送中...（對象：曾使用許願池的里民，非全體里民）';
+        if (statusEl) statusEl.textContent = '發送中...（對象：曾反映過的里民，非全體里民）';
 
         try {
           const tokenBundle = await getIdentityToken();
@@ -7570,8 +7570,8 @@
             throw new Error(result.message || '通知發送失敗');
           }
           const d = result.data || {};
-          showToast(`通知許願池里民：嘗試 ${d.attempted || 0} 人，成功 ${d.succeeded || 0} 人，失敗 ${d.failed || 0} 人。`);
-          if (statusEl) { statusEl.textContent = `許願池里民：嘗試 ${d.attempted || 0} / 成功 ${d.succeeded || 0} / 失敗 ${d.failed || 0}`; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 5000); }
+          showToast(`通知曾反映過的里民：嘗試 ${d.attempted || 0} 人，成功 ${d.succeeded || 0} 人，失敗 ${d.failed || 0} 人。`);
+          if (statusEl) { statusEl.textContent = `曾反映里民：嘗試 ${d.attempted || 0} / 成功 ${d.succeeded || 0} / 失敗 ${d.failed || 0}`; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 5000); }
         } catch (err) {
           showToast(err.message || '通知發送失敗');
           if (statusEl) { statusEl.textContent = '發送失敗'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000); }
@@ -7872,7 +7872,7 @@
             throw new Error('AUTH_FORBIDDEN: 您沒有管理員權限，請重新從 LINE 開啟 LIFF。');
           }
           if (res.status === 404) {
-            throw new Error('找不到這筆許願紀錄，可能已被刪除。');
+            throw new Error('找不到這筆反映紀錄，可能已被刪除。');
           }
           if (!res.ok) {
             const txt = await res.text().catch(() => '');
@@ -8097,7 +8097,7 @@
                 </div>
               </div>
               <div class="rounded-[1.25rem] border border-violet-100/70 bg-gradient-to-b from-white to-violet-50/40 px-4 py-4">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-500">里民心聲</p>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-500">反映內容</p>
                 <p class="mt-2 whitespace-pre-wrap text-sm leading-8 text-slate-800">${content}</p>
               </div>
               ${replySummary ? `
@@ -8118,7 +8118,7 @@
               </div>
               <div>
                 <p class="text-sm font-semibold text-violet-950">案件處理</p>
-                <p class="text-xs text-slate-500">變更狀態或填寫回覆後送出，里民端「我的許願」將同步更新。</p>
+                <p class="text-xs text-slate-500">變更狀態或填寫回覆後送出，里民端「我的案件」將同步更新。</p>
               </div>
             </div>
 
@@ -8169,14 +8169,14 @@
 
           <div class="rounded-[1.75rem] border border-rose-200 bg-rose-50/50 p-5">
             <p class="text-xs font-semibold text-rose-700">危險區</p>
-            <p class="mt-1 text-[11px] leading-5 text-slate-500">刪除此許願將一併移除照片與處理紀錄，無法復原。</p>
+            <p class="mt-1 text-[11px] leading-5 text-slate-500">刪除此反映將一併移除照片與處理紀錄，無法復原。</p>
             <button
               type="button"
               id="adminDeleteFeedbackButton"
               class="mt-3 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-100 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-              <span>刪除此許願</span>
+              <span>刪除此反映</span>
             </button>
           </div>
         `;
@@ -8220,10 +8220,10 @@
         const photoNote = summary.photoCount > 0 ? `，含 ${summary.photoCount} 張照片` : '';
 
         const confirmed = window.confirm(
-          `確定要刪除這筆許願嗎？\n\n` +
+          `確定要刪除這筆反映嗎？\n\n` +
           `編號：#${feedbackId}\n` +
           `申請人：${name}\n` +
-          `內容摘要：${previewText || '（無內容）'}\n` +
+          `反映內容：${previewText || '（無內容）'}\n` +
           `刪除後照片與處理紀錄將一併移除${photoNote}，無法復原。`
         );
         if (!confirmed) return;
@@ -8247,7 +8247,7 @@
           state.admin.detail.deleting = false;
           if (deleteBtn) {
             deleteBtn.disabled = false;
-            deleteBtn.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>刪除此許願</span>';
+            deleteBtn.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>刪除此反映</span>';
             renderIcons();
           }
           showToast('身分驗證資訊取得失敗，請重新從 LINE 開啟 LIFF。');
@@ -8265,13 +8265,13 @@
             throw new Error('您沒有管理員權限，請重新從 LINE 開啟 LIFF。');
           }
           if (res.status === 404) {
-            throw new Error('找不到這筆許願紀錄，可能已被刪除。');
+            throw new Error('找不到這筆反映紀錄，可能已被刪除。');
           }
           if (!res.ok || !json || json.success === false) {
             throw new Error((json && json.message) || `刪除失敗（HTTP ${res.status}）`);
           }
 
-          showToast(json.message || '許願已刪除。');
+          showToast(json.message || '反映已刪除。');
           // 回到管理列表並重抓（列表計數需更新）
           state.admin.detail.data = null;
           state.admin.list.refreshedAt = null;
@@ -8284,7 +8284,7 @@
           state.admin.detail.deleting = false;
           if (deleteBtn) {
             deleteBtn.disabled = false;
-            deleteBtn.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>刪除此許願</span>';
+            deleteBtn.innerHTML = '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i><span>刪除此反映</span>';
             renderIcons();
           }
         }
@@ -8362,7 +8362,7 @@
             throw new Error('您沒有管理員權限，請重新從 LINE 開啟 LIFF。');
           }
           if (res.status === 404) {
-            throw new Error('找不到這筆許願紀錄，可能已被刪除。');
+            throw new Error('找不到這筆反映紀錄，可能已被刪除。');
           }
           if (!res.ok || !json || json.success === false) {
             throw new Error((json && json.message) || `儲存失敗（HTTP ${res.status}）`);
