@@ -109,6 +109,43 @@
         backdrop-filter: blur(18px);
       }
 
+      /* 核心政見詳情：底部位板升起／收起（僅 #platformModal，其他 glass-modal 維持 modal-in） */
+      #platformModal.platform-modal-anim {
+        opacity: 0;
+        transition: opacity 300ms ease-out;
+      }
+
+      #platformModal.platform-modal-anim .glass-modal {
+        animation: none; /* 覆寫預設 modal-in，避免 transform 動畫互相打架 */
+        transform: translateY(100vh);
+        transition: transform 420ms ease-out;
+      }
+
+      #platformModal.platform-modal-anim.platform-modal-shown {
+        opacity: 1;
+      }
+
+      #platformModal.platform-modal-anim.platform-modal-shown .glass-modal {
+        transform: translateY(0);
+      }
+
+      /* 關閉：滑回螢幕下緣、遮罩淡出（ease-in 稍快） */
+      #platformModal.platform-modal-anim.platform-modal-closing {
+        transition: opacity 380ms ease-in;
+        pointer-events: none;
+      }
+
+      #platformModal.platform-modal-anim.platform-modal-closing .glass-modal {
+        transition: transform 380ms ease-in;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #platformModal.platform-modal-anim,
+        #platformModal.platform-modal-anim .glass-modal {
+          transition-duration: 1ms;
+        }
+      }
+
       .reaction-bubble {
         animation: float-reaction 950ms ease-out forwards;
       }
@@ -289,7 +326,7 @@
 
       <div
         id="platformModal"
-        class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
+        class="platform-modal-anim fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
       >
         <div
           class="glass-modal relative w-full max-w-md overflow-hidden rounded-[2rem] border border-white/55 bg-white/74 shadow-2xl shadow-slate-900/20"
@@ -3739,17 +3776,48 @@
           ? `您剛剛已支持過這項政見，約 ${cooldown.minutesLeft} 分鐘後可再次點擊。`
           : '每位里民的認同，都是推動正砂改變的重要力量。';
 
+        const wasHidden = elements.platformModal.classList.contains('hidden');
+        // 取消進行中的關閉動畫（收起中又點開另一張卡：直接滑回定位）
+        let cancellingClose = false;
+        if (platformModalCloseTimer) {
+          clearTimeout(platformModalCloseTimer);
+          platformModalCloseTimer = null;
+          elements.platformModal.classList.remove('platform-modal-closing');
+          cancellingClose = true;
+        }
         elements.platformModal.classList.remove('hidden');
         elements.platformModal.classList.add('flex');
+        if (wasHidden) {
+          // display:none → flex：先強制 reflow 讓起點樣式（遮罩透明、卡片在螢幕下緣）生效再升起
+          void elements.platformModal.offsetWidth;
+          elements.platformModal.classList.add('platform-modal-shown');
+        } else if (cancellingClose) {
+          elements.platformModal.classList.add('platform-modal-shown');
+        }
+        // 彈窗已開著（詳情 API 回來重繪）不重播動畫，原地換內容避免閃爍
         document.body.classList.add('overflow-hidden');
         renderIcons();
       }
 
+      // 政見詳情關閉動畫計時器：動畫結束才真正 hidden，期間擋掉重複關閉
+      let platformModalCloseTimer = null;
+
       function closePlatformModal() {
+        if (platformModalCloseTimer) return; // 關閉動畫進行中，忽略重複觸發（X／遮罩／ESC 連點）
+        if (elements.platformModal.classList.contains('hidden')) {
+          state.activePlatformId = null;
+          return;
+        }
         state.activePlatformId = null;
-        elements.platformModal.classList.add('hidden');
-        elements.platformModal.classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
+        // 卡片滑回螢幕下緣、遮罩淡出，動畫跑完才隱藏
+        elements.platformModal.classList.remove('platform-modal-shown');
+        elements.platformModal.classList.add('platform-modal-closing');
+        platformModalCloseTimer = setTimeout(() => {
+          platformModalCloseTimer = null;
+          elements.platformModal.classList.add('hidden');
+          elements.platformModal.classList.remove('flex', 'platform-modal-closing');
+          document.body.classList.remove('overflow-hidden');
+        }, 380);
       }
 
       function openPrivacyModal() {

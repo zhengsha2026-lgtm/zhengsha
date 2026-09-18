@@ -37,7 +37,7 @@
 ## 3. 目前已完成的功能
 
 ### 頁面
-- 核心政見（單欄主打卡 + 左圖右文卡，有封面圖、摘要、支持數）
+- 核心政見（單欄主打卡 + 左圖右文卡，有封面圖、摘要、支持數；詳情視窗為**底部位板動畫**：遮罩淡入 300ms、卡片自螢幕下緣升起 420ms ease-out，關閉滑回 380ms ease-in，僅 `#platformModal` 生效、其他 modal 維持 `modal-in`）
 - 候選人介紹（英雄區照片放大前置 + 真情信獨立主打卡 + 初心過渡 + 三張能力卡條列）
 - 有事找里長（原「里民許願池」；表單層次優化：身分卡縮為一列、切換加強、內容框為主體、送出鈕紫色）
 - 我的案件列表（原「我的許願」；依狀態分組、卡片層次、時間精簡、身分列隱藏）
@@ -442,6 +442,11 @@
   - 後端：`POST /api/admin/safety/:id/approve`（pending/rejected → approved、`baseline_date` 重設核准當天、清 reject_reason 與殘留暫停、冪等）與 `POST /api/admin/safety/:id/reject`（僅 pending、reason ≤ 200 字）；裡民 join 改送申請、profile/checkin/membership/care/snooze/兩個 cron 全部加 approved 閘門
   - migration `007_safety_approval.sql`（已於 Supabase 執行）：`safety_members` 加 6 欄（`approval_status` CHECK 三值 DEFAULT `pending`、既有列 backfill `approved`、`applied_at`、`reviewed_at`、`reviewed_by`、`birth_year int`、`reject_reason`）
   - 驗證：`node --check app.js` 通過；admin.html/liff.html 全部 inline script 語法檢查通過（檢查器需先剝除 HTML 註解，否則註解內 `<script>` 字樣會誤判）
+- **政見詳情視窗動畫：底部位板升起／收起（已上線）**
+  - 只動 `#platformModal`：HTML 加 `platform-modal-anim`；CSS 用 transition（非 keyframes，中途打斷不跳位）——遮罩淡入 300ms ease-out、卡片 `translateY(100vh)→0` 420ms ease-out；關閉 380ms ease-in 滑回螢幕下緣後才 `hidden`
+  - `#platformModal .glass-modal` 覆寫 `animation: none`（停用共用的 `modal-in`，避免 transform 打架）；行程／隱私等其他 modal 不受影響
+  - `renderPlatformModal` 僅 `wasHidden` 時觸發升起（詳情 API 回來的原地重繪不重播動畫，避免閃爍）；`closePlatformModal` 用 `platformModalCloseTimer` 擋重複關閉（X／遮罩／ESC 連點），支援收起中途折返（自動取消動畫滑回）
+  - 支援 `prefers-reduced-motion`；政見內容、支持按鈕、封面、API、底部 4 Tab 全未動
 - **顯示名稱改版：許願池 → 有事找里長（已上線）**
   - 只改人看得到的中文文案；API 路徑／資料表／`?tab=wish`／bucket `wish-photos`／程式碼識別字（wish、feedback）全部不變，無 migration
   - 裡民端（liff.html）：底部 Tab「有事找里長」、面板標籤與分段「我要反映／我的案件」、送出中／成功橫幅／toast、三組空狀態文案、詳情「里民心聲」標籤里民端保留
