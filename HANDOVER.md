@@ -450,6 +450,9 @@
 - **政見詳情封面閃爍修復（已上線）**
   - 現象：點卡升起時封面已在，詳情 API 回來整卡重繪把 img 節點銷毀重載 → 封面「出現→空白→再載入」
   - 修復（`renderPlatformModal`，改法 A 非破壞式更新）：封面以**去 query 的路徑**（`new URL(src).pathname`）比對——詳情 API 的 signed URL 每次 token 都不同，同一張圖不動 img 節點，真的換圖才重建；圖示以 signature 比對不重複重建；標題／正文／支持數維持 textContent 更新。`openPlatformModal` 的「快取先畫骨架 → 詳情補文字」流程與 API 契約未動
+- **政見詳情關閉按鈕樣式改善 + 頁面大標文案更新（已上線）**
+  - 關閉鈕（`#closeModalButton`，僅 #platformModal）：32→**44px**（`h-11 w-11`＋flex 置中、`shrink-0` 防壓縮）、X 圖示 `h-5 w-5` 深紫 `text-violet-950`（原淡灰）、`bg-white/95`＋`ring-1 ring-violet-200/80` 細紫邊＋`shadow-md` 輕陰影；hover `bg-violet-50` 微加深、`active:scale-95` 按下輕縮；位置維持標題列右側（封面與標題列交界）；行程／隱私等其他 modal 關閉鈕未動
+  - 核心政見頁大標（liff.html 唯一一處，DB 的 title/content 未動）：改為「以超高的執行力，落實每一件重要的事」
 - **顯示名稱改版：許願池 → 有事找里長（已上線）**
   - 只改人看得到的中文文案；API 路徑／資料表／`?tab=wish`／bucket `wish-photos`／程式碼識別字（wish、feedback）全部不變，無 migration
   - 裡民端（liff.html）：底部 Tab「有事找里長」、面板標籤與分段「我要反映／我的案件」、送出中／成功橫幅／toast、三組空狀態文案、詳情「里民心聲」標籤里民端保留
