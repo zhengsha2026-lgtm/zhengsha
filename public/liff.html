@@ -3736,14 +3736,34 @@
         const isSupporting = state.supportingIds.has(platform.id);
         const content = getPlatformContent(platform);
 
-        // 封面圖（有圖才顯示）
+        // 封面圖（有圖才顯示）。
+        // 詳情 API 每次回傳的 signed URL query token 都不同，若以 innerHTML 重建 img，
+        // 節點被銷毀會造成封面「先出現→空白→再載入」的閃爍；因此以去 query 的路徑比對：
+        // 同一張圖不動 DOM，只有封面真的換圖（或無圖）才重建。
         if (elements.modalCoverWrap) {
-          if (platform.cover_url) {
-            elements.modalCoverWrap.innerHTML = `<img src="${escapeHtml(platform.cover_url)}" alt="${escapeHtml(platform.title || '政見封面')}" class="aspect-[16/9] w-full object-cover" loading="lazy" />`;
+          const coverPathKey = (src) => {
+            if (!src) return '';
+            try {
+              return new URL(src, window.location.href).pathname;
+            } catch (err) {
+              return String(src).split('?')[0];
+            }
+          };
+          const nextCoverSrc = platform.cover_url || null;
+          const nextCoverPath = coverPathKey(nextCoverSrc);
+          const existingCoverImg = elements.modalCoverWrap.querySelector('img');
+          const currentCoverPath = existingCoverImg
+            ? coverPathKey(existingCoverImg.getAttribute('src'))
+            : elements.modalCoverWrap.dataset.coverPath || '';
+          if (nextCoverSrc && existingCoverImg && currentCoverPath === nextCoverPath) {
+            // 同一張圖（僅 signed token 更新）：不動 img 節點，避免重新載入閃爍
             elements.modalCoverWrap.classList.remove('hidden');
           } else {
-            elements.modalCoverWrap.innerHTML = '';
-            elements.modalCoverWrap.classList.add('hidden');
+            elements.modalCoverWrap.innerHTML = nextCoverSrc
+              ? `<img src="${escapeHtml(nextCoverSrc)}" alt="${escapeHtml(platform.title || '政見封面')}" class="aspect-[16/9] w-full object-cover" loading="lazy" />`
+              : '';
+            elements.modalCoverWrap.dataset.coverPath = nextCoverPath;
+            elements.modalCoverWrap.classList.toggle('hidden', !nextCoverSrc);
           }
         }
 
@@ -3763,8 +3783,13 @@
           elements.modalDescription.textContent = content;
         }
         elements.modalAgreeCount.textContent = String(Number(platform.agree_count) || 0);
-        elements.modalIconWrap.className = `flex h-14 w-14 items-center justify-center rounded-2xl ring-1 ring-white/80 ${theme.modalIconWrap}`;
-        elements.modalIconWrap.innerHTML = `<i data-lucide="${iconName}" class="h-7 w-7"></i>`;
+        // 圖示：以 signature 比對，未變不重建節點（避免詳情重繪時無謂的 DOM 重建）
+        const modalIconSignature = `${iconName}|${theme.modalIconWrap}`;
+        if (elements.modalIconWrap.dataset.signature !== modalIconSignature) {
+          elements.modalIconWrap.className = `flex h-14 w-14 items-center justify-center rounded-2xl ring-1 ring-white/80 ${theme.modalIconWrap}`;
+          elements.modalIconWrap.innerHTML = `<i data-lucide="${iconName}" class="h-7 w-7"></i>`;
+          elements.modalIconWrap.dataset.signature = modalIconSignature;
+        }
         elements.modalSupportButton.className = `rounded-full px-5 py-3 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400 ${theme.supportButton}`;
         elements.modalSupportButton.disabled = isSupporting || cooldown.active;
         elements.modalSupportButton.innerHTML = isSupporting
