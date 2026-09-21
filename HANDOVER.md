@@ -447,6 +447,9 @@
   - `#platformModal .glass-modal` 覆寫 `animation: none`（停用共用的 `modal-in`，避免 transform 打架）；行程／隱私等其他 modal 不受影響
   - `renderPlatformModal` 僅 `wasHidden` 時觸發升起（詳情 API 回來的原地重繪不重播動畫，避免閃爍）；`closePlatformModal` 用 `platformModalCloseTimer` 擋重複關閉（X／遮罩／ESC 連點），支援收起中途折返（自動取消動畫滑回）
   - 支援 `prefers-reduced-motion`；政見內容、支持按鈕、封面、API、底部 4 Tab 全未動
+- **LIFF 啟動頁（splash）放大（已上線）**
+  - 只動 `#appSplash` 區塊的 inline style 與 `.app-splash__spinner` CSS，載入邏輯（純 CSS 顯示、主流程淡出移除、8 秒保險絲）與內頁／底部 Tab 未動
+  - 尺寸：頭像 72→**96px**（漸層圈 padding 3→4px、白底內圈 5→6px 等比）、主標「幸福正砂 ‧ 曾思容」18→**24px**、副標「正砂里長候選人」12→**15px**、spinner 26→**34px**（邊 3→4px）、「載入中…」13→**14px**；置中、圓形、紫／白配色維持
 - **政見詳情封面閃爍修復（已上線）**
   - 現象：點卡升起時封面已在，詳情 API 回來整卡重繪把 img 節點銷毀重載 → 封面「出現→空白→再載入」
   - 修復（`renderPlatformModal`，改法 A 非破壞式更新）：封面以**去 query 的路徑**（`new URL(src).pathname`）比對——詳情 API 的 signed URL 每次 token 都不同，同一張圖不動 img 節點，真的換圖才重建；圖示以 signature 比對不重複重建；標題／正文／支持數維持 textContent 更新。`openPlatformModal` 的「快取先畫骨架 → 詳情補文字」流程與 API 契約未動
