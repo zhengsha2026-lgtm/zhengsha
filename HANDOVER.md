@@ -99,7 +99,7 @@
 
 ### 競選行程（里民端 + 管理端）
 - 里民端行程頁：底部第 4 個 Tab「競選行程」
-  - `GET /api/events` 回傳 `{ next, upcoming, past }`：主打 `next` 為 upcoming 第一筆（start_at >= now），列表中**不重複**；`upcoming` 為其餘即將到來、`past` 為過往足跡（upcoming/past **只看 `start_at`**）
+  - `GET /api/events` 回傳 `{ next, upcoming, past }`：主打 `next` 為 upcoming 第一筆（start_at >= now），列表中**不重複**；`upcoming` 為其餘即將到來、`past` 為過往足跡（upcoming/past **只看 `start_at`**）；支援 `?scope=upcoming`（只回 next+upcoming，DB 層 `start_at >= now`）與 `?scope=past`（只回 past，`start_at < now` desc）供裡民端兩段式載入，不帶 scope 回全部（相容舊契約）；列表封面 `cover_url` 一律簽**縮圖**（image transform width 1080 quality 70，transform 不可用自動退回原圖），詳情 `GET /api/events/:id` 才簽原圖（上傳時已壓 maxEdge 1600 WebP）
   - 主打 hero 卡（16:9 封面 + 標題 + 描述摘要 + 時間 + 地點 + 報名人數）
   - 即將到來/過往足跡分組，過往足跡視覺層次較低
   - 詳情 modal：封面（16:9 contain 預覽）、標題、時間區間、地點、`description`（列表摘要）、`content`（完整內容）、相簿縮圖、影片連結、報名人數 + 報名/取消按鈕
@@ -443,6 +443,12 @@
   - 後端：`POST /api/admin/safety/:id/approve`（pending/rejected → approved、`baseline_date` 重設核准當天、清 reject_reason 與殘留暫停、冪等）與 `POST /api/admin/safety/:id/reject`（僅 pending、reason ≤ 200 字）；裡民 join 改送申請、profile/checkin/membership/care/snooze/兩個 cron 全部加 approved 閘門
   - migration `007_safety_approval.sql`（已於 Supabase 執行）：`safety_members` 加 6 欄（`approval_status` CHECK 三值 DEFAULT `pending`、既有列 backfill `approved`、`applied_at`、`reviewed_at`、`reviewed_by`、`birth_year int`、`reject_reason`）
   - 驗證：`node --check app.js` 通過；admin.html/liff.html 全部 inline script 語法檢查通過（檢查器需先剝除 HTML 註解，否則註解內 `<script>` 字樣會誤判）
+- **競選行程載入加速：兩段式＋列表縮圖（已上線）**
+  - 後端 `GET /api/events` 支援 `?scope=upcoming`／`?scope=past`（DB 層 `start_at >= / < now` 過濾，等價舊 JS 分流語義含邊界），不帶 scope 維持一次回全部（相容）；upcoming 查詢 `start_at asc`、past 查詢 `start_at desc`
+  - `getEventCoverSignedUrl(coverPath, transform)` 加選用 transform 參數：列表（里民端三種 scope）簽**縮圖**（`EVENT_LIST_COVER_TRANSFORM = { width: 1080, quality: 70 }`，Supabase Storage image transform）；**transform 失敗／專案未開自動退回原圖 signed URL**（console.warn，畫面不壞）；詳情 `GET /api/events/:id` 與 lightbox 維持原圖（上傳已壓 maxEdge 1600 WebP，在 1600～1920 帶）；管理端 `/api/admin/events*` 一律原圖未動
+  - 前端 `loadEvents` 兩段式：第一段 `?scope=upcoming` 渲染主打＋即將到來（spinner 收、`refreshedAt` 寫入）→ 第二段 `?scope=past` 背景補載（失敗只 `console.warn` 不卡頁、不重複轉圈）；`state.events.pastLoaded` 旗標——空狀態（total==0）必須等第二段完成才顯示；force 重抓兩段都重跑；快取邏輯不變
+  - hero 主打封面 img 加 `fetchpriority="high"`（維持 `loading="lazy"`），其餘列表圖不動
+  - 驗證：`node --check app.js`＋liff.html 5 個 inline script 通過；scope 分流語義模擬（含 start_at==now 邊界歸 upcoming）與舊行為一致
 - **行程詳情封面可點開放大（已上線）**
   - 新增 `#eventCoverLightbox`（z-60 高於行程詳情 z-50）：深色半透明底（`bg-slate-900/85`＋blur）＋置中大圖 `max-h-[88vh] object-contain`（**維持原圖比例**，不裁 16:9）；右上關閉鈕對齊政見關閉鈕規格（44px 白底深紫 X、細紫邊＋輕陰影）
   - 關閉路徑三種＋ESC：點大圖／點遮罩／點 X 都關放大層**回到行程詳情**（不關詳情）；ESC handler 最前面判斷——放大層開著優先關它、不動詳情；`closeEventDetail` 開頭同步收放大層（避免孤兒 lightbox）

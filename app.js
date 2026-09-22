@@ -283,13 +283,25 @@ app.get('/api/events', async (req, res) => {
   try {
     const nowIso = new Date().toISOString();
 
-    const { data, error } = await supabaseAdmin
+    // scope=upcoming：第一屏（下一場＋即將到來）；scope=past：過往足跡背景補載；
+    // 不帶 scope：一次回全部（相容舊契約）
+    const scope = req.query.scope === 'upcoming' || req.query.scope === 'past' ? req.query.scope : null;
+
+    let listQuery = supabaseAdmin
       .from('campaign_events')
       .select(
         'id, title, description, start_at, end_at, location, cover_image_path, rsvp_count, is_published'
       )
-      .eq('is_published', true)
-      .order('start_at', { ascending: true });
+      .eq('is_published', true);
+    if (scope === 'upcoming') {
+      listQuery = listQuery.gte('start_at', nowIso).order('start_at', { ascending: true });
+    } else if (scope === 'past') {
+      listQuery = listQuery.lt('start_at', nowIso).order('start_at', { ascending: false });
+    } else {
+      listQuery = listQuery.order('start_at', { ascending: true });
+    }
+
+    const { data, error } = await listQuery;
 
     if (error) {
       console.error('events list fetch failed:', error);
@@ -300,8 +312,19 @@ app.get('/api/events', async (req, res) => {
     }
 
     const all = data || [];
-    const upcomingRaw = all.filter((e) => new Date(e.start_at) >= new Date(nowIso));
-    const pastRaw = all.filter((e) => new Date(e.start_at) < new Date(nowIso));
+    let upcomingRaw;
+    let pastRaw;
+    if (scope === 'upcoming') {
+      upcomingRaw = all;
+      pastRaw = [];
+    } else if (scope === 'past') {
+      // 查詢已 start_at desc
+      upcomingRaw = [];
+      pastRaw = all;
+    } else {
+      upcomingRaw = all.filter((e) => new Date(e.start_at) >= new Date(nowIso));
+      pastRaw = all.filter((e) => new Date(e.start_at) < new Date(nowIso));
+    }
 
     // upcoming 第一筆為主打，列表不重複
     const nextItem = upcomingRaw.length > 0 ? upcomingRaw[0] : null;
@@ -310,8 +333,9 @@ app.get('/api/events', async (req, res) => {
     // past 由近到遠（start_at desc）
     const pastSorted = pastRaw.slice().sort((a, b) => new Date(b.start_at) - new Date(a.start_at));
 
+    // 列表封面一律簽縮圖 URL（image transform；詳情 API 才簽原圖大圖）
     const decorate = async (e) => {
-      const coverUrl = await getEventCoverSignedUrl(e.cover_image_path);
+      const coverUrl = await getEventCoverSignedUrl(e.cover_image_path, EVENT_LIST_COVER_TRANSFORM);
       const { cover_image_path, is_published, ...rest } = e;
       return { ...rest, cover_url: coverUrl };
     };
@@ -4739,9 +4763,27 @@ function buildEventAlbumStoragePath(eventId, fileUuid) {
   return `albums/${safeId}/${safeFile}.webp`;
 }
 
-// 行程封面 / 相簿 signed read URL；無路徑回 null
-async function getEventCoverSignedUrl(coverPath) {
+// 行程封面 signed read URL；無路徑回 null
+// 行程列表縮圖 transform：長邊 1080、品質 70（原圖上傳時已壓 maxEdge 1600 WebP；
+// 詳情與 lightbox 用原圖，本來就在 1600～1920 帶）
+const EVENT_LIST_COVER_TRANSFORM = { width: 1080, quality: 70 };
+
+async function getEventCoverSignedUrl(coverPath, transform = null) {
   if (!coverPath || !supabaseAdmin) return null;
+  // 優先 Supabase Storage image transform（縮圖）；專案未開 transform 時自動退回原圖 signed URL
+  if (transform) {
+    try {
+      const { data: thumbData, error: thumbError } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET_EVENT_COVERS)
+        .createSignedUrl(coverPath, SIGNED_READ_URL_EXPIRES_IN, { transform });
+      if (!thumbError && thumbData) {
+        return thumbData.signedUrl || thumbData.url || null;
+      }
+      console.warn('Event cover transform unavailable, fallback to full-size URL:', thumbError && thumbError.message);
+    } catch (err) {
+      console.warn('Event cover transform error, fallback to full-size URL:', err.message);
+    }
+  }
   const { data, error } = await supabaseAdmin.storage
     .from(STORAGE_BUCKET_EVENT_COVERS)
     .createSignedUrl(coverPath, SIGNED_READ_URL_EXPIRES_IN);

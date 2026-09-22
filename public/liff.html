@@ -2235,6 +2235,7 @@
           loading: false,
           error: null,
           refreshedAt: null,
+          pastLoaded: false, // 兩段式載入：過往足跡（scope=past）補載完成才算整份載完
           data: { next: null, upcoming: [], past: [] },
           detail: { id: null, loading: false, data: null, error: null, rsvpBusy: false },
         },
@@ -3913,6 +3914,7 @@
         }
         state.events.loading = true;
         state.events.error = null;
+        state.events.pastLoaded = false;
 
         if (elements.eventsLoading) elements.eventsLoading.classList.remove('hidden');
         if (elements.eventsEmpty) elements.eventsEmpty.classList.add('hidden');
@@ -3922,8 +3924,22 @@
           elements.eventsContainer.innerHTML = '';
         }
 
+        // 空狀態判斷：過往足跡（第二段）載完才算整份載完，避免中途誤判空
+        const evaluateEventsEmpty = () => {
+          if (state.events.error) return;
+          const { next, upcoming, past } = state.events.data;
+          const total = (next ? 1 : 0) + upcoming.length + past.length;
+          if (!elements.eventsEmpty) return;
+          if (total === 0 && state.events.pastLoaded) {
+            elements.eventsEmpty.classList.remove('hidden');
+          } else {
+            elements.eventsEmpty.classList.add('hidden');
+          }
+        };
+
         try {
-          const res = await fetch('/api/events');
+          // 第一段：只抓下一場＋即將到來（不等過去場次，第一屏更快出現）
+          const res = await fetch('/api/events?scope=upcoming');
           const result = await res.json();
           if (!res.ok || !result.success) {
             throw new Error(result.message || '行程載入失敗');
@@ -3932,7 +3948,8 @@
           state.events.data = {
             next: d.next || null,
             upcoming: Array.isArray(d.upcoming) ? d.upcoming : [],
-            past: Array.isArray(d.past) ? d.past : [],
+            // 舊 past 先保留，第二段回來再覆蓋（避免畫面閃空）
+            past: state.events.data.past || [],
           };
           state.events.refreshedAt = Date.now();
           renderEvents();
@@ -3945,11 +3962,29 @@
         } finally {
           state.events.loading = false;
           if (elements.eventsLoading) elements.eventsLoading.classList.add('hidden');
-          const { next, upcoming, past } = state.events.data;
-          const total = (next ? 1 : 0) + upcoming.length + past.length;
-          if (total === 0 && !state.events.error) {
-            if (elements.eventsEmpty) elements.eventsEmpty.classList.remove('hidden');
+          evaluateEventsEmpty();
+          renderIcons();
+        }
+
+        // 第二段：過往足跡背景補載（失敗安靜略過，不轉圈卡住第一屏）
+        if (state.events.error) {
+          state.events.pastLoaded = true;
+          return;
+        }
+        try {
+          const res2 = await fetch('/api/events?scope=past');
+          const result2 = await res2.json();
+          if (!res2.ok || !result2.success) {
+            throw new Error(result2.message || '過往足跡載入失敗');
           }
+          const d2 = result2.data || {};
+          state.events.data.past = Array.isArray(d2.past) ? d2.past : [];
+        } catch (err) {
+          console.warn('events past load failed:', err);
+        } finally {
+          state.events.pastLoaded = true;
+          renderEvents();
+          evaluateEventsEmpty();
           renderIcons();
         }
       }
@@ -3959,7 +3994,7 @@
           if (variant === 'hero') {
             return `
               <div class="relative aspect-[16/9] w-full overflow-hidden">
-                <img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(title || '行程封面')}" class="h-full w-full object-cover" loading="lazy" />
+                <img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(title || '行程封面')}" class="h-full w-full object-cover" loading="lazy" fetchpriority="high" />
                 <div class="absolute inset-0 bg-gradient-to-t from-violet-950/35 via-transparent to-transparent"></div>
               </div>
             `;
