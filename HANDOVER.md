@@ -443,6 +443,11 @@
   - 後端：`POST /api/admin/safety/:id/approve`（pending/rejected → approved、`baseline_date` 重設核准當天、清 reject_reason 與殘留暫停、冪等）與 `POST /api/admin/safety/:id/reject`（僅 pending、reason ≤ 200 字）；裡民 join 改送申請、profile/checkin/membership/care/snooze/兩個 cron 全部加 approved 閘門
   - migration `007_safety_approval.sql`（已於 Supabase 執行）：`safety_members` 加 6 欄（`approval_status` CHECK 三值 DEFAULT `pending`、既有列 backfill `approved`、`applied_at`、`reviewed_at`、`reviewed_by`、`birth_year int`、`reject_reason`）
   - 驗證：`node --check app.js` 通過；admin.html/liff.html 全部 inline script 語法檢查通過（檢查器需先剝除 HTML 註解，否則註解內 `<script>` 字樣會誤判）
+- **行程詳情視窗動畫：對齊政見車窗升起（已上線）**
+  - `#eventDetailModal`（行程詳情）加入與政見 `#platformModal` 同一套底部位板動畫：CSS 選擇器從 `#platformModal.platform-modal-anim …` 改為 **`.platform-modal-anim …`（class 化共用）**，行程 modal HTML 掛同一個 class——遮罩淡入 300ms、卡片自螢幕下緣升起 420ms ease-out、關閉 380ms ease-in 滑回後才 `hidden`，零複製數字；政見端 class 名不變（`platform-modal-anim`／`platform-modal-shown`／`platform-modal-closing`），行為完全不變
+  - `openEventDetail`：加 wasHidden → 強制 reflow → `platform-modal-shown` 升起；詳情 API 回來 `renderEventDetail` 原地重繪**不重播動畫**（骨架先畫、內容直接補上，封面 img 只在首次渲染出現、不中途拆掉）；收起中途再點開另一場行程自動取消關閉動畫滑回
+  - `closeEventDetail`：加 `eventModalCloseTimer`（與政見 `platformModalCloseTimer` 同模式）——滑回底部 380ms 動畫結束才 `hidden`，擋 X／遮罩／ESC 連點
+  - 未動：行程內容／報名／時間／封面／API、底部 4 Tab、管理端編輯頁、隱私等其他 modal（仍走 `modal-in`）
 - **行程時間時區修復：+8 偏移（已上線）**
   - 現象：管理端 `datetime-local` 設 11:00，里民端顯示 19:00（結束時間同樣 +8）
   - 根因：無時區字串在後端（Vercel＝UTC）被 `new Date()` 當 UTC 存入 timestamptz；顯示端又用本機時區 `getHours()`（里民手機台北 → +8 顯示）

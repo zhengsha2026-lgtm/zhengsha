@@ -109,39 +109,39 @@
         backdrop-filter: blur(18px);
       }
 
-      /* 核心政見詳情：底部位板升起／收起（僅 #platformModal，其他 glass-modal 維持 modal-in） */
-      #platformModal.platform-modal-anim {
+      /* 底部位板升起／收起（共用：#platformModal 政見詳情 + #eventDetailModal 行程詳情，其他 glass-modal 維持 modal-in） */
+      .platform-modal-anim {
         opacity: 0;
         transition: opacity 300ms ease-out;
       }
 
-      #platformModal.platform-modal-anim .glass-modal {
+      .platform-modal-anim .glass-modal {
         animation: none; /* 覆寫預設 modal-in，避免 transform 動畫互相打架 */
         transform: translateY(100vh);
         transition: transform 420ms ease-out;
       }
 
-      #platformModal.platform-modal-anim.platform-modal-shown {
+      .platform-modal-anim.platform-modal-shown {
         opacity: 1;
       }
 
-      #platformModal.platform-modal-anim.platform-modal-shown .glass-modal {
+      .platform-modal-anim.platform-modal-shown .glass-modal {
         transform: translateY(0);
       }
 
       /* 關閉：滑回螢幕下緣、遮罩淡出（ease-in 稍快） */
-      #platformModal.platform-modal-anim.platform-modal-closing {
+      .platform-modal-anim.platform-modal-closing {
         transition: opacity 380ms ease-in;
         pointer-events: none;
       }
 
-      #platformModal.platform-modal-anim.platform-modal-closing .glass-modal {
+      .platform-modal-anim.platform-modal-closing .glass-modal {
         transition: transform 380ms ease-in;
       }
 
       @media (prefers-reduced-motion: reduce) {
-        #platformModal.platform-modal-anim,
-        #platformModal.platform-modal-anim .glass-modal {
+        .platform-modal-anim,
+        .platform-modal-anim .glass-modal {
           transition-duration: 1ms;
         }
       }
@@ -390,7 +390,7 @@
 
       <div
         id="eventDetailModal"
-        class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
+        class="platform-modal-anim fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
       >
         <div
           class="glass-modal relative max-h-[88vh] w-full max-w-md overflow-y-auto overflow-x-hidden rounded-[2rem] border border-white/55 bg-white/90 shadow-2xl shadow-slate-900/20"
@@ -4030,13 +4030,28 @@
         renderIcons();
       }
 
+      // 行程詳情關閉動畫計時器：動畫結束才真正 hidden，期間擋掉重複關閉（與政見 platformModalCloseTimer 同模式）
+      let eventModalCloseTimer = null;
+
       function closeEventDetail() {
         if (!elements.eventDetailModal) return;
-        elements.eventDetailModal.classList.add('hidden');
-        elements.eventDetailModal.classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
+        if (eventModalCloseTimer) return; // 關閉動畫進行中，忽略重複觸發（X／遮罩／ESC 連點）
+        if (elements.eventDetailModal.classList.contains('hidden')) {
+          state.events.detail.id = null;
+          state.events.detail.data = null;
+          return;
+        }
         state.events.detail.id = null;
         state.events.detail.data = null;
+        // 卡片滑回螢幕下緣、遮罩淡出，動畫跑完才隱藏
+        elements.eventDetailModal.classList.remove('platform-modal-shown');
+        elements.eventDetailModal.classList.add('platform-modal-closing');
+        eventModalCloseTimer = setTimeout(() => {
+          eventModalCloseTimer = null;
+          elements.eventDetailModal.classList.add('hidden');
+          elements.eventDetailModal.classList.remove('flex', 'platform-modal-closing');
+          document.body.classList.remove('overflow-hidden');
+        }, 380);
       }
 
       async function openEventDetail(eventId) {
@@ -4046,8 +4061,25 @@
         state.events.detail.loading = true;
         state.events.detail.error = null;
 
+        const wasHidden = elements.eventDetailModal.classList.contains('hidden');
+        // 取消進行中的關閉動畫（收起中又點開另一場行程：直接滑回定位）
+        let cancellingClose = false;
+        if (eventModalCloseTimer) {
+          clearTimeout(eventModalCloseTimer);
+          eventModalCloseTimer = null;
+          elements.eventDetailModal.classList.remove('platform-modal-closing');
+          cancellingClose = true;
+        }
         elements.eventDetailModal.classList.remove('hidden');
         elements.eventDetailModal.classList.add('flex');
+        if (wasHidden) {
+          // display:none → flex：先強制 reflow 讓起點樣式（遮罩透明、卡片在螢幕下緣）生效再升起
+          void elements.eventDetailModal.offsetWidth;
+          elements.eventDetailModal.classList.add('platform-modal-shown');
+        } else if (cancellingClose) {
+          elements.eventDetailModal.classList.add('platform-modal-shown');
+        }
+        // 彈窗已開著（詳情 API 回來重繪）不重播動畫，原地換內容避免閃爍
         document.body.classList.add('overflow-hidden');
         elements.eventDetailContainer.innerHTML = `
           <div class="space-y-4">
