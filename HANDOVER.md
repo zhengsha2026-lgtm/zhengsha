@@ -113,6 +113,7 @@
     - `POST /api/admin/events/:id/notify-wish-pool`（發 LINE 訊息給曾使用許願池的里民）
     - 兩則通知都會消耗 LINE 官方帳號推播則數，建議謹慎使用
   - 行程時間顯示：畫面上一律 `YYYY/MM/DD HH:mm`（24 小時制，小時補零）；編輯頁的 `datetime-local` 系統挑選器可能仍是 12 小時，**下方另附 24 小時制可見文字**避免混淆
+  - **行程時區單一來源（2026-09-22 起）**：所有行程時間一律以 **Asia/Taipei** 解讀與顯示。管理端 `datetime-local` 的無時區字串（如 `2026-11-01T11:00`）後端 `parseEventDateTime()` 視為台北時間（補 `+08:00`）再存 timestamptz（存 `03:00Z`）；顯示端 `formatEventDateTime`（app.js 通知用）／`formatEventDateTimeDisplay`／`formatEventDateTimeLocal`（liff.html 回填）固定 +8 用 UTC getter 格式化，不隨伺服器／裝置時區變動；upcoming/past、已結束不可報名皆絕對時間比較，存對即正確。**修復前經編輯頁儲存的舊資料被存成 +8 偏移（輸入 11:00 存成 11:00Z＝顯示 19:00），需逐筆重存修正，不可整批 UPDATE**
   - 上傳封面 / 相簿照片成功後，**只更新該區塊 DOM，不會重置表單其他已填欄位**（title、description、content、時間、地點、影片、上架等都保留）
 - **圖文選單入口**：
   - 網址格式：`https://liff.line.me/{LIFF_ID}?tab=platforms|intro|wish|schedule|safety`（可用 search 或 hash 兩種）
@@ -442,6 +443,12 @@
   - 後端：`POST /api/admin/safety/:id/approve`（pending/rejected → approved、`baseline_date` 重設核准當天、清 reject_reason 與殘留暫停、冪等）與 `POST /api/admin/safety/:id/reject`（僅 pending、reason ≤ 200 字）；裡民 join 改送申請、profile/checkin/membership/care/snooze/兩個 cron 全部加 approved 閘門
   - migration `007_safety_approval.sql`（已於 Supabase 執行）：`safety_members` 加 6 欄（`approval_status` CHECK 三值 DEFAULT `pending`、既有列 backfill `approved`、`applied_at`、`reviewed_at`、`reviewed_by`、`birth_year int`、`reject_reason`）
   - 驗證：`node --check app.js` 通過；admin.html/liff.html 全部 inline script 語法檢查通過（檢查器需先剝除 HTML 註解，否則註解內 `<script>` 字樣會誤判）
+- **行程時間時區修復：+8 偏移（已上線）**
+  - 現象：管理端 `datetime-local` 設 11:00，里民端顯示 19:00（結束時間同樣 +8）
+  - 根因：無時區字串在後端（Vercel＝UTC）被 `new Date()` 當 UTC 存入 timestamptz；顯示端又用本機時區 `getHours()`（里民手機台北 → +8 顯示）
+  - 修復（單一來源 Asia/Taipei）：後端新增 `parseEventDateTime()`（app.js，無時區字串補 `+08:00`），`normalizeEventPayload`／`buildEventUpdatePayload` 的驗證與寫入全改走它（輸入 11:00 → 存 `03:00Z`）；`formatEventDateTime`（app.js，LINE 通知文案）改固定台北格式化；liff.html 新增 `parseEventDateTimeValue()`，`formatEventDateTimeDisplay`（列表／詳情／編輯頁 24h 文字）與 `formatEventDateTimeLocal`（編輯頁回填）同樣固定台北。新增行程預設值路徑（`toISOString()` 已帶 Z）原本就正確，未動；upcoming/past／已結束不可報名為絕對時間比較，未動
+  - 舊資料：修復前經編輯頁儲存的列已存成 +8 偏移，部署後到編輯頁**逐筆重存**正確時間即可（回填會如實顯示 19:00，改回 11:00 儲存）；不可整批 UPDATE
+  - 驗證：實際函式於 `TZ=UTC` 環境模擬——舊行為重現 19:00、新存法顯示 11:00、帶 `Z`／`+00:00` 字串原樣解析、晚上場 19:30 正確、結束早於開始仍擋下
 - **政見詳情視窗動畫：底部位板升起／收起（已上線）**
   - 只動 `#platformModal`：HTML 加 `platform-modal-anim`；CSS 用 transition（非 keyframes，中途打斷不跳位）——遮罩淡入 300ms ease-out、卡片 `translateY(100vh)→0` 420ms ease-out；關閉 380ms ease-in 滑回螢幕下緣後才 `hidden`
   - `#platformModal .glass-modal` 覆寫 `animation: none`（停用共用的 `modal-in`，避免 transform 打架）；行程／隱私等其他 modal 不受影響

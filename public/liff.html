@@ -6988,21 +6988,33 @@
       // 行程管理（管理員）
       // ============================================
 
+      // 行程時間一律以台北時區解讀與顯示（單一來源）：
+      // datetime-local 的值沒有時區資訊（如 '2026-11-01T11:00'），視為台北時間補 +08:00；
+      // 顯示固定 +8 後用 UTC getter，不隨裝置時區變動（台灣無日光節約）
+      function parseEventDateTimeValue(str) {
+        const raw = String(str || '').trim();
+        if (!raw) return new Date(NaN);
+        const hasTz = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+        return new Date(hasTz ? raw : `${raw}+08:00`);
+      }
+
       function formatEventDateTimeLocal(isoStr) {
         if (!isoStr) return '';
-        const d = new Date(isoStr);
+        const d = parseEventDateTimeValue(isoStr);
         if (Number.isNaN(d.getTime())) return '';
+        const tpe = new Date(d.getTime() + 8 * 60 * 60 * 1000);
         const pad = (n) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        return `${tpe.getUTCFullYear()}-${pad(tpe.getUTCMonth() + 1)}-${pad(tpe.getUTCDate())}T${pad(tpe.getUTCHours())}:${pad(tpe.getUTCMinutes())}`;
       }
 
       function formatEventDateTimeDisplay(isoStr) {
         if (!isoStr) return '待公佈';
-        const d = new Date(isoStr);
+        const d = parseEventDateTimeValue(isoStr);
         if (Number.isNaN(d.getTime())) return '待公佈';
+        const tpe = new Date(d.getTime() + 8 * 60 * 60 * 1000);
         const pad = (n) => String(n).padStart(2, '0');
-        // 統一格式 YYYY/MM/DD HH:mm（24 小時制，小時補零）
-        return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        // 統一格式 YYYY/MM/DD HH:mm（24 小時制，小時補零，台北時區）
+        return `${tpe.getUTCFullYear()}/${pad(tpe.getUTCMonth() + 1)}/${pad(tpe.getUTCDate())} ${pad(tpe.getUTCHours())}:${pad(tpe.getUTCMinutes())}`;
       }
 
       async function loadAdminEvents(options = {}) {

@@ -4752,6 +4752,16 @@ async function getEventCoverSignedUrl(coverPath) {
   return data.signedUrl || data.url || null;
 }
 
+// 行程時間解析：datetime-local 的值沒有時區資訊（如 '2026-11-01T11:00'），
+// 一律視為台北時間（+08:00）再轉絕對時間；已帶時區（Z 或 +hh:mm）的字串原樣解析。
+// 伺服器（Vercel）時區是 UTC，若直接 new Date(naive) 會被當 UTC，存檔即 +8 偏移
+function parseEventDateTime(str) {
+  const raw = String(str || '').trim();
+  if (!raw) return new Date(NaN);
+  const hasTz = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  return new Date(hasTz ? raw : `${raw}+08:00`);
+}
+
 // 新增行程 payload 正規化（title、start_at 為必填）
 function normalizeEventPayload(body = {}) {
   const title = String(body.title || '').trim();
@@ -4765,13 +4775,13 @@ function normalizeEventPayload(body = {}) {
   if (!title) {
     return { success: false, message: '請填寫行程名稱。' };
   }
-  if (!startAt || Number.isNaN(new Date(startAt).getTime())) {
+  if (!startAt || Number.isNaN(parseEventDateTime(startAt).getTime())) {
     return { success: false, message: '請填寫正確的開始時間。' };
   }
-  if (endAt && Number.isNaN(new Date(endAt).getTime())) {
+  if (endAt && Number.isNaN(parseEventDateTime(endAt).getTime())) {
     return { success: false, message: '結束時間格式不正確。' };
   }
-  if (endAt && new Date(endAt) <= new Date(startAt)) {
+  if (endAt && parseEventDateTime(endAt) <= parseEventDateTime(startAt)) {
     return { success: false, message: '結束時間必須晚於開始時間。' };
   }
   if (title.length > 100) {
@@ -4792,13 +4802,13 @@ function normalizeEventPayload(body = {}) {
 
   const data = {
     title,
-    start_at: new Date(startAt).toISOString(),
+    start_at: parseEventDateTime(startAt).toISOString(),
   };
   if (description) data.description = description;
   if (content) data.content = content;
   if (location) data.location = location;
   if (videoUrl) data.video_url = videoUrl;
-  if (endAt) data.end_at = new Date(endAt).toISOString();
+  if (endAt) data.end_at = parseEventDateTime(endAt).toISOString();
 
   return { success: true, data };
 }
@@ -4837,24 +4847,24 @@ function buildEventUpdatePayload(body = {}, existingStartAt = null) {
 
   if (Object.prototype.hasOwnProperty.call(body, 'start_at')) {
     const startAt = String(body.start_at || '').trim();
-    if (!startAt || Number.isNaN(new Date(startAt).getTime())) {
+    if (!startAt || Number.isNaN(parseEventDateTime(startAt).getTime())) {
       throw Object.assign(new Error('開始時間格式不正確。'), { status: 400 });
     }
-    payload.start_at = new Date(startAt).toISOString();
+    payload.start_at = parseEventDateTime(startAt).toISOString();
   }
 
   if (Object.prototype.hasOwnProperty.call(body, 'end_at')) {
     const endAt = String(body.end_at || '').trim();
     if (endAt) {
-      if (Number.isNaN(new Date(endAt).getTime())) {
+      if (Number.isNaN(parseEventDateTime(endAt).getTime())) {
         throw Object.assign(new Error('結束時間格式不正確。'), { status: 400 });
       }
       // 取得對比用的 start_at：優先使用本次 payload 的，否則用現存值
       const startAtForCompare = payload.start_at || existingStartAt || null;
-      if (startAtForCompare && new Date(endAt) <= new Date(startAtForCompare)) {
+      if (startAtForCompare && parseEventDateTime(endAt) <= parseEventDateTime(startAtForCompare)) {
         throw Object.assign(new Error('結束時間必須晚於開始時間。'), { status: 400 });
       }
-      payload.end_at = new Date(endAt).toISOString();
+      payload.end_at = parseEventDateTime(endAt).toISOString();
     } else {
       payload.end_at = null;
     }
@@ -4914,17 +4924,15 @@ function buildEventNewEventNotifyText(eventRow) {
   ].join('\n');
 }
 
-// 行程時間顯示格式（YYYY/MM/DD HH:mm，台北時區）
+// 行程時間顯示格式（YYYY/MM/DD HH:mm，固定台北時區，不隨伺服器時區變動）
+// 台灣無日光節約，+8 小時後用 UTC getter 即為台北牆上時間；無時區字串視為台北時間
 function formatEventDateTime(isoStr) {
   if (!isoStr) return '待公佈';
-  const d = new Date(isoStr);
+  const d = parseEventDateTime(isoStr);
   if (Number.isNaN(d.getTime())) return '待公佈';
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${y}/${m}/${day} ${hh}:${mm}`;
+  const tpe = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${tpe.getUTCFullYear()}/${pad(tpe.getUTCMonth() + 1)}/${pad(tpe.getUTCDate())} ${pad(tpe.getUTCHours())}:${pad(tpe.getUTCMinutes())}`;
 }
 
 function buildExcerpt(text, maxLen = 60) {
