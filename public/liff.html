@@ -1470,12 +1470,69 @@
                       處理里民服務案件、維護政見與行程內容。
                     </p>
                   </div>
-                  <div
-                    id="adminStatus"
-                    class="rounded-full border border-violet-100 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-600"
-                  >
-                    載入中...
+                  <div class="flex items-center gap-2">
+                    <div
+                      id="adminStatus"
+                      class="rounded-full border border-violet-100 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-600"
+                    >
+                      載入中...
+                    </div>
+                    <button
+                      type="button"
+                      id="adminNotifyButton"
+                      aria-label="管理通知"
+                      class="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-violet-600 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                    >
+                      <i data-lucide="bell" class="h-5 w-5"></i>
+                      <span
+                        id="adminNotifyBadge"
+                        class="absolute -right-1 -top-1 hidden h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white"
+                        >0</span
+                      >
+                    </button>
                   </div>
+                </div>
+
+                <div id="adminNotifyPanel" class="hidden space-y-3">
+                  <div class="flex items-center justify-between">
+                    <p class="text-sm font-semibold text-violet-950">最新通知（未讀）</p>
+                    <div class="flex items-center gap-2">
+                      <button
+                        type="button"
+                        id="adminNotifyReadAllButton"
+                        class="inline-flex h-8 items-center rounded-full bg-violet-50 px-3 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-100 active:scale-95"
+                      >
+                        全部已讀
+                      </button>
+                      <button
+                        type="button"
+                        id="adminNotifyCloseButton"
+                        class="inline-flex h-8 items-center gap-1 rounded-full bg-white px-3 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                      >
+                        <i data-lucide="x" class="h-3 w-3"></i>
+                        <span>收起</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    id="adminNotifyLoading"
+                    class="hidden rounded-2xl bg-violet-50/60 px-4 py-6 text-center text-sm text-violet-600"
+                  >
+                    通知載入中...
+                  </div>
+                  <div
+                    id="adminNotifyEmpty"
+                    class="hidden rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500"
+                  >
+                    目前沒有未讀通知。
+                  </div>
+                  <div
+                    id="adminNotifyError"
+                    class="hidden rounded-2xl bg-rose-50 px-4 py-4 text-center text-sm text-rose-600"
+                  >
+                    <span id="adminNotifyErrorText">通知載入失敗。</span>
+                  </div>
+                  <ul id="adminNotifyList" class="space-y-2"></ul>
                 </div>
 
                 <button
@@ -2157,6 +2214,14 @@
         isAdmin: false,
         admin: {
           view: 'home',
+          notify: {
+            unread: 0,
+            items: [],
+            loading: false,
+            error: null,
+            panelOpen: false,
+            pollingStarted: false,
+          },
           list: {
             items: [],
             counts: { 全部: 0, 已收到: 0, 處理中: 0, 已回覆: 0, 已結案: 0 },
@@ -2352,6 +2417,16 @@
         eventCoverLightboxCloseButton: document.getElementById('eventCoverLightboxCloseButton'),
         adminPanel: document.getElementById('adminPanel'),
         adminStatus: document.getElementById('adminStatus'),
+        adminNotifyButton: document.getElementById('adminNotifyButton'),
+        adminNotifyBadge: document.getElementById('adminNotifyBadge'),
+        adminNotifyPanel: document.getElementById('adminNotifyPanel'),
+        adminNotifyCloseButton: document.getElementById('adminNotifyCloseButton'),
+        adminNotifyReadAllButton: document.getElementById('adminNotifyReadAllButton'),
+        adminNotifyLoading: document.getElementById('adminNotifyLoading'),
+        adminNotifyEmpty: document.getElementById('adminNotifyEmpty'),
+        adminNotifyError: document.getElementById('adminNotifyError'),
+        adminNotifyErrorText: document.getElementById('adminNotifyErrorText'),
+        adminNotifyList: document.getElementById('adminNotifyList'),
         adminHomeView: document.getElementById('adminHomeView'),
         adminHomeBackButton: document.getElementById('adminHomeBackButton'),
         adminListBackButton: document.getElementById('adminListBackButton'),
@@ -2628,6 +2703,12 @@
           state.isAdmin = Boolean(json && json.data && json.data.is_admin);
           updateAdminEntryVisibility();
 
+          // 管理員通知：確認為管理員後拉紅點 + 啟動輪詢（45 秒 + focus）
+          if (state.isAdmin) {
+            fetchAdminNotifyUnreadCount({ silent: true });
+            startAdminNotifyPolling();
+          }
+
           // 若使用者以 ?tab=admin / #tab=admin 開啟且確認為管理員，切換到管理面板
           if (state.isAdmin) {
             const urlTab = readTabFromUrl();
@@ -2657,6 +2738,250 @@
           if (state.activeTab === ADMIN_TAB_KEY) {
             switchTab('platforms', { updateHistory: true });
           }
+        }
+      }
+
+      // ==========================================================================
+      // 管理員通知第一期（盾牌管理首頁）：鈴鐺紅點 + 未讀列表 + 點擊已讀導向
+      // - 僅列未讀（unread=1）；點擊單則 → 標已讀 + 導向對應模組
+      //   （反映詳情 / 報平安該筆詳情 / 行程該場編輯）
+      // - 每 45 秒 + focus/visibility 回前台時靜態拉 unread-count 更新紅點
+      // - 不新增底部 Tab（維持 4 個）
+      // ==========================================================================
+
+      const ADMIN_NOTIFY_TYPE_LABELS = {
+        feedback_new: '新反映',
+        safety_pending: '報平安待審核',
+        event_rsvp: '行程新報名',
+      };
+      const ADMIN_NOTIFY_POLL_INTERVAL_MS = 45000;
+      const ADMIN_NOTIFY_LIST_LIMIT = 50;
+
+      function formatAdminNotifyTime(iso) {
+        const time = new Date(iso).getTime();
+        if (Number.isNaN(time)) return '';
+        const diffMinutes = Math.floor((Date.now() - time) / 60000);
+        if (diffMinutes < 1) return '剛剛';
+        if (diffMinutes < 60) return `${diffMinutes} 分鐘前`;
+        const hours = Math.floor(diffMinutes / 60);
+        if (hours < 24) return `${hours} 小時前`;
+        const days = Math.floor(hours / 24);
+        if (days <= 7) return `${days} 天前`;
+        const date = new Date(time);
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}/${m}/${d}`;
+      }
+
+      function updateAdminNotifyBadge() {
+        const badge = elements.adminNotifyBadge;
+        if (!badge) return;
+        const count = state.admin.notify.unread || 0;
+        if (count > 0) {
+          badge.textContent = count > 99 ? '99+' : String(count);
+          badge.classList.remove('hidden');
+          badge.classList.add('flex');
+        } else {
+          badge.classList.add('hidden');
+          badge.classList.remove('flex');
+        }
+      }
+
+      async function fetchAdminNotifyUnreadCount(options = {}) {
+        if (!state.isAdmin || state.mode !== 'liff') return;
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') return;
+          const res = await fetch('/api/admin/notifications/unread-count', {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (res.ok && result && result.success && result.data) {
+            state.admin.notify.unread = result.data.unread_count || 0;
+            updateAdminNotifyBadge();
+          }
+        } catch (err) {
+          if (!options.silent) console.warn('fetchAdminNotifyUnreadCount failed:', err);
+        }
+      }
+
+      function startAdminNotifyPolling() {
+        if (state.admin.notify.pollingStarted) return;
+        state.admin.notify.pollingStarted = true;
+        setInterval(() => {
+          if (!state.isAdmin || state.mode !== 'liff') return;
+          if (document.visibilityState && document.visibilityState !== 'visible') return;
+          fetchAdminNotifyUnreadCount({ silent: true });
+        }, ADMIN_NOTIFY_POLL_INTERVAL_MS);
+        window.addEventListener('focus', () => {
+          if (!state.isAdmin || state.mode !== 'liff') return;
+          fetchAdminNotifyUnreadCount({ silent: true });
+        });
+        document.addEventListener('visibilitychange', () => {
+          if (!state.isAdmin || state.mode !== 'liff') return;
+          if (document.visibilityState === 'visible') {
+            fetchAdminNotifyUnreadCount({ silent: true });
+          }
+        });
+      }
+
+      function renderAdminNotifyPanelState() {
+        const loading = elements.adminNotifyLoading;
+        const empty = elements.adminNotifyEmpty;
+        const error = elements.adminNotifyError;
+        const list = elements.adminNotifyList;
+        if (loading) loading.classList.toggle('hidden', !state.admin.notify.loading);
+        const hasError = Boolean(state.admin.notify.error);
+        if (error) {
+          error.classList.toggle('hidden', !hasError);
+          if (hasError && elements.adminNotifyErrorText) {
+            elements.adminNotifyErrorText.textContent = state.admin.notify.error;
+          }
+        }
+        const items = state.admin.notify.items || [];
+        if (empty) {
+          empty.classList.toggle('hidden', state.admin.notify.loading || hasError || items.length > 0);
+        }
+        if (list) {
+          list.innerHTML = '';
+          if (!state.admin.notify.loading && !hasError && items.length > 0) {
+            for (const item of items) {
+              const li = document.createElement('li');
+              const label = ADMIN_NOTIFY_TYPE_LABELS[item.type] || item.type || '通知';
+              const summary = escapeHtml(String(item.summary || item.title || '').trim() || '（無摘要）');
+              const timeText = formatAdminNotifyTime(item.created_at);
+              li.innerHTML = `
+                <button
+                  type="button"
+                  data-notify-id="${item.id}"
+                  class="w-full rounded-2xl bg-white p-4 text-left ring-1 ring-slate-200/80 transition hover:ring-violet-200 active:scale-[0.99]"
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="inline-flex items-center gap-1.5">
+                      <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                      <span class="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600">${label}</span>
+                    </span>
+                    <span class="shrink-0 text-[11px] text-slate-400">${timeText}</span>
+                  </div>
+                  <p class="mt-2 text-sm leading-6 text-slate-700">${summary}</p>
+                </button>
+              `;
+              list.appendChild(li);
+            }
+          }
+        }
+        renderIcons();
+      }
+
+      async function loadAdminNotifyList() {
+        state.admin.notify.loading = true;
+        state.admin.notify.error = null;
+        renderAdminNotifyPanelState();
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            throw new Error('身分驗證資訊取得失敗，請重新從 LINE 開啟 LIFF。');
+          }
+          const res = await fetch(
+            `/api/admin/notifications?unread=1&limit=${ADMIN_NOTIFY_LIST_LIMIT}`,
+            {
+              method: 'GET',
+              headers: buildAuthHeaders(tokenBundle),
+            }
+          );
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            throw new Error((result && result.message) || '通知載入失敗，請稍後再試。');
+          }
+          state.admin.notify.items = (result.data && result.data.items) || [];
+          state.admin.notify.unread = (result.data && result.data.unread_count) || 0;
+          updateAdminNotifyBadge();
+        } catch (err) {
+          state.admin.notify.error = err.message || '通知載入失敗，請稍後再試。';
+        } finally {
+          state.admin.notify.loading = false;
+          renderAdminNotifyPanelState();
+        }
+      }
+
+      function toggleAdminNotifyPanel(force) {
+        const panel = elements.adminNotifyPanel;
+        if (!panel) return;
+        const open = typeof force === 'boolean' ? force : panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', !open);
+        state.admin.notify.panelOpen = open;
+        if (open) {
+          loadAdminNotifyList();
+        }
+        renderIcons();
+      }
+
+      function navigateToAdminNotifyTarget(item) {
+        const refId = Number(item.ref_id);
+        if (!Number.isInteger(refId) || refId <= 0) {
+          showToast('找不到對應的項目。');
+          return;
+        }
+        if (item.type === 'feedback_new') {
+          openAdminDetail(refId);
+        } else if (item.type === 'safety_pending') {
+          openAdminSafetyDetail(refId);
+        } else if (item.type === 'event_rsvp') {
+          openAdminEventEdit(refId);
+        } else {
+          showToast('找不到對應的項目。');
+        }
+      }
+
+      async function handleAdminNotifyItemClick(item) {
+        // 先導向（SPA 內部切換，不重整頁面）；已讀標記失敗不擋導向
+        toggleAdminNotifyPanel(false);
+        navigateToAdminNotifyTarget(item);
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') return;
+          const res = await fetch(`/api/admin/notifications/${item.id}/read`, {
+            method: 'POST',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (res.ok && result && result.success && result.data) {
+            state.admin.notify.unread = result.data.unread_count || 0;
+          } else {
+            state.admin.notify.unread = Math.max(0, (state.admin.notify.unread || 0) - 1);
+          }
+        } catch (err) {
+          state.admin.notify.unread = Math.max(0, (state.admin.notify.unread || 0) - 1);
+        }
+        updateAdminNotifyBadge();
+      }
+
+      async function markAllAdminNotifyRead() {
+        const btn = elements.adminNotifyReadAllButton;
+        if (btn) btn.disabled = true;
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            throw new Error('身分驗證資訊取得失敗，請重新從 LINE 開啟 LIFF。');
+          }
+          const res = await fetch('/api/admin/notifications/read-all', {
+            method: 'POST',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            throw new Error((result && result.message) || '操作失敗，請稍後再試。');
+          }
+          state.admin.notify.unread = 0;
+          updateAdminNotifyBadge();
+          await loadAdminNotifyList();
+          showToast('已全部標記為已讀。');
+        } catch (err) {
+          showToast(err.message || '操作失敗，請稍後再試。');
+        } finally {
+          if (btn) btn.disabled = false;
         }
       }
 
@@ -2893,6 +3218,26 @@
             } else if (module === 'safety') {
               switchAdminSafetyView('list', { autoload: true });
             }
+          });
+        }
+        // 管理員通知（第一期）：鈴鐺面板
+        if (elements.adminNotifyButton) {
+          elements.adminNotifyButton.addEventListener('click', () => toggleAdminNotifyPanel());
+        }
+        if (elements.adminNotifyCloseButton) {
+          elements.adminNotifyCloseButton.addEventListener('click', () => toggleAdminNotifyPanel(false));
+        }
+        if (elements.adminNotifyReadAllButton) {
+          elements.adminNotifyReadAllButton.addEventListener('click', markAllAdminNotifyRead);
+        }
+        if (elements.adminNotifyList) {
+          elements.adminNotifyList.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-notify-id]');
+            if (!btn) return;
+            const id = Number(btn.dataset.notifyId);
+            const item = (state.admin.notify.items || []).find((n) => n.id === id);
+            if (!item) return;
+            handleAdminNotifyItemClick(item);
           });
         }
         if (elements.adminListBackButton) {

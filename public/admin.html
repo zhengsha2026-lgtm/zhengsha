@@ -61,6 +61,35 @@
           </button>
         </nav>
         <div class="flex items-center gap-4">
+          <div class="relative">
+            <button id="notifyButton" type="button" aria-label="管理通知"
+              class="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200">
+              <i data-lucide="bell" class="h-4 w-4"></i>
+              <span id="notifyBadge"
+                class="absolute -right-1 -top-1 hidden h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white">0</span>
+            </button>
+            <div id="notifyPanel"
+              class="absolute right-0 top-12 z-30 hidden w-[26rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+              <div class="flex items-center justify-between">
+                <p class="text-base font-bold text-slate-900">最新通知（未讀）</p>
+                <div class="flex items-center gap-2">
+                  <button id="notifyReadAllButton" type="button"
+                    class="inline-flex h-9 items-center rounded-full bg-violet-50 px-4 text-sm font-semibold text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-100 active:scale-95">
+                    全部已讀
+                  </button>
+                  <button id="notifyCloseButton" type="button"
+                    class="inline-flex h-9 items-center gap-1 rounded-full bg-white px-4 text-sm font-semibold text-slate-500 ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95">
+                    <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                    <span>收起</span>
+                  </button>
+                </div>
+              </div>
+              <div id="notifyLoading" class="mt-4 hidden rounded-xl bg-violet-50/60 px-4 py-6 text-center text-base text-violet-600">通知載入中…</div>
+              <div id="notifyEmpty" class="mt-4 hidden rounded-xl bg-slate-50 px-4 py-8 text-center text-base text-slate-400">目前沒有未讀通知。</div>
+              <div id="notifyError" class="mt-4 hidden rounded-xl bg-rose-50 px-4 py-4 text-center text-base text-rose-600"><span id="notifyErrorText">通知載入失敗。</span></div>
+              <ul id="notifyList" class="mt-4 max-h-[24rem] space-y-2 overflow-y-auto"></ul>
+            </div>
+          </div>
           <span id="adminNameLabel" class="hidden text-sm font-medium text-slate-500 sm:block"></span>
           <button id="logoutButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
             <i data-lucide="log-out" class="h-4 w-4"></i>
@@ -388,6 +417,15 @@ const state = {
     approving: false,
     rejecting: false,
   },
+  // 管理員通知（第一期）
+  notify: {
+    unread: 0,
+    items: [],
+    loading: false,
+    error: null,
+    panelOpen: false,
+    pollingStarted: false,
+  },
 };
 
 const elements = {};
@@ -412,6 +450,8 @@ function cacheElements() {
     'safetyCareCard', 'safetyCareMethodSelect', 'safetyCareNote', 'safetyCareNoteCount', 'safetyCareSaveButton',
     'safetySnoozeButton', 'safetySnoozeButtonWrap', 'safetySnoozeActive', 'safetySnoozeActiveText', 'safetyInactiveNote',
     'safetyApprovalCard', 'safetyRejectReason', 'safetyApproveButton', 'safetyRejectButton',
+    'notifyButton', 'notifyBadge', 'notifyPanel', 'notifyCloseButton', 'notifyReadAllButton',
+    'notifyLoading', 'notifyEmpty', 'notifyError', 'notifyErrorText', 'notifyList',
     'toast',
   ];
   ids.forEach((id) => { elements[id] = document.getElementById(id); });
@@ -553,6 +593,206 @@ async function checkAdmin() {
 async function handleRelogin() {
   liff.logout();
   liff.login();
+}
+
+// ============================================================================
+// 管理員通知第一期（桌面版）：鈴鐺紅點 + 未讀列表 + 點擊已讀導向
+// - 僅列未讀（unread=1）；點擊單則 → 標已讀 + 導向（反映詳情 / 報平安該筆詳情）
+// - 行程新報名：桌面版無行程模組，僅標已讀並提示改用手機盾牌端
+// - 每 45 秒 + focus/visibility 回前台時靜態拉 unread-count 更新紅點
+// ============================================================================
+
+const NOTIFY_TYPE_LABELS = {
+  feedback_new: '新反映',
+  safety_pending: '報平安待審核',
+  event_rsvp: '行程新報名',
+};
+const NOTIFY_POLL_INTERVAL_MS = 45000;
+const NOTIFY_LIST_LIMIT = 50;
+
+function formatNotifyTime(iso) {
+  const time = new Date(iso).getTime();
+  if (Number.isNaN(time)) return '';
+  const diffMinutes = Math.floor((Date.now() - time) / 60000);
+  if (diffMinutes < 1) return '剛剛';
+  if (diffMinutes < 60) return `${diffMinutes} 分鐘前`;
+  const hours = Math.floor(diffMinutes / 60);
+  if (hours < 24) return `${hours} 小時前`;
+  const days = Math.floor(hours / 24);
+  if (days <= 7) return `${days} 天前`;
+  const d = new Date(time);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+}
+
+function updateNotifyBadge() {
+  const badge = elements.notifyBadge;
+  if (!badge) return;
+  const count = state.notify.unread || 0;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.classList.remove('hidden');
+    badge.classList.add('flex');
+  } else {
+    badge.classList.add('hidden');
+    badge.classList.remove('flex');
+  }
+}
+
+async function fetchNotifyUnreadCount(options = {}) {
+  if (!state.authReady) return;
+  try {
+    const res = await authedFetch('/api/admin/notifications/unread-count');
+    if (res.status === 401) { await handleRelogin(); return; }
+    const json = await res.json().catch(() => null);
+    if (res.ok && json && json.success && json.data) {
+      state.notify.unread = json.data.unread_count || 0;
+      updateNotifyBadge();
+    }
+  } catch (err) {
+    if (!options.silent) console.warn('fetchNotifyUnreadCount failed:', err);
+  }
+}
+
+function startNotifyPolling() {
+  if (state.notify.pollingStarted) return;
+  state.notify.pollingStarted = true;
+  setInterval(() => {
+    if (!state.authReady) return;
+    if (document.visibilityState && document.visibilityState !== 'visible') return;
+    fetchNotifyUnreadCount({ silent: true });
+  }, NOTIFY_POLL_INTERVAL_MS);
+  window.addEventListener('focus', () => {
+    if (state.authReady) fetchNotifyUnreadCount({ silent: true });
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (state.authReady && document.visibilityState === 'visible') {
+      fetchNotifyUnreadCount({ silent: true });
+    }
+  });
+}
+
+function renderNotifyPanelState() {
+  elements.notifyLoading.classList.toggle('hidden', !state.notify.loading);
+  const hasError = Boolean(state.notify.error);
+  elements.notifyError.classList.toggle('hidden', !hasError);
+  if (hasError) elements.notifyErrorText.textContent = state.notify.error;
+  const items = state.notify.items || [];
+  elements.notifyEmpty.classList.toggle('hidden', state.notify.loading || hasError || items.length > 0);
+  elements.notifyList.innerHTML = '';
+  if (!state.notify.loading && !hasError && items.length > 0) {
+    for (const item of items) {
+      const li = document.createElement('li');
+      const label = NOTIFY_TYPE_LABELS[item.type] || item.type || '通知';
+      const summary = escapeHtml(String(item.summary || item.title || '').trim() || '（無摘要）');
+      const timeText = formatNotifyTime(item.created_at);
+      li.innerHTML = `
+        <button type="button" data-notify-id="${item.id}"
+          class="w-full rounded-xl bg-white p-4 text-left ring-1 ring-slate-200/80 transition hover:ring-violet-200 active:scale-[0.99]">
+          <div class="flex items-center justify-between gap-2">
+            <span class="inline-flex items-center gap-1.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+              <span class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-600">${escapeHtml(label)}</span>
+            </span>
+            <span class="shrink-0 text-xs text-slate-400">${timeText}</span>
+          </div>
+          <p class="mt-2 text-sm leading-6 text-slate-700">${summary}</p>
+        </button>`;
+      elements.notifyList.appendChild(li);
+    }
+  }
+  renderIcons();
+}
+
+async function loadNotifyList() {
+  state.notify.loading = true;
+  state.notify.error = null;
+  renderNotifyPanelState();
+  try {
+    const res = await authedFetch(`/api/admin/notifications?unread=1&limit=${NOTIFY_LIST_LIMIT}`);
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || '通知載入失敗，請稍後再試。');
+    }
+    state.notify.items = (json.data && json.data.items) || [];
+    state.notify.unread = (json.data && json.data.unread_count) || 0;
+    updateNotifyBadge();
+  } catch (err) {
+    state.notify.error = (err && err.message) || '通知載入失敗，請稍後再試。';
+  } finally {
+    state.notify.loading = false;
+    renderNotifyPanelState();
+  }
+}
+
+function toggleNotifyPanel(force) {
+  const panel = elements.notifyPanel;
+  if (!panel) return;
+  const open = typeof force === 'boolean' ? force : panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !open);
+  state.notify.panelOpen = open;
+  if (open) loadNotifyList();
+  renderIcons();
+}
+
+function navigateToNotifyTarget(item) {
+  const refId = Number(item.ref_id);
+  if (!Number.isInteger(refId) || refId <= 0) {
+    showToast('找不到對應的項目。');
+    return;
+  }
+  if (item.type === 'feedback_new') {
+    if (state.module !== 'feedback') switchModule('feedback');
+    openDetail(refId);
+  } else if (item.type === 'safety_pending') {
+    if (state.module !== 'safety') switchModule('safety');
+    openSafetyDetail(refId);
+  } else if (item.type === 'event_rsvp') {
+    showToast('行程管理請至手機 LINE「盾牌管理」操作。');
+  } else {
+    showToast('找不到對應的項目。');
+  }
+}
+
+async function handleNotifyItemClick(item) {
+  // 先導向；已讀標記失敗不擋導向
+  toggleNotifyPanel(false);
+  navigateToNotifyTarget(item);
+  try {
+    const res = await authedFetch(`/api/admin/notifications/${item.id}/read`, { method: 'POST' });
+    const json = await res.json().catch(() => null);
+    if (res.ok && json && json.success && json.data) {
+      state.notify.unread = json.data.unread_count || 0;
+    } else {
+      state.notify.unread = Math.max(0, (state.notify.unread || 0) - 1);
+    }
+  } catch (err) {
+    state.notify.unread = Math.max(0, (state.notify.unread || 0) - 1);
+  }
+  updateNotifyBadge();
+}
+
+async function markAllNotifyRead() {
+  const btn = elements.notifyReadAllButton;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await authedFetch('/api/admin/notifications/read-all', { method: 'POST' });
+    if (res.status === 401) { await handleRelogin(); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || '操作失敗，請稍後再試。');
+    }
+    state.notify.unread = 0;
+    updateNotifyBadge();
+    await loadNotifyList();
+    showToast('已全部標記為已讀。');
+  } catch (err) {
+    showToast((err && err.message) || '操作失敗，請稍後再試。');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // ============================================================================
@@ -1447,6 +1687,25 @@ function bindEvents() {
     if (btn) copyTextToClipboard(btn.dataset.copyText);
   });
 
+  // 管理員通知（第一期）：鈴鐺下拉面板
+  elements.notifyButton.addEventListener('click', () => toggleNotifyPanel());
+  elements.notifyCloseButton.addEventListener('click', () => toggleNotifyPanel(false));
+  elements.notifyReadAllButton.addEventListener('click', markAllNotifyRead);
+  elements.notifyList.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-notify-id]');
+    if (!btn) return;
+    const id = Number(btn.dataset.notifyId);
+    const item = (state.notify.items || []).find((n) => n.id === id);
+    if (!item) return;
+    handleNotifyItemClick(item);
+  });
+  // 點擊面板外側收起下拉
+  document.addEventListener('click', (e) => {
+    if (!state.notify.panelOpen) return;
+    if (e.target.closest('#notifyPanel') || e.target.closest('#notifyButton')) return;
+    toggleNotifyPanel(false);
+  });
+
   const doLogout = () => {
     try { liff.logout(); } catch (err) { console.warn('liff.logout failed:', err); }
     window.location.reload();
@@ -1490,6 +1749,9 @@ async function bootstrap() {
     state.authReady = true;
     showScreen('app');
     switchModule('feedback');
+    // 管理員通知：進入後台即拉紅點 + 啟動輪詢（45 秒 + focus）
+    fetchNotifyUnreadCount({ silent: true });
+    startNotifyPolling();
     await loadList();
   } catch (err) {
     if (err && err.code === 'NEED_RELOGIN') {

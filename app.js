@@ -512,7 +512,7 @@ app.post('/api/events/:id/rsvp', async (req, res) => {
   try {
     const { data: eventRow, error: fetchError } = await supabaseAdmin
       .from('campaign_events')
-      .select('id, start_at, is_published')
+      .select('id, title, start_at, is_published')
       .eq('id', eventId)
       .single();
 
@@ -587,6 +587,15 @@ app.post('/api/events/:id/rsvp', async (req, res) => {
       .select('rsvp_count')
       .eq('id', eventId)
       .single();
+
+    // 管理員通知（fire-and-forget，失敗不擋里民）
+    insertAdminNotification(
+      'event_rsvp',
+      '行程新報名',
+      `「${eventRow.title || '行程'}」有新的報名`,
+      'campaign_events',
+      eventId
+    );
 
     return res.status(201).json({
       success: true,
@@ -998,6 +1007,15 @@ app.post('/api/safety/join', async (req, res) => {
       row = inserted;
     }
 
+    // 管理員通知（fire-and-forget，失敗不擋里民）
+    insertAdminNotification(
+      'safety_pending',
+      '報平安待審核',
+      `「${displayName}」申請加入報平安`,
+      'safety_members',
+      row.id
+    );
+
     return res.status(201).json({
       success: true,
       message: '申請已送出，幹部審核通過後即可開始天天報平安。',
@@ -1388,6 +1406,15 @@ app.post('/api/feedback', async (req, res) => {
       console.error('user_feedback_status_logs insert failed:', statusLogInsert.error);
     }
 
+    // 管理員通知（fire-and-forget，失敗不擋里民）
+    insertAdminNotification(
+      'feedback_new',
+      '新反映',
+      buildFeedbackNotificationSummary(payload.data.user_name, payload.data.content),
+      'user_feedback',
+      feedbackId
+    );
+
     return res.status(201).json({
       success: true,
       message: '感謝您的反映，我們已收到並會儘速處理。',
@@ -1655,6 +1682,203 @@ app.get('/api/admin/me', async (req, res) => {
       line_user_id: identity.lineUserId,
     },
   });
+});
+
+// ============================================================================
+// 管理員通知 API（第一期：紅點 + 列表 + 已讀）
+// 表：admin_notifications / admin_notification_reads（migration 008）
+// ============================================================================
+
+const ADMIN_NOTIFICATION_LIST_DEFAULT_LIMIT = 30;
+const ADMIN_NOTIFICATION_LIST_MAX_LIMIT = 100;
+
+// 共用：抓該管理員的未讀數（排除已讀列；reads 一人一通知一列 unique）
+async function countAdminUnreadNotifications(lineUserId) {
+  const { count, error } = await supabaseAdmin
+    .from('admin_notifications')
+    .select('id', { count: 'exact', head: true })
+    .not(
+      'id',
+      'in',
+      `(${await supabaseAdmin
+        .from('admin_notification_reads')
+        .select('notification_id')
+        .eq('line_user_id', lineUserId)
+        .then((r) => (r.data || []).map((x) => x.notification_id).join(',') || '-1')})`
+    );
+  if (error) throw error;
+  return count || 0;
+}
+
+// GET /api/admin/notifications?unread=1&limit=30
+// 回 items（含 is_read）+ unread_count
+app.get('/api/admin/notifications', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/notifications list auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  try {
+    const unreadOnly = req.query.unread === '1';
+    const limit = Math.min(
+      Math.max(Number(req.query.limit) || ADMIN_NOTIFICATION_LIST_DEFAULT_LIMIT, 1),
+      ADMIN_NOTIFICATION_LIST_MAX_LIMIT
+    );
+
+    // 該管理員已讀集合
+    const { data: readRows, error: readError } = await supabaseAdmin
+      .from('admin_notification_reads')
+      .select('notification_id')
+      .eq('line_user_id', identity.lineUserId)
+      .limit(1000);
+    if (readError) throw readError;
+    const readSet = new Set((readRows || []).map((r) => r.notification_id));
+
+    const unreadCount = await countAdminUnreadNotifications(identity.lineUserId);
+
+    // 列表：最新在前
+    const { data: items, error: listError } = await supabaseAdmin
+      .from('admin_notifications')
+      .select('id, type, title, summary, ref_table, ref_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit * 2); // 多抓一些，未讀過濾後仍湊得到 limit
+    if (listError) throw listError;
+
+    const merged = (items || [])
+      .map((row) => ({ ...row, is_read: readSet.has(row.id) }))
+      .filter((row) => (unreadOnly ? !row.is_read : true))
+      .slice(0, limit);
+
+    return res.json({
+      success: true,
+      data: { items: merged, unread_count: unreadCount },
+    });
+  } catch (error) {
+    console.error('admin/notifications list failed:', error);
+    return res.status(500).json({ success: false, message: '通知列表讀取失敗，請稍後再試。' });
+  }
+});
+
+// GET /api/admin/notifications/unread-count
+app.get('/api/admin/notifications/unread-count', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/notifications unread-count auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  try {
+    const unreadCount = await countAdminUnreadNotifications(identity.lineUserId);
+    return res.json({ success: true, data: { unread_count: unreadCount } });
+  } catch (error) {
+    console.error('admin/notifications unread-count failed:', error);
+    return res.status(500).json({ success: false, message: '未讀數讀取失敗，請稍後再試。' });
+  }
+});
+
+// POST /api/admin/notifications/:id/read（冪等：已讀再按一樣 200）
+app.post('/api/admin/notifications/:id/read', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/notifications read auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  const notificationId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(notificationId) || notificationId <= 0) {
+    return res.status(400).json({ success: false, message: '通知編號不正確。' });
+  }
+
+  try {
+    // 確認通知存在
+    const { data: notification, error: fetchError } = await supabaseAdmin
+      .from('admin_notifications')
+      .select('id')
+      .eq('id', notificationId)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!notification) {
+      return res.status(404).json({ success: false, message: '找不到這則通知。' });
+    }
+
+    // upsert 已讀（unique(notification_id, line_user_id) 衝突時忽略 = 冪等）
+    const { error: upsertError } = await supabaseAdmin
+      .from('admin_notification_reads')
+      .upsert(
+        [{ notification_id: notificationId, line_user_id: identity.lineUserId }],
+        { onConflict: 'notification_id,line_user_id', ignoreDuplicates: true }
+      );
+    if (upsertError) throw upsertError;
+
+    const unreadCount = await countAdminUnreadNotifications(identity.lineUserId);
+    return res.json({ success: true, data: { unread_count: unreadCount } });
+  } catch (error) {
+    console.error('admin/notifications read failed:', error);
+    return res.status(500).json({ success: false, message: '標記已讀失敗，請稍後再試。' });
+  }
+});
+
+// POST /api/admin/notifications/read-all（把目前所有通知標已讀）
+app.post('/api/admin/notifications/read-all', async (req, res) => {
+  let identity;
+  try {
+    identity = await requireAdmin(req);
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin/notifications read-all auth failed');
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未完成設定。' });
+  }
+
+  try {
+    // 抓該管理員未讀的通知 id
+    const { data: readRows, error: readError } = await supabaseAdmin
+      .from('admin_notification_reads')
+      .select('notification_id')
+      .eq('line_user_id', identity.lineUserId)
+      .limit(5000);
+    if (readError) throw readError;
+    const readSet = new Set((readRows || []).map((r) => r.notification_id));
+
+    const { data: allRows, error: listError } = await supabaseAdmin
+      .from('admin_notifications')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(5000);
+    if (listError) throw listError;
+
+    const unreadIds = (allRows || []).map((r) => r.id).filter((id) => !readSet.has(id));
+    if (unreadIds.length > 0) {
+      const rows = unreadIds.map((id) => ({ notification_id: id, line_user_id: identity.lineUserId }));
+      // ignoreDuplicates：與並發已讀打架時忽略
+      const { error: insertError } = await supabaseAdmin
+        .from('admin_notification_reads')
+        .upsert(rows, { onConflict: 'notification_id,line_user_id', ignoreDuplicates: true });
+      if (insertError) throw insertError;
+    }
+
+    return res.json({ success: true, data: { unread_count: 0, marked: unreadIds.length } });
+  } catch (error) {
+    console.error('admin/notifications read-all failed:', error);
+    return res.status(500).json({ success: false, message: '全部已讀失敗，請稍後再試。' });
+  }
 });
 
 app.get('/api/admin/feedback', async (req, res) => {
@@ -4472,6 +4696,129 @@ async function runSafetyAdminCareNotifications(today) {
   return { attempted: targets.length, succeeded, failed, skipped, care_count: careItems.length };
 }
 
+// ============================================================================
+// 管理員通知第一期：每日 Email 彙整（Resend）
+// - 附掛在 20:00 催簽 cron（type=resident）成功後呼叫：
+//   Vercel Hobby 的 2 支 cron 額度已被報平安用滿，不新增第 3 支，
+//   digest 直接掛在 resident cron 的成功路徑（獨立 try/catch，失敗只 log、不影響催簽結果）
+// - 無 RESEND_API_KEY 或 ADMIN_NOTIFY_EMAILS：跳過並 log，不報錯（紅點功能照常）
+// - 台北今天 00:00 起算三類筆數；全 0 不寄；逐封寄給 ADMIN_NOTIFY_EMAILS
+// - 摘要最多 10 則；不含完整電話（summary 建立當下就沒放電話）
+// - 寄信網域未驗證前只能用 onboarding@resend.dev 寄到註冊信箱（Resend 免費方案限制）
+// ============================================================================
+
+const ADMIN_NOTIFY_DIGEST_TYPES = ['feedback_new', 'safety_pending', 'event_rsvp'];
+const ADMIN_NOTIFY_DIGEST_TYPE_LABELS = {
+  feedback_new: '新反映',
+  safety_pending: '報平安待審核',
+  event_rsvp: '行程新報名',
+};
+const ADMIN_NOTIFY_DIGEST_MAX_SUMMARIES = 10;
+const ADMIN_NOTIFY_FROM_FALLBACK = 'onboarding@resend.dev';
+const ADMIN_NOTIFY_ADMIN_URL = 'https://zhengsha.vercel.app/admin.html';
+
+function getAdminNotifyEmails() {
+  return String(process.env.ADMIN_NOTIFY_EMAILS || '')
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean);
+}
+
+// 台北今天 00:00（含）起算，轉 UTC ISO 供 created_at（timestamptz）比較
+function getTaipeiTodayStartIso() {
+  const today = getTaipeiToday();
+  return new Date(`${today}T00:00:00+08:00`).toISOString();
+}
+
+async function fetchAdminNotifyDigestCounts(startIso) {
+  const counts = { feedback_new: 0, safety_pending: 0, event_rsvp: 0 };
+  for (const type of ADMIN_NOTIFY_DIGEST_TYPES) {
+    const { count, error } = await supabaseAdmin
+      .from('admin_notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('type', type)
+      .gte('created_at', startIso);
+    if (error) throw error;
+    counts[type] = count || 0;
+  }
+  return counts;
+}
+
+async function sendAdminNotifyDigest() {
+  const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
+  const recipients = getAdminNotifyEmails();
+
+  if (!resendApiKey) {
+    console.log('admin notify digest skipped: RESEND_API_KEY not set');
+    return { sent: 0, failed: 0, total: 0, skipped: 'no_api_key' };
+  }
+  if (recipients.length === 0) {
+    console.log('admin notify digest skipped: ADMIN_NOTIFY_EMAILS not set');
+    return { sent: 0, failed: 0, total: 0, skipped: 'no_recipients' };
+  }
+
+  const startIso = getTaipeiTodayStartIso();
+  const counts = await fetchAdminNotifyDigestCounts(startIso);
+  const total = counts.feedback_new + counts.safety_pending + counts.event_rsvp;
+  if (total === 0) {
+    return { sent: 0, failed: 0, total: 0, skipped: 'nothing_today' };
+  }
+
+  const { data: rows, error } = await supabaseAdmin
+    .from('admin_notifications')
+    .select('type, title, summary, created_at')
+    .gte('created_at', startIso)
+    .order('created_at', { ascending: false })
+    .limit(ADMIN_NOTIFY_DIGEST_MAX_SUMMARIES);
+  if (error) throw error;
+
+  const todayDisplay = getTaipeiToday().split('-').join('/');
+  const subject = `【幸福正砂】今日待處理：反映 ${counts.feedback_new}、待審核 ${counts.safety_pending}、報名 ${counts.event_rsvp}`;
+  const lines = [
+    `${todayDisplay} 待處理事項：`,
+    `- 有事找里長新反映：${counts.feedback_new} 件`,
+    `- 報平安待審核：${counts.safety_pending} 件`,
+    `- 行程新報名：${counts.event_rsvp} 件`,
+    '',
+    '最新動態（最多 10 則）：',
+  ];
+  for (const row of rows || []) {
+    const label = ADMIN_NOTIFY_DIGEST_TYPE_LABELS[row.type] || row.type;
+    const summary = String(row.summary || row.title || '').trim() || '（無摘要）';
+    lines.push(`・${label}：${summary}`);
+  }
+  lines.push('', `後台連結：${ADMIN_NOTIFY_ADMIN_URL}`);
+  const textBody = lines.join('\n');
+
+  const fromEmail = String(process.env.ADMIN_NOTIFY_FROM || '').trim() || ADMIN_NOTIFY_FROM_FALLBACK;
+  let sent = 0;
+  let failed = 0;
+  for (const email of recipients) {
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ from: fromEmail, to: email, subject, text: textBody }),
+      });
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        console.error(`admin notify digest send failed for ${email}:`, response.status, errText);
+        failed += 1;
+        continue;
+      }
+      sent += 1;
+    } catch (err) {
+      console.error(`admin notify digest send error for ${email}:`, err.message);
+      failed += 1;
+    }
+  }
+
+  return { sent, failed, total };
+}
+
 async function handleSafetyCronRequest(req, res) {
   const auth = checkSafetyCronAuth(req);
   if (!auth.ok) {
@@ -4497,6 +4844,18 @@ async function handleSafetyCronRequest(req, res) {
         ? await runSafetyResidentReminders(today)
         : await runSafetyAdminCareNotifications(today);
 
+    // 管理員通知第一期：每日 Email 彙整附掛在 20:00 催簽（resident）成功後
+    // （Vercel Hobby cron 額度已滿，不新增第 3 支；獨立 try/catch，失敗不影響催簽結果）
+    let digest = null;
+    if (type === 'resident') {
+      try {
+        digest = await sendAdminNotifyDigest();
+      } catch (digestError) {
+        console.error('admin notify digest failed:', digestError);
+        digest = { error: true };
+      }
+    }
+
     const message =
       type === 'admin' && result.care_count === 0
         ? '當天沒有待關懷名單，未發送通知。'
@@ -4505,7 +4864,7 @@ async function handleSafetyCronRequest(req, res) {
     return res.json({
       success: true,
       message,
-      data: { type, today, ...result },
+      data: { type, today, ...result, ...(digest ? { digest } : {}) },
     });
   } catch (error) {
     console.error('safety cron failed:', error);
@@ -4677,6 +5036,32 @@ async function requireAdmin(req) {
     throw new ForbiddenError('您沒有管理員權限，無法使用此功能。');
   }
   return identity;
+}
+
+// ============================================================================
+// 管理員通知第一期：admin_notifications 紅點 + 每日 Email 彙整
+// - 寫入時機僅三類：feedback_new / safety_pending / event_rsvp
+// - 寫入失敗只 log，不得擋里民主流程（呼叫端一律不 await、不拋錯）
+// - Email：Resend；無 RESEND_API_KEY 時跳過寄信只 log（紅點照常）
+// ============================================================================
+
+// fire-and-forget：包一層避免任何通知失敗影響主流程
+function insertAdminNotification(type, title, summary, refTable, refId) {
+  if (!supabaseAdmin) return;
+  supabaseAdmin
+    .from('admin_notifications')
+    .insert([{ type, title, summary: summary || null, ref_table: refTable || null, ref_id: refId != null ? String(refId) : null }])
+    .then(({ error }) => {
+      if (error) console.error('admin notification insert failed:', error);
+    })
+    .catch((err) => console.error('admin notification insert error:', err));
+}
+
+// 摘要不放完整電話（Email 與後台列表同規）
+function buildFeedbackNotificationSummary(displayName, content) {
+  const name = (displayName || '里民').slice(0, 20);
+  const brief = String(content || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  return brief ? `${name}：${brief}` : name;
 }
 
 function handleAuthOrServerError(res, error, contextMessage) {
