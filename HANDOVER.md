@@ -443,6 +443,13 @@
   - 後端：`POST /api/admin/safety/:id/approve`（pending/rejected → approved、`baseline_date` 重設核准當天、清 reject_reason 與殘留暫停、冪等）與 `POST /api/admin/safety/:id/reject`（僅 pending、reason ≤ 200 字）；裡民 join 改送申請、profile/checkin/membership/care/snooze/兩個 cron 全部加 approved 閘門
   - migration `007_safety_approval.sql`（已於 Supabase 執行）：`safety_members` 加 6 欄（`approval_status` CHECK 三值 DEFAULT `pending`、既有列 backfill `approved`、`applied_at`、`reviewed_at`、`reviewed_by`、`birth_year int`、`reject_reason`）
   - 驗證：`node --check app.js` 通過；admin.html/liff.html 全部 inline script 語法檢查通過（檢查器需先剝除 HTML 註解，否則註解內 `<script>` 字樣會誤判）
+- **行程詳情封面可點開放大（已上線）**
+  - 新增 `#eventCoverLightbox`（z-60 高於行程詳情 z-50）：深色半透明底（`bg-slate-900/85`＋blur）＋置中大圖 `max-h-[88vh] object-contain`（**維持原圖比例**，不裁 16:9）；右上關閉鈕對齊政見關閉鈕規格（44px 白底深紫 X、細紫邊＋輕陰影）
+  - 關閉路徑三種＋ESC：點大圖／點遮罩／點 X 都關放大層**回到行程詳情**（不關詳情）；ESC handler 最前面判斷——放大層開著優先關它、不動詳情；`closeEventDetail` 開頭同步收放大層（避免孤兒 lightbox）
+  - `renderEventDetail`：有封面時 img 加 `data-event-cover-zoom`＋`cursor-zoom-in`＋右下角極淡「點圖放大」提示；無封面維持不可點
+  - 事件委派：`eventDetailContainer` 點擊先攔截 `data-event-cover-zoom`（`stopPropagation` 防冒泡到 modal 遮罩誤關詳情）
+  - signed URL 過期／載入失敗：`onerror` 顯示「圖片載入失敗」文字佔位，不整頁壞；關閉時清佔位與 src
+  - 相簿這次不支援放大（僅封面）；報名／時間／升起動畫／API 未動
 - **行程詳情視窗動畫：對齊政見車窗升起（已上線）**
   - `#eventDetailModal`（行程詳情）加入與政見 `#platformModal` 同一套底部位板動畫：CSS 選擇器從 `#platformModal.platform-modal-anim …` 改為 **`.platform-modal-anim …`（class 化共用）**，行程 modal HTML 掛同一個 class——遮罩淡入 300ms、卡片自螢幕下緣升起 420ms ease-out、關閉 380ms ease-in 滑回後才 `hidden`，零複製數字；政見端 class 名不變（`platform-modal-anim`／`platform-modal-shown`／`platform-modal-closing`），行為完全不變
   - `openEventDetail`：加 wasHidden → 強制 reflow → `platform-modal-shown` 升起；詳情 API 回來 `renderEventDetail` 原地重繪**不重播動畫**（骨架先畫、內容直接補上，封面 img 只在首次渲染出現、不中途拆掉）；收起中途再點開另一場行程自動取消關閉動畫滑回

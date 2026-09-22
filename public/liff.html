@@ -409,6 +409,24 @@
         </div>
       </div>
 
+      <!-- 行程詳情封面放大層（z-60 高於行程詳情 z-50；只放大封面，相簿暫不支援） -->
+      <div
+        id="eventCoverLightbox"
+        class="fixed inset-0 z-[60] hidden cursor-zoom-out items-center justify-center bg-slate-900/85 p-4 backdrop-blur-sm"
+        role="dialog"
+        aria-label="放大檢視封面"
+      >
+        <img id="eventCoverLightboxImage" src="" alt="" class="max-h-[88vh] max-w-full rounded-2xl object-contain shadow-2xl" />
+        <button
+          id="eventCoverLightboxCloseButton"
+          type="button"
+          class="absolute right-4 top-4 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/95 text-violet-950 shadow-md shadow-slate-900/10 ring-1 ring-violet-200/80 transition duration-200 hover:bg-violet-50 hover:text-violet-800 active:scale-95"
+          aria-label="關閉放大檢視"
+        >
+          <i data-lucide="x" class="h-5 w-5"></i>
+        </button>
+      </div>
+
       <div
         id="privacyModal"
         class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
@@ -2328,6 +2346,9 @@
         eventDetailModal: document.getElementById('eventDetailModal'),
         eventDetailContainer: document.getElementById('eventDetailContainer'),
         closeEventDetailButton: document.getElementById('closeEventDetailButton'),
+        eventCoverLightbox: document.getElementById('eventCoverLightbox'),
+        eventCoverLightboxImage: document.getElementById('eventCoverLightboxImage'),
+        eventCoverLightboxCloseButton: document.getElementById('eventCoverLightboxCloseButton'),
         adminPanel: document.getElementById('adminPanel'),
         adminStatus: document.getElementById('adminStatus'),
         adminHomeView: document.getElementById('adminHomeView'),
@@ -2657,7 +2678,10 @@
         });
         document.addEventListener('keydown', (event) => {
           if (event.key === 'Escape') {
-            if (!elements.platformModal.classList.contains('hidden')) {
+            // 放大層開著優先關它，不動行程詳情
+            if (elements.eventCoverLightbox && !elements.eventCoverLightbox.classList.contains('hidden')) {
+              closeEventCoverLightbox();
+            } else if (!elements.platformModal.classList.contains('hidden')) {
               closePlatformModal();
             } else if (!elements.privacyModal.classList.contains('hidden')) {
               closePrivacyModal();
@@ -2687,6 +2711,18 @@
         if (elements.closeEventDetailButton) {
           elements.closeEventDetailButton.addEventListener('click', closeEventDetail);
         }
+        // 封面放大層關閉：X 鈕、點大圖、點遮罩皆可關（回到行程詳情，不關詳情本身）
+        if (elements.eventCoverLightboxCloseButton) {
+          elements.eventCoverLightboxCloseButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            closeEventCoverLightbox();
+          });
+        }
+        if (elements.eventCoverLightbox) {
+          elements.eventCoverLightbox.addEventListener('click', (event) => {
+            closeEventCoverLightbox(); // 點大圖或點遮罩都關（整層即關閉熱區）
+          });
+        }
         if (elements.eventDetailModal) {
           elements.eventDetailModal.addEventListener('click', (event) => {
             if (event.target === elements.eventDetailModal) {
@@ -2696,6 +2732,13 @@
         }
         if (elements.eventDetailContainer) {
           elements.eventDetailContainer.addEventListener('click', (event) => {
+            // 封面點擊放大：先攔截，避免冒泡到 modal 遮罩誤關詳情
+            const zoomTarget = event.target.closest('[data-event-cover-zoom]');
+            if (zoomTarget) {
+              event.stopPropagation();
+              openEventCoverLightbox(zoomTarget.getAttribute('src'));
+              return;
+            }
             const btn = event.target.closest('[data-event-rsvp-action]');
             if (!btn) return;
             const action = btn.dataset.eventRsvpAction;
@@ -4036,6 +4079,8 @@
       function closeEventDetail() {
         if (!elements.eventDetailModal) return;
         if (eventModalCloseTimer) return; // 關閉動畫進行中，忽略重複觸發（X／遮罩／ESC 連點）
+        // 詳情關閉時一併收放大層，避免孤兒 lightbox 留在畫面上
+        closeEventCoverLightbox();
         if (elements.eventDetailModal.classList.contains('hidden')) {
           state.events.detail.id = null;
           state.events.detail.data = null;
@@ -4052,6 +4097,42 @@
           elements.eventDetailModal.classList.remove('flex', 'platform-modal-closing');
           document.body.classList.remove('overflow-hidden');
         }, 380);
+      }
+
+      // ===== 行程詳情封面放大層（z-60 高於詳情 z-50；只做封面，相簿暫不支援）=====
+      function openEventCoverLightbox(src) {
+        if (!elements.eventCoverLightbox || !src) return;
+        const img = elements.eventCoverLightboxImage;
+        // signed URL 過期／載入失敗：顯示提示文字，不讓整頁壞掉
+        img.onerror = () => {
+          img.style.display = 'none';
+          const fallback = document.createElement('p');
+          fallback.className = 'text-sm font-semibold text-white/85';
+          fallback.textContent = '圖片載入失敗';
+          if (!elements.eventCoverLightbox.querySelector('p[data-lightbox-fallback]')) {
+            fallback.setAttribute('data-lightbox-fallback', '');
+            elements.eventCoverLightbox.appendChild(fallback);
+          }
+        };
+        img.onload = () => {
+          img.style.display = '';
+          const fallback = elements.eventCoverLightbox.querySelector('p[data-lightbox-fallback]');
+          if (fallback) fallback.remove();
+        };
+        img.src = src;
+        elements.eventCoverLightbox.classList.remove('hidden');
+        elements.eventCoverLightbox.classList.add('flex');
+      }
+
+      function closeEventCoverLightbox() {
+        if (!elements.eventCoverLightbox) return;
+        if (elements.eventCoverLightbox.classList.contains('hidden')) return;
+        elements.eventCoverLightbox.classList.add('hidden');
+        elements.eventCoverLightbox.classList.remove('flex');
+        // 清掉載入失敗佔位，下次開別張圖不留殘影
+        const fallback = elements.eventCoverLightbox.querySelector('p[data-lightbox-fallback]');
+        if (fallback) fallback.remove();
+        elements.eventCoverLightboxImage.removeAttribute('src');
       }
 
       async function openEventDetail(eventId) {
@@ -4122,8 +4203,18 @@
         const data = state.events.detail.data;
         if (!container || !data) return;
 
+        // 有封面：可點擊放大（cursor-pointer + 極淡提示）；無封面維持不可點
         const coverHtml = data.cover_url
-          ? `<img src="${escapeHtml(data.cover_url)}" alt="" class="aspect-[16/9] w-full rounded-[1rem] bg-slate-50 object-contain" loading="lazy" />`
+          ? `<div class="relative">
+              <img
+                src="${escapeHtml(data.cover_url)}"
+                alt=""
+                data-event-cover-zoom
+                class="aspect-[16/9] w-full cursor-zoom-in rounded-[1rem] bg-slate-50 object-contain"
+                loading="lazy"
+              />
+              <span class="pointer-events-none absolute bottom-2 right-2 rounded-full bg-slate-900/45 px-2.5 py-1 text-[10px] font-semibold text-white/90">點圖放大</span>
+            </div>`
           : `<div class="flex aspect-[16/9] w-full items-center justify-center rounded-[1rem] bg-violet-50 text-violet-400"><i data-lucide="calendar-days" class="h-10 w-10"></i></div>`;
 
         const startStr = formatEventDateTimeDisplay(data.start_at);
