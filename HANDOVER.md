@@ -94,6 +94,7 @@
 - **功能（競選行程，2026-09-25 起，本期唯讀）**：沿用 `/api/admin/events*` 同一組 API，後端零修改；列表（`GET /api/admin/events`，表格：標題〔truncate＋title 全名〕/時間〔`formatEventDateTimeDisplay` 固定台北 +8 24 小時制〕/地點/上架/報名人數，整列點擊進詳情、空狀態「尚無行程」、更新按鈕重抓）＋ 詳情（`GET /api/admin/events/:id`，雙欄：左＝標題/時間區間/地點/摘要/完整內容/封面與相簿〔可點開原圖〕/影片連結；右＝上架狀態、報名人數、**報名名單**〔與手機版同一份 `data.rsvps`：稱呼或「未留姓名」、電話一鍵複製、報名時間台北 24 小時、新到舊〕）；**本期不做**新增／刪除／編輯文案／上傳封面相簿／取消別人報名／LINE 通知按鈕（頁面有文字提示至手機盾牌管理操作）
 - **電腦閱讀體驗**：內容最大寬度 1280px 置中左右留白；正文/表格/姓名/摘要 16px、時間與分類 14px（表格不低於 14px 的次要欄、主要欄 16px）；列高加大（py-4 + px-6）好點擊；chips/搜尋框/按鈕/狀態徽章同步放大；詳情標題 24px、正文 16px leading-8
 - **API**：全部沿用既有 `/api/admin/*`，後端驗證邏輯零修改（同一 channel → 同 `aud`）；僅 `/api/client-config` 多回 `adminLiffId`
+- **手機分流（2026-09-25 起）**：`bootstrap()` 在 LIFF init 前同步判斷——**寬度 < 768 或手機 UA**（如管理通知信連結在手機開啟）→ 顯示轉址提示 → 抓 `/api/client-config` 的里民 `liffId` → `location.replace('https://liff.line.me/<liffId>?tab=admin')`（管理員 → 盾牌管理首頁；非管理員 → liff.html 既有邏輯導回 platforms）；抓不到 `liffId` 顯示「請改用電腦前往管理後台」；**寬度 ≥ 768 且非手機 UA** → 電腦版流程完全不變（判斷在任何畫面渲染前執行，不閃版）；**通知信連結＝手機開 LIFF 管理、電腦開 admin.html，同一個網址自動分流**；本期未做 admin.html 整套 RWD
 - **登出**：`liff.logout()` 後重整；ID Token 過期（401）自動重新 `liff.login()`
 - **手機 LINE 內的盾牌管理入口完全不受影響**（`public/liff.html` 未動）
 - **環境變數**：`ADMIN_LIFF_ID`（Vercel 與本機 `.env` 都要設）；`.env.example` 已有說明
@@ -177,7 +178,7 @@
   - 鈴鐺按鈕＋紅點（未讀 >0 顯示，>99 顯「99+」）；點開為未讀列表（中文類型〔新反映／報平安待審核／行程新報名〕＋摘要＋相對時間），支援「全部已讀」
   - 點擊單則 → 標已讀＋導向：新反映→反映詳情、待審核→報平安該筆詳情、行程報名→liff.html 開該場編輯／admin.html 切行程模組開該場詳情（2026-09-25 起，原為提示改用手機盾牌端）；已讀標記失敗不擋導向
   - 輪詢：確認管理員身分後每 45 秒＋window focus／visibility 回前台，靜默拉 `unread-count` 更新紅點；**不新增底部 Tab（維持 4 個）**
-- **即時 Email（Resend，2026-09-25 起取代每日彙整）**：三類通知**寫入成功後立刻**逐封寄給 `ADMIN_NOTIFY_EMAILS`（`sendAdminNotifyEmail()`，fire-and-forget，**無 key／寄信失敗只 log，不擋里民 201**）；主旨短（「【幸福正砂】新反映：摘要前 30 字」式）、摘要不含完整電話、正文附 `https://zhengsha.vercel.app/admin.html` 連結；**不寄**：每日簽到、取消報名、幹部操作（標記關懷／暫停／審核）
+- **即時 Email（Resend，2026-09-25 起取代每日彙整）**：三類通知**寫入成功後立刻**逐封寄給 `ADMIN_NOTIFY_EMAILS`（`sendAdminNotifyEmail()`，fire-and-forget，**無 key／寄信失敗只 log，不擋里民 201**）；主旨短（「【幸福正砂】新反映：摘要前 30 字」式）、摘要不含完整電話、正文附 `https://zhengsha.vercel.app/admin.html` 連結（**手機開啟自動導向 LIFF 管理、電腦開 admin.html，同一網址分流**）；**不寄**：每日簽到、取消報名、幹部操作（標記關懷／暫停／審核）
 - **寄件人／回覆**：`ADMIN_NOTIFY_FROM`（已驗證自有網域 `notify@mail.zhengshavil.com`，顯示名「幸福正砂」；未設才 fallback `onboarding@resend.dev`）；`ADMIN_NOTIFY_REPLY_TO`（選填真實信箱，有設才帶 `reply_to`）
 - **不做**（第一期）：每日簽到、取消報名、狀態變更、snooze 不寫通知；LINE 推播（避免消耗官方帳號額度）；API key 不進 repo／HANDOVER
 
@@ -525,6 +526,11 @@
   - 新增 `formatEventDateTimeDisplay()`（admin.html 版）：固定台北 +8 用 UTC getter 格式化 24 小時制，不隨裝置時區變動；既有 `formatDateTime()`（裝置本地時區）保留給非行程欄位
   - 通知導向同步：admin.html 通知面板點「行程新報名」改為切 events 模組＋開該場詳情（原為提示改用手機盾牌端）
   - **本期不做**：新增／刪除／編輯文案／上傳封面相簿／取消別人報名／LINE 通知按鈕（列表與詳情頁均有文字提示至手機盾牌管理操作）；API 契約、liff.html、里民報名、401/403 處理、chips 計數、許願與報平安流程皆未動
+- **admin.html 手機分流（2026-09-25，僅改 public/admin.html，app.js 零修改）**
+  - 背景：管理員通知信連結 `https://zhengsha.vercel.app/admin.html` 在手機開啟會擠版（電腦版後台無 RWD）；改由 admin.html 自動分流，信裡連結不變
+  - `bootstrap()` 在 LIFF init 前同步判斷 `isMobileDevice()`（寬度 < 768 或手機 UA：`/Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile/i`）→ `redirectToMobileAdmin()`：顯示轉址提示 → 抓 `GET /api/client-config` 的里民 `liffId` → `location.replace('https://liff.line.me/<liffId>?tab=admin')`（管理員 → 盾牌管理首頁；非管理員 → liff.html 既有邏輯自動導回 platforms，與既有 `?tab=admin`／盾牌入口相容）；抓不到 `liffId` 顯示「無法開啟手機版，請改用電腦前往管理後台」
+  - 寬度 ≥ 768 且非手機 UA → 電腦版流程完全不變；判斷在任何畫面渲染前執行，不閃版
+  - **本期未做**：admin.html 整套 RWD；寄信時機、紅點、里民流程皆未動
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

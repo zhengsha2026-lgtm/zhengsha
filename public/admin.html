@@ -563,6 +563,35 @@ function statusBadgeHtml(status) {
 // LIFF 啟動與登入
 // ============================================================================
 
+// 手機分流（2026-09-25）：寬度 < 768 或手機 UA 開啟 admin.html（如管理通知信連結）
+// → 導向里民 LIFF 的管理面板（?tab=admin），避免電腦版後台在手機擠版。
+// 電腦（寬度 ≥ 768 且非手機 UA）完全不受影響；判斷在 LIFF init 前同步執行。
+function isMobileDevice() {
+  try {
+    if (window.innerWidth > 0 && window.innerWidth < 768) return true;
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile/i.test(ua);
+  } catch (err) {
+    return false;
+  }
+}
+
+// 導向里民 LIFF 管理面板：管理員 → 盾牌管理首頁；非管理員 → liff.html 原本導回 platforms
+async function redirectToMobileAdmin() {
+  showScreen('auth');
+  setAuthStatus('手機版將透過 LINE 開啟管理功能，正在轉址…', true);
+  try {
+    const res = await fetch('/api/client-config');
+    const json = await res.json().catch(() => null);
+    const liffId = json && json.liffId;
+    if (!liffId) throw new Error('LIFF_ID 未設定');
+    window.location.replace(`https://liff.line.me/${liffId}?tab=admin`);
+  } catch (err) {
+    console.error('redirectToMobileAdmin failed:', err);
+    setAuthStatus('無法開啟手機版，請改用電腦前往管理後台。', false);
+  }
+}
+
 async function fetchClientConfig() {
   const res = await fetch('/api/client-config');
   const json = await res.json().catch(() => null);
@@ -2024,6 +2053,13 @@ function bindEvents() {
 async function bootstrap() {
   cacheElements();
   bindEvents();
+
+  // 手機分流：在 LIFF init 之前判斷（同步），電腦流程完全不受影響
+  if (isMobileDevice()) {
+    await redirectToMobileAdmin();
+    return;
+  }
+
   renderIcons();
   showScreen('auth');
   setAuthStatus('正在透過 LINE 驗證身分…', true);
