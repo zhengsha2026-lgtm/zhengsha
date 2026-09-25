@@ -3082,12 +3082,65 @@ app.get('/api/admin/events/:id', async (req, res) => {
       });
     }
 
+    // 報名名單（管理端編輯頁顯示用；查詢失敗 rsvps=[]，不影響主流程）
+    // 姓名與電話逐欄優先：報平安（未退出）→ 該 user 最近一筆反映 → null
+    let rsvps = [];
+    try {
+      const { data: rsvpRows, error: rsvpError } = await supabaseAdmin
+        .from('event_rsvps')
+        .select('line_user_id, created_at')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false });
+      if (rsvpError) throw rsvpError;
+
+      const userIds = [...new Set((rsvpRows || []).map((row) => row.line_user_id).filter(Boolean))];
+      const safetyMap = new Map();
+      const feedbackMap = new Map();
+
+      if (userIds.length > 0) {
+        const { data: safetyRows, error: safetyError } = await supabaseAdmin
+          .from('safety_members')
+          .select('line_user_id, display_name, phone')
+          .in('line_user_id', userIds)
+          .is('left_at', null);
+        if (safetyError) throw safetyError;
+        for (const row of (safetyRows || [])) {
+          safetyMap.set(row.line_user_id, row);
+        }
+
+        // 最近一筆反映（created_at 降冪，每人取第一筆）
+        const { data: feedbackRows, error: feedbackError } = await supabaseAdmin
+          .from('user_feedback')
+          .select('line_user_id, user_name, phone, created_at')
+          .in('line_user_id', userIds)
+          .order('created_at', { ascending: false });
+        if (feedbackError) throw feedbackError;
+        for (const row of (feedbackRows || [])) {
+          if (!feedbackMap.has(row.line_user_id)) feedbackMap.set(row.line_user_id, row);
+        }
+      }
+
+      rsvps = (rsvpRows || []).map((row) => {
+        const safety = safetyMap.get(row.line_user_id);
+        const feedback = feedbackMap.get(row.line_user_id);
+        return {
+          line_user_id: row.line_user_id,
+          display_name: (safety && safety.display_name) || (feedback && feedback.user_name) || null,
+          phone: (safety && safety.phone) || (feedback && feedback.phone) || null,
+          created_at: row.created_at,
+        };
+      });
+    } catch (rsvpErr) {
+      console.error('admin event rsvps fetch failed:', rsvpErr);
+      rsvps = [];
+    }
+
     const coverUrl = await getEventCoverSignedUrl(eventRow.cover_image_path);
     const { cover_image_path, ...rest } = eventRow;
 
     return res.json({
       success: true,
-      data: { ...rest, cover_url: coverUrl, album },
+      data: { ...rest, cover_url: coverUrl, album, rsvps },
     });
   } catch (error) {
     return handleAuthOrServerError(res, error, 'admin event detail failed:');

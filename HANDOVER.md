@@ -46,7 +46,7 @@
   - 按鈕顯示筆數 `(N)`：列表**載入完成後**（`finally`、`loading=false` 之後）才重算；從未載入不顯示、載入中顯示 `—`（避免 `(0)` 誤導）
   - 空狀態依篩選顯示（「目前沒有處理中的反映」等）
 - 我的案件（列表 + 詳情）
-- 競選行程（里民端：主打 hero 卡 + 即將到來/過往足跡分組 + 詳情 modal + 16:9 封面與相簿 + 影片外連 + 報名/取消報名；管理端可看到報名人數）
+- 競選行程（里民端：主打 hero 卡 + 即將到來/過往足跡分組 + 詳情 modal + 16:9 封面與相簿 + 影片外連 + 報名/取消報名；管理端可看到報名人數與報名名單）
 - 報平安（?tab=safety 直開，不進底部導覽：每日簽到 + 個人資料/緊急聯絡人管理；管理端有待關懷名單與關懷紀錄）
 
 ### 許願相關（重點）
@@ -108,6 +108,7 @@
 - 行程管理（管理員專用）：管理首頁「行程管理」模組卡片（可用）
   - 行程列表：標題、時間、上架狀態、報名人數；可新增、進入編輯、刪除
   - 行程編輯頁：標題、`description`（列表摘要）、`content`（完整內容）、`start_at`/`end_at`（**結束時間必須晚於開始時間，前端+後端都會檢查**）、`location`、`video_url`、封面上傳/更換/刪除、相簿上傳/刪除、`is_published` 上架、刪除此行程
+  - **報名名單（2026-09-25 起）**：編輯頁「報名人數」卡內顯示報名名單（`GET /api/admin/events/:id` 回 `rsvps[]`：`line_user_id`/`display_name`/`phone`/`created_at` 新到舊；姓名與電話**逐欄**優先報平安〔`left_at IS NULL`〕→ 該 user 最近一筆反映 → null；查詢失敗 `rsvps=[]` 不 500）；空＝「尚無人報名」、有＝稱呼（無則「未留姓名」）＋電話一鍵複製＋報名時間（台北 24 小時）；**此頁不做取消別人報名**；admin.html 桌面版尚無行程模組、此次不動
   - 通知功能（後端文案寫死，**兩顆手動按鈕，上架不會自動群發**）：
     - `POST /api/admin/events/:id/notify-rsvp`（發 LINE 訊息給已報名里民）
     - `POST /api/admin/events/:id/notify-wish-pool`（發 LINE 訊息給曾使用許願池的里民）
@@ -299,7 +300,7 @@
 | PATCH | `/api/admin/platforms/:id/cover` | 回寫封面 storage_path（上傳後呼叫，自動刪舊封面） |
 | DELETE | `/api/admin/platforms/:id/cover` | 刪除封面圖 |
 | GET | `/api/admin/events` | 全部行程列表（含未上架），含封面 signed URL |
-| GET | `/api/admin/events/:id` | 單筆行程完整資料（含封面、相簿 signed URL） |
+| GET | `/api/admin/events/:id` | 單筆行程完整資料（含封面、相簿 signed URL、`rsvps[]` 報名名單：`line_user_id`/`display_name`/`phone`/`created_at` 新到舊，姓名電話逐欄優先報平安〔未退出〕→ 最近反映 → null，查詢失敗回 `[]` 不 500） |
 | POST | `/api/admin/events` | 新增行程（最小 payload 建立未上架草稿） |
 | PATCH | `/api/admin/events/:id` | 更新標題/description/content/start_at/end_at/location/video_url/is_published |
 | DELETE | `/api/admin/events/:id` | 刪除行程（一併移除封面、相簿、報名紀錄） |
@@ -514,6 +515,7 @@
   - **即時 Email（2026-09-25 變更，取代原每日 digest）**：`insertAdminNotification` 寫入成功後立刻呼叫 `sendAdminNotifyEmail(title, summary)` 逐封寄 `ADMIN_NOTIFY_EMAILS`（Resend `POST /emails`）；**已從 20:00 催簽 cron 移除 `sendAdminNotifyDigest`**（cron 回到純催簽）；主旨「【幸福正砂】新反映：摘要前 30 字」式、正文附後台連結；寄件人 `ADMIN_NOTIFY_FROM`（自有網域 `notify@mail.zhengshavil.com` 已驗證）、Reply-To `ADMIN_NOTIFY_REPLY_TO`（選填，有設才帶）；**無 `RESEND_API_KEY`／收件人空／寄信失敗 → 只 log 不報錯、不擋里民 201**
   - migration `008_admin_notifications.sql`（已於 Supabase 執行；repo 補存同內容冪等版）：`admin_notifications`＋`admin_notification_reads`（`UNIQUE(notification_id, line_user_id)`）
   - `.env.example` 已加 `RESEND_API_KEY`／`ADMIN_NOTIFY_EMAILS`／`ADMIN_NOTIFY_FROM`／`ADMIN_NOTIFY_REPLY_TO`；Vercel 環境變數需手動補上
+- **行程報名名單（2026-09-25）**：`GET /api/admin/events/:id` 回傳加 `rsvps[]`（`line_user_id`/`display_name`/`phone`/`created_at` 新到舊；姓名與電話逐欄優先報平安〔`left_at IS NULL`，不看 approval_status〕→ 該 user 最近一筆 `user_feedback` → null；查詢失敗 `rsvps=[]` 不 500；無新表）；liff.html 行程編輯頁「報名人數」卡內加報名名單（空＝「尚無人報名」；有＝稱呼〔無則「未留姓名」〕＋電話一鍵複製〔`data-event-rsvp-copy`，渲染後逐鈕綁定〕＋報名時間〔`formatEventDateTimeDisplay` 台北 24 小時〕；名單最長 max-h-64 可捲動）；**此頁不做取消別人報名**；里民報名/取消、通知、時區、admin.html 皆未動
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版**第三期**：政見管理、行程管理的電腦版（已有許願管理與報平安管理）
