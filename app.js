@@ -4697,23 +4697,16 @@ async function runSafetyAdminCareNotifications(today) {
 }
 
 // ============================================================================
-// 管理員通知第一期：每日 Email 彙整（Resend）
-// - 附掛在 20:00 催簽 cron（type=resident）成功後呼叫：
-//   Vercel Hobby 的 2 支 cron 額度已被報平安用滿，不新增第 3 支，
-//   digest 直接掛在 resident cron 的成功路徑（獨立 try/catch，失敗只 log、不影響催簽結果）
+// 管理員通知第一期：即時 Email（Resend）
+// - 三個寫入點（新反映 / 報平安待審核 / 行程新報名）寫入 admin_notifications
+//   成功後立刻逐封寄信給 ADMIN_NOTIFY_EMAILS（fire-and-forget，失敗只 log、不擋里民 201）
+// - 寄件人 ADMIN_NOTIFY_FROM（未設才 fallback onboarding@resend.dev）；
+//   Reply-To ADMIN_NOTIFY_REPLY_TO（選填，有設才帶）
 // - 無 RESEND_API_KEY 或 ADMIN_NOTIFY_EMAILS：跳過並 log，不報錯（紅點功能照常）
-// - 台北今天 00:00 起算三類筆數；全 0 不寄；逐封寄給 ADMIN_NOTIFY_EMAILS
-// - 摘要最多 10 則；不含完整電話（summary 建立當下就沒放電話）
-// - 寄信網域未驗證前只能用 onboarding@resend.dev 寄到註冊信箱（Resend 免費方案限制）
+// - 主旨短、摘要不含完整電話（summary 建立當下就沒放電話）、正文附後台連結
+// - 不寄：每日簽到、取消報名、幹部操作（標記關懷／暫停／審核）
 // ============================================================================
 
-const ADMIN_NOTIFY_DIGEST_TYPES = ['feedback_new', 'safety_pending', 'event_rsvp'];
-const ADMIN_NOTIFY_DIGEST_TYPE_LABELS = {
-  feedback_new: '新反映',
-  safety_pending: '報平安待審核',
-  event_rsvp: '行程新報名',
-};
-const ADMIN_NOTIFY_DIGEST_MAX_SUMMARIES = 10;
 const ADMIN_NOTIFY_FROM_FALLBACK = 'onboarding@resend.dev';
 const ADMIN_NOTIFY_ADMIN_URL = 'https://zhengsha.vercel.app/admin.html';
 
@@ -4724,75 +4717,26 @@ function getAdminNotifyEmails() {
     .filter(Boolean);
 }
 
-// 台北今天 00:00（含）起算，轉 UTC ISO 供 created_at（timestamptz）比較
-function getTaipeiTodayStartIso() {
-  const today = getTaipeiToday();
-  return new Date(`${today}T00:00:00+08:00`).toISOString();
-}
-
-async function fetchAdminNotifyDigestCounts(startIso) {
-  const counts = { feedback_new: 0, safety_pending: 0, event_rsvp: 0 };
-  for (const type of ADMIN_NOTIFY_DIGEST_TYPES) {
-    const { count, error } = await supabaseAdmin
-      .from('admin_notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('type', type)
-      .gte('created_at', startIso);
-    if (error) throw error;
-    counts[type] = count || 0;
-  }
-  return counts;
-}
-
-async function sendAdminNotifyDigest() {
+async function sendAdminNotifyEmail(title, summary) {
   const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
   const recipients = getAdminNotifyEmails();
 
   if (!resendApiKey) {
-    console.log('admin notify digest skipped: RESEND_API_KEY not set');
-    return { sent: 0, failed: 0, total: 0, skipped: 'no_api_key' };
+    console.log('admin notify email skipped: RESEND_API_KEY not set');
+    return;
   }
   if (recipients.length === 0) {
-    console.log('admin notify digest skipped: ADMIN_NOTIFY_EMAILS not set');
-    return { sent: 0, failed: 0, total: 0, skipped: 'no_recipients' };
+    console.log('admin notify email skipped: ADMIN_NOTIFY_EMAILS not set');
+    return;
   }
 
-  const startIso = getTaipeiTodayStartIso();
-  const counts = await fetchAdminNotifyDigestCounts(startIso);
-  const total = counts.feedback_new + counts.safety_pending + counts.event_rsvp;
-  if (total === 0) {
-    return { sent: 0, failed: 0, total: 0, skipped: 'nothing_today' };
-  }
-
-  const { data: rows, error } = await supabaseAdmin
-    .from('admin_notifications')
-    .select('type, title, summary, created_at')
-    .gte('created_at', startIso)
-    .order('created_at', { ascending: false })
-    .limit(ADMIN_NOTIFY_DIGEST_MAX_SUMMARIES);
-  if (error) throw error;
-
-  const todayDisplay = getTaipeiToday().split('-').join('/');
-  const subject = `【幸福正砂】今日待處理：反映 ${counts.feedback_new}、待審核 ${counts.safety_pending}、報名 ${counts.event_rsvp}`;
-  const lines = [
-    `${todayDisplay} 待處理事項：`,
-    `- 有事找里長新反映：${counts.feedback_new} 件`,
-    `- 報平安待審核：${counts.safety_pending} 件`,
-    `- 行程新報名：${counts.event_rsvp} 件`,
-    '',
-    '最新動態（最多 10 則）：',
-  ];
-  for (const row of rows || []) {
-    const label = ADMIN_NOTIFY_DIGEST_TYPE_LABELS[row.type] || row.type;
-    const summary = String(row.summary || row.title || '').trim() || '（無摘要）';
-    lines.push(`・${label}：${summary}`);
-  }
-  lines.push('', `後台連結：${ADMIN_NOTIFY_ADMIN_URL}`);
-  const textBody = lines.join('\n');
+  const brief = String(summary || '').trim().slice(0, 30);
+  const subject = brief ? `【幸福正砂】${title}：${brief}` : `【幸福正砂】${title}`;
+  const summaryText = String(summary || '').trim() || '（無摘要）';
+  const textBody = [`${title}：${summaryText}`, '', `後台連結：${ADMIN_NOTIFY_ADMIN_URL}`].join('\n');
 
   const fromEmail = String(process.env.ADMIN_NOTIFY_FROM || '').trim() || ADMIN_NOTIFY_FROM_FALLBACK;
-  let sent = 0;
-  let failed = 0;
+  const replyTo = String(process.env.ADMIN_NOTIFY_REPLY_TO || '').trim();
   for (const email of recipients) {
     try {
       const response = await fetch('https://api.resend.com/emails', {
@@ -4801,22 +4745,22 @@ async function sendAdminNotifyDigest() {
           Authorization: `Bearer ${resendApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ from: fromEmail, to: email, subject, text: textBody }),
+        body: JSON.stringify({
+          from: fromEmail,
+          to: email,
+          subject,
+          text: textBody,
+          ...(replyTo ? { reply_to: replyTo } : {}),
+        }),
       });
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
-        console.error(`admin notify digest send failed for ${email}:`, response.status, errText);
-        failed += 1;
-        continue;
+        console.error(`admin notify email send failed for ${email}:`, response.status, errText);
       }
-      sent += 1;
     } catch (err) {
-      console.error(`admin notify digest send error for ${email}:`, err.message);
-      failed += 1;
+      console.error(`admin notify email send error for ${email}:`, err.message);
     }
   }
-
-  return { sent, failed, total };
 }
 
 async function handleSafetyCronRequest(req, res) {
@@ -4844,18 +4788,6 @@ async function handleSafetyCronRequest(req, res) {
         ? await runSafetyResidentReminders(today)
         : await runSafetyAdminCareNotifications(today);
 
-    // 管理員通知第一期：每日 Email 彙整附掛在 20:00 催簽（resident）成功後
-    // （Vercel Hobby cron 額度已滿，不新增第 3 支；獨立 try/catch，失敗不影響催簽結果）
-    let digest = null;
-    if (type === 'resident') {
-      try {
-        digest = await sendAdminNotifyDigest();
-      } catch (digestError) {
-        console.error('admin notify digest failed:', digestError);
-        digest = { error: true };
-      }
-    }
-
     const message =
       type === 'admin' && result.care_count === 0
         ? '當天沒有待關懷名單，未發送通知。'
@@ -4864,7 +4796,7 @@ async function handleSafetyCronRequest(req, res) {
     return res.json({
       success: true,
       message,
-      data: { type, today, ...result, ...(digest ? { digest } : {}) },
+      data: { type, today, ...result },
     });
   } catch (error) {
     console.error('safety cron failed:', error);
@@ -5039,10 +4971,10 @@ async function requireAdmin(req) {
 }
 
 // ============================================================================
-// 管理員通知第一期：admin_notifications 紅點 + 每日 Email 彙整
+// 管理員通知第一期：admin_notifications 紅點 + 即時 Email
 // - 寫入時機僅三類：feedback_new / safety_pending / event_rsvp
 // - 寫入失敗只 log，不得擋里民主流程（呼叫端一律不 await、不拋錯）
-// - Email：Resend；無 RESEND_API_KEY 時跳過寄信只 log（紅點照常）
+// - 寫入成功後立刻寄即時 Email（sendAdminNotifyEmail，同樣 fire-and-forget）
 // ============================================================================
 
 // fire-and-forget：包一層避免任何通知失敗影響主流程
@@ -5052,7 +4984,14 @@ function insertAdminNotification(type, title, summary, refTable, refId) {
     .from('admin_notifications')
     .insert([{ type, title, summary: summary || null, ref_table: refTable || null, ref_id: refId != null ? String(refId) : null }])
     .then(({ error }) => {
-      if (error) console.error('admin notification insert failed:', error);
+      if (error) {
+        console.error('admin notification insert failed:', error);
+        return;
+      }
+      // 即時 Email：通知寫入成功後立刻寄（fire-and-forget，失敗只 log、不擋里民 201）
+      sendAdminNotifyEmail(title, summary).catch((err) =>
+        console.error('admin notify email error:', err)
+      );
     })
     .catch((err) => console.error('admin notification insert error:', err));
 }

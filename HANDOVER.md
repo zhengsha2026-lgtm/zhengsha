@@ -169,14 +169,14 @@
   - 管理端（liff.html 盾牌 + admin.html 電腦版同步）：chips 加「待審核」；pending 列顯示 sky「待審核」badge、未簽天數與最後簽到顯示「—」、稱呼後綴「（YYYY 年生）」、最後簽到欄改顯示申請時間；詳情頁 pending 顯示「審核申請」卡（核准／不通過＋原因 textarea），pending 時「標記關懷」與「暫不提醒幹部」皆唯讀隱藏；核准/不通過後重抓詳情與列表同步計數
   - 新增欄位（migration `007_safety_approval.sql`，已於 Supabase 執行）：`safety_members` 加 `approval_status text NOT NULL DEFAULT 'pending'`（CHECK 三值；**既有列 migration 內一律 backfill 為 `approved`**，行為不變）、`applied_at timestamptz NOT NULL DEFAULT now()`、`reviewed_at timestamptz`、`reviewed_by text`、`birth_year int`、`reject_reason text`
 
-### 管理員通知（第一期：後台紅點＋每日 Email 彙整）
+### 管理員通知（第一期：後台紅點＋即時 Email）
 - **寫入來源（只有三類，fire-and-forget）**：新反映（`POST /api/feedback` 成功後）、報平安待審核（`POST /api/safety/join` 成功後）、行程新報名（`POST /api/events/:id/rsvp` 成功後）→ 寫 `admin_notifications`；`insertAdminNotification()` 不 await、失敗只 log，**絕不擋里民主流程**；摘要不放完整電話（`buildFeedbackNotificationSummary` 只取稱呼 ≤20 字＋內容前 40 字）
 - **後台紅點（liff.html 盾牌管理首頁＋admin.html header）**：
   - 鈴鐺按鈕＋紅點（未讀 >0 顯示，>99 顯「99+」）；點開為未讀列表（中文類型〔新反映／報平安待審核／行程新報名〕＋摘要＋相對時間），支援「全部已讀」
   - 點擊單則 → 標已讀＋導向：新反映→反映詳情、待審核→報平安該筆詳情、行程報名→liff.html 開該場編輯／admin.html 無行程模組僅提示改用手機盾牌端；已讀標記失敗不擋導向
   - 輪詢：確認管理員身分後每 45 秒＋window focus／visibility 回前台，靜默拉 `unread-count` 更新紅點；**不新增底部 Tab（維持 4 個）**
-- **每日 Email 彙整（Resend）**：附掛在 **20:00 催簽 cron（resident）成功後**呼叫 `sendAdminNotifyDigest()`（Vercel Hobby 2 支 cron 已用滿，不新增第 3 支；獨立 try/catch，**失敗只 log、不影響催簽結果**）；台北今天 00:00 起算三類筆數＋最新 10 則摘要、全 0 不寄、逐封寄給 `ADMIN_NOTIFY_EMAILS`、主旨「【幸福正砂】今日待處理：反映 N、待審核 N、報名 N」、正文含 `https://zhengsha.vercel.app/admin.html` 連結、不含完整電話
-- **現況限制**：未設 `RESEND_API_KEY` 時跳過寄信（僅 log，不報錯，紅點照常）；Resend 免費方案**網域未驗證前只能用 `onboarding@resend.dev` 寄到註冊信箱**——自有網域驗證後再改 `ADMIN_NOTIFY_FROM` 即可對外寄
+- **即時 Email（Resend，2026-09-25 起取代每日彙整）**：三類通知**寫入成功後立刻**逐封寄給 `ADMIN_NOTIFY_EMAILS`（`sendAdminNotifyEmail()`，fire-and-forget，**無 key／寄信失敗只 log，不擋里民 201**）；主旨短（「【幸福正砂】新反映：摘要前 30 字」式）、摘要不含完整電話、正文附 `https://zhengsha.vercel.app/admin.html` 連結；**不寄**：每日簽到、取消報名、幹部操作（標記關懷／暫停／審核）
+- **寄件人／回覆**：`ADMIN_NOTIFY_FROM`（已驗證自有網域 `notify@mail.zhengshavil.com`，顯示名「幸福正砂」；未設才 fallback `onboarding@resend.dev`）；`ADMIN_NOTIFY_REPLY_TO`（選填真實信箱，有設才帶 `reply_to`）
 - **不做**（第一期）：每日簽到、取消報名、狀態變更、snooze 不寫通知；LINE 推播（避免消耗官方帳號額度）；API key 不進 repo／HANDOVER
 
 ---
@@ -323,7 +323,7 @@
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| GET | `/api/cron/safety-reminders/resident` | 台北每天 20:00 催本人（Vercel Cron 用；**Cron 不保留 query string，故 cron 路徑一律用路徑區分**）；催簽成功後**附掛發送管理員 Email digest**（`sendAdminNotifyDigest()`，獨立 try/catch 失敗不影響催簽） |
+| GET | `/api/cron/safety-reminders/resident` | 台北每天 20:00 催本人（Vercel Cron 用；**Cron 不保留 query string，故 cron 路徑一律用路徑區分**） |
 | GET | `/api/cron/safety-reminders/admin` | 台北每天 09:00 通知幹部待關懷（Vercel Cron 用） |
 | GET | `/api/cron/safety-reminders?type=resident\|admin` | 同上功能，本機 curl 測試用（保留） |
 | POST | `/api/cron/safety-reminders` | 同上，body `{ type }`，本機 curl 測試用（保留） |
@@ -348,13 +348,14 @@
 - `ADMIN_LINE_USER_IDS`（逗號分隔多個 LINE user id，即 LINE verify API 回傳的 `sub`；管理員從 LIFF 登入後可從 `user_feedback.line_user_id` 或後端 log 查得自己的 sub）
 - `ADMIN_LIFF_ID`（管理端電腦版用的第二個 LIFF app ID，Endpoint URL = `https://zhengsha.vercel.app/admin.html`，與里民 LIFF 同一個 LINE Login 頻道；记得也把該網址加入頻道 Callback URL）
 - `CRON_SECRET`（報平安排程通知的 Bearer token，亂數字串如 `openssl rand -hex 32`；Vercel Cron 呼叫 `/api/cron/*` 時自動帶 `Authorization: Bearer <CRON_SECRET>`；未設定 = 排程停用）
-- `RESEND_API_KEY`（管理員 Email digest 用；**未設定 = 跳過寄信**，僅 log 不報錯，後台紅點不受影響；resend.com 免費方案即可）
-- `ADMIN_NOTIFY_EMAILS`（digest 收件人，逗號分隔多個 email）
-- `ADMIN_NOTIFY_FROM`（digest 寄件人；預設 `onboarding@resend.dev`——Resend 免費方案網域未驗證前只能寄到註冊信箱）
+- `RESEND_API_KEY`（管理員即時 Email 用；**未設定 = 跳過寄信**，僅 log 不報錯，後台紅點不受影響；resend.com 免費方案即可）
+- `ADMIN_NOTIFY_EMAILS`（收件人，逗號分隔多個 email；三類事件當下逐封寄出）
+- `ADMIN_NOTIFY_FROM`（寄件人；已驗證自有網域 `notify@mail.zhengshavil.com`，未設定才 fallback `onboarding@resend.dev`）
+- `ADMIN_NOTIFY_REPLY_TO`（選填 Reply-To 真實信箱如 Gmail；有設才帶，沒設不帶）
 - 以及其他既有的 LINE / LIFF 相關變數
 
 ### Vercel Cron（已寫進 `vercel.json`，部署即生效）
-- `0 12 * * *` UTC（= 台北 20:00）→ `GET /api/cron/safety-reminders/resident`：催本人（**成功後附掛管理員 Email digest**——Hobby 2 支 cron 已用滿，不新增第 3 支）
+- `0 12 * * *` UTC（= 台北 20:00）→ `GET /api/cron/safety-reminders/resident`：催本人
 - `0 1 * * *` UTC（= 台北 09:00）→ `GET /api/cron/safety-reminders/admin`：通知幹部
 - **教訓：Vercel Cron 不保留 query string**（Dashboard Logs 只會看到路徑），cron 端點一律用路徑參數，不靠 `?type=`
 - Hobby 方案上限 2 個 cron jobs（每天各一次），目前已用滿；執行紀錄可在 Vercel Dashboard → Deployments → Cron Jobs 查看
@@ -506,16 +507,15 @@
   - 管理端：liff 盾牌模組名「反映管理」＋詳情內容標籤「反映內容」；admin.html header／模組分頁「有事找里長」＋列表欄位「反映內容」＋空狀態與刪除文案
   - 後端訊息（app.js）：feedback 相關 API 回傳 message 全部改「反映」用語；行程通知按鈕與相關訊息改「通知曾反映過的里民」；邀請文案（webhook 預設回覆）改「有事找里長」表單
   - LINE webhook 關鍵字：新增「找里長」「有事找里長」，舊「許願池」「表單」保留可用
-- **管理員通知第一期：後台紅點＋每日 Email 彙整（本次變更）**
-  - 寫入（app.js 三處、fire-and-forget 不擋里民主流程）：`POST /api/feedback` → `feedback_new`（摘要＝稱呼≤20字＋內容前40字，**不放完整電話**）、`POST /api/safety/join` → `safety_pending`、`POST /api/events/:id/rsvp` → `event_rsvp`；每日簽到／取消報名／狀態變更／snooze 不寫
+- **管理員通知第一期：後台紅點＋Email 通知（本次變更：2026-09-25 起 digest 改即時 Email）**
+  - 寫入（app.js 三處、fire-and-forget 不擋里民主流程）：`POST /api/feedback` → `feedback_new`（摘要＝稱呼≤20字＋內容前40字，**不放完整電話**）、`POST /api/safety/join` → `safety_pending`、`POST /api/events/:id/rsvp` → `event_rsvp`；每日簽到／取消報名／狀態變更／幹部操作不寫不寄
   - 通知 API 四支（皆 requireAdmin）：list（`unread=1`/`limit`，items 附 `is_read`＋`unread_count`）、`unread-count`、`:id/read`（upsert 冪等、404 檢查、回新 `unread_count`）、`read-all`（diff 未讀批次 upsert）
   - 前端鈴鐺（liff.html 盾牌管理首頁 header ＋ admin.html header，桌面版為下拉面板、點外部收起）：紅點（>0 顯示、>99「99+」）、未讀列表（中文類型＋摘要＋相對時間、摘要 escapeHtml）、點擊＝標已讀＋導向（新反映→反映詳情；待審核→報平安該筆詳情；行程→liff 開該場編輯、admin.html 無行程模組提示改用手機盾牌端；已讀失敗不擋導向）、全部已讀、45 秒＋focus／visibility 輪詢紅點；**底部維持 4 Tab 未動**
-  - Email digest：`sendAdminNotifyDigest()` 附掛 20:00 催簽 cron（resident）成功後（獨立 try/catch；Hobby cron 額度用滿不新增）；台北今天 00:00 起算三類筆數（head-count ×3）＋最新 10 則摘要；全 0 不寄；逐封寄 `ADMIN_NOTIFY_EMAILS`（Resend `POST /emails`，from 預設 `onboarding@resend.dev`）；主旨「【幸福正砂】今日待處理：反映 N、待審核 N、報名 N」、正文含後台連結；**無 `RESEND_API_KEY`／收件人空 → 跳過僅 log 不報錯**
+  - **即時 Email（2026-09-25 變更，取代原每日 digest）**：`insertAdminNotification` 寫入成功後立刻呼叫 `sendAdminNotifyEmail(title, summary)` 逐封寄 `ADMIN_NOTIFY_EMAILS`（Resend `POST /emails`）；**已從 20:00 催簽 cron 移除 `sendAdminNotifyDigest`**（cron 回到純催簽）；主旨「【幸福正砂】新反映：摘要前 30 字」式、正文附後台連結；寄件人 `ADMIN_NOTIFY_FROM`（自有網域 `notify@mail.zhengshavil.com` 已驗證）、Reply-To `ADMIN_NOTIFY_REPLY_TO`（選填，有設才帶）；**無 `RESEND_API_KEY`／收件人空／寄信失敗 → 只 log 不報錯、不擋里民 201**
   - migration `008_admin_notifications.sql`（已於 Supabase 執行；repo 補存同內容冪等版）：`admin_notifications`＋`admin_notification_reads`（`UNIQUE(notification_id, line_user_id)`）
-  - `.env.example` 已加 `RESEND_API_KEY`／`ADMIN_NOTIFY_EMAILS`／`ADMIN_NOTIFY_FROM`；Vercel 環境變數需手動補上（本機 `.env` 已有 `ADMIN_NOTIFY_EMAILS`）
+  - `.env.example` 已加 `RESEND_API_KEY`／`ADMIN_NOTIFY_EMAILS`／`ADMIN_NOTIFY_FROM`／`ADMIN_NOTIFY_REPLY_TO`；Vercel 環境變數需手動補上
 
 ### 仍可優化 / 尚未完成
-- Resend **自有網域驗證**（現用 `onboarding@resend.dev` 只能寄到註冊信箱；驗證後改 `ADMIN_NOTIFY_FROM` 對外寄）
 - 管理端電腦版**第三期**：政見管理、行程管理的電腦版（已有許願管理與報平安管理）
 - 報平安排程通知的**推播則數成本監控**（每日 20:00 催本人會消耗官方帳號推播額度，人數多時需留意；Hobby 方案 cron 2 jobs/天上限已用滿）
 - 許願案件狀態變更後的 **LINE 主動通知里民**（推播進度）尚未做
