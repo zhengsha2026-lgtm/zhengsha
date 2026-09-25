@@ -59,6 +59,9 @@
           <button type="button" data-module-tab="safety" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
             <i data-lucide="heart-pulse" class="h-4 w-4"></i><span>報平安</span>
           </button>
+          <button type="button" data-module-tab="events" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="calendar-days" class="h-4 w-4"></i><span>競選行程</span>
+          </button>
         </nav>
         <div class="flex items-center gap-4">
           <div class="relative">
@@ -369,6 +372,47 @@
           </div>
         </section>
       </div>
+
+      <!-- ===== 模組：競選行程（本期唯讀：列表＋詳情＋報名名單） ===== -->
+      <div id="moduleEvents" class="hidden">
+        <!-- 行程：列表視圖 -->
+        <section id="eventsListView">
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <p class="text-sm text-slate-500">行程依開始時間先後排序；點列可查看詳情與報名名單。</p>
+            <button id="eventsRefreshButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50">
+              <i data-lucide="refresh-cw" class="h-4 w-4"></i><span>更新</span>
+            </button>
+          </div>
+
+          <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+            <table class="w-full text-left text-base">
+              <thead>
+                <tr class="border-b border-slate-100 bg-slate-50/60 text-xs uppercase tracking-wide text-slate-400">
+                  <th class="px-6 py-4 font-semibold">標題</th>
+                  <th class="px-6 py-4 font-semibold">時間</th>
+                  <th class="px-6 py-4 font-semibold">地點</th>
+                  <th class="px-6 py-4 font-semibold">上架</th>
+                  <th class="px-6 py-4 font-semibold">報名人數</th>
+                  <th class="px-6 py-4"></th>
+                </tr>
+              </thead>
+              <tbody id="eventsTableBody"></tbody>
+            </table>
+            <div id="eventsListEmpty" class="hidden px-6 py-20 text-center text-base text-slate-400">尚無行程</div>
+            <div id="eventsListLoading" class="hidden px-6 py-20 text-center text-base text-slate-400">載入中…</div>
+          </div>
+          <p class="mt-4 text-xs text-slate-400">新增／編輯／刪除行程請至手機 LINE「盾牌管理 → 行程管理」操作。</p>
+        </section>
+
+        <!-- 行程：詳情視圖（JS 渲染） -->
+        <section id="eventsDetailView" class="hidden">
+          <button id="eventsBackButton" type="button" class="mb-5 inline-flex items-center gap-2 text-base font-semibold text-violet-600 transition hover:text-violet-800">
+            <i data-lucide="arrow-left" class="h-5 w-5"></i>
+            <span>返回列表</span>
+          </button>
+          <div id="eventsDetailBody"></div>
+        </section>
+      </div>
     </main>
   </div>
 
@@ -417,6 +461,14 @@ const state = {
     approving: false,
     rejecting: false,
   },
+  // 競選行程（本期唯讀：列表＋詳情＋報名名單）
+  events: {
+    loaded: false,
+    loading: false,
+    items: [],
+    detail: null,
+    loadingDetail: false,
+  },
   // 管理員通知（第一期）
   notify: {
     unread: 0,
@@ -444,7 +496,9 @@ function cacheElements() {
     'detailUserName', 'detailPhone', 'detailCategory', 'detailCreatedAt',
     'statusSelect', 'replyTextarea', 'replyCharCount', 'saveButton',
     'deleteButton',
-    'moduleFeedback', 'moduleSafety',
+    'moduleFeedback', 'moduleSafety', 'moduleEvents',
+    'eventsListView', 'eventsTableBody', 'eventsListEmpty', 'eventsListLoading', 'eventsRefreshButton',
+    'eventsDetailView', 'eventsBackButton', 'eventsDetailBody',
     'safetyListView', 'safetyTableBody', 'safetyListEmpty', 'safetyListLoading', 'safetyRefreshButton',
     'safetyDetailView', 'safetyBackButton', 'safetyMemberInfo', 'safetyCareTimeline', 'safetyCheckinList',
     'safetyCareCard', 'safetyCareMethodSelect', 'safetyCareNote', 'safetyCareNoteCount', 'safetyCareSaveButton',
@@ -597,8 +651,7 @@ async function handleRelogin() {
 
 // ============================================================================
 // 管理員通知第一期（桌面版）：鈴鐺紅點 + 未讀列表 + 點擊已讀導向
-// - 僅列未讀（unread=1）；點擊單則 → 標已讀 + 導向（反映詳情 / 報平安該筆詳情）
-// - 行程新報名：桌面版無行程模組，僅標已讀並提示改用手機盾牌端
+// - 僅列未讀（unread=1）；點擊單則 → 標已讀 + 導向（反映詳情 / 報平安該筆詳情 / 行程該場詳情）
 // - 每 45 秒 + focus/visibility 回前台時靜態拉 unread-count 更新紅點
 // ============================================================================
 
@@ -750,7 +803,8 @@ function navigateToNotifyTarget(item) {
     if (state.module !== 'safety') switchModule('safety');
     openSafetyDetail(refId);
   } else if (item.type === 'event_rsvp') {
-    showToast('行程管理請至手機 LINE「盾牌管理」操作。');
+    if (state.module !== 'events') switchModule('events');
+    openEventDetail(refId);
   } else {
     showToast('找不到對應的項目。');
   }
@@ -1113,15 +1167,19 @@ const SAFETY_CARE_METHOD_STYLES = {
 };
 
 function switchModule(module) {
-  const target = module === 'safety' ? 'safety' : 'feedback';
+  const target = module === 'safety' ? 'safety' : module === 'events' ? 'events' : 'feedback';
   state.module = target;
   updateModuleTabs();
   elements.moduleFeedback.classList.toggle('hidden', target !== 'feedback');
   elements.moduleSafety.classList.toggle('hidden', target !== 'safety');
+  elements.moduleEvents.classList.toggle('hidden', target !== 'events');
   window.scrollTo({ top: 0 });
-  // 進哪個模組才載哪個（報平安第一次切換才打 API）
+  // 進哪個模組才載哪個（報平安／行程第一次切換才打 API）
   if (target === 'safety' && !state.safety.loaded) {
     loadSafetyList();
+  }
+  if (target === 'events' && !state.events.loaded) {
+    loadEventsList();
   }
 }
 
@@ -1591,6 +1649,247 @@ async function rejectSafetyMember() {
   }
 }
 
+// ============================================================================
+// 競選行程（桌面版第三期：本期唯讀）
+// - 列表：GET /api/admin/events（第一次切換模組才打）；整列點擊進詳情
+// - 詳情：GET /api/admin/events/:id（含 rsvps 報名名單，與手機版同一份）
+// - 本期不做：新增／刪除／編輯文案／上傳封面相簿／取消別人報名／LINE 通知
+//   （新增／編輯／刪除請至手機 LINE「盾牌管理 → 行程管理」）
+// ============================================================================
+
+// 行程時間：固定 Asia/Taipei（UTC+8）24 小時制顯示，不隨裝置時區變動
+// （與手機版 formatEventDateTimeDisplay 同邏輯；admin.html 既有 formatDateTime
+//   用裝置本地時區，僅供非行程欄位使用）
+function formatEventDateTimeDisplay(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const taipei = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${taipei.getUTCFullYear()}/${pad(taipei.getUTCMonth() + 1)}/${pad(taipei.getUTCDate())} ${pad(taipei.getUTCHours())}:${pad(taipei.getUTCMinutes())}`;
+}
+
+function eventPublishedBadgeHtml(isPublished) {
+  return isPublished
+    ? '<span class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-600 ring-1 ring-emerald-200"><i data-lucide="check-circle-2" class="h-3.5 w-3.5"></i>已上架</span>'
+    : '<span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-slate-500 ring-1 ring-slate-200"><i data-lucide="eye-off" class="h-3.5 w-3.5"></i>未上架</span>';
+}
+
+async function loadEventsList() {
+  if (state.events.loading) return;
+  state.events.loading = true;
+  elements.eventsListLoading.classList.remove('hidden');
+  elements.eventsListEmpty.classList.add('hidden');
+
+  try {
+    const res = await authedFetch('/api/admin/events');
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    state.events.items = Array.isArray(json.data) ? json.data : [];
+    state.events.loaded = true;
+    renderEventsList();
+  } catch (err) {
+    console.error('loadEventsList failed:', err);
+    state.events.items = [];
+    renderEventsList();
+    showToast(err.message || '行程列表載入失敗');
+  } finally {
+    state.events.loading = false;
+    elements.eventsListLoading.classList.add('hidden');
+  }
+}
+
+function renderEventsList() {
+  const rows = state.events.items.map((item) => `
+    <tr class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40" data-open-event="${item.id}">
+      <td class="max-w-[18rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(item.title || '')}">${escapeHtml(item.title || '（無標題）')}</td>
+      <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-500">${formatEventDateTimeDisplay(item.start_at)}</td>
+      <td class="max-w-[12rem] truncate px-6 py-4 text-sm text-slate-500" title="${escapeHtml(item.location || '')}">${escapeHtml(item.location || '—')}</td>
+      <td class="px-6 py-4">${eventPublishedBadgeHtml(item.is_published)}</td>
+      <td class="px-6 py-4 text-base font-semibold text-violet-700">${Number(item.rsvp_count) || 0} 人</td>
+      <td class="px-6 py-4 text-right">
+        <span class="inline-flex items-center gap-1 text-sm font-semibold text-violet-600">
+          查看 <i data-lucide="chevron-right" class="h-4 w-4"></i>
+        </span>
+      </td>
+    </tr>
+  `).join('');
+
+  elements.eventsTableBody.innerHTML = rows;
+  elements.eventsListEmpty.classList.toggle('hidden', state.events.items.length > 0 || state.events.loading);
+  renderIcons();
+
+  // 綁定整列點擊
+  elements.eventsTableBody.querySelectorAll('[data-open-event]').forEach((tr) => {
+    tr.addEventListener('click', () => openEventDetail(Number(tr.dataset.openEvent)));
+  });
+}
+
+function switchEventView(view) {
+  const isList = view === 'list';
+  elements.eventsListView.classList.toggle('hidden', !isList);
+  elements.eventsDetailView.classList.toggle('hidden', isList);
+  if (isList) window.scrollTo({ top: 0 });
+}
+
+async function openEventDetail(id) {
+  if (state.events.loadingDetail) return;
+  switchEventView('detail');
+  state.events.loadingDetail = true;
+  elements.eventsDetailBody.innerHTML = '<div class="rounded-2xl border border-slate-200/70 bg-white px-6 py-20 text-center text-base text-slate-400 shadow-sm">載入中…</div>';
+
+  try {
+    const res = await authedFetch(`/api/admin/events/${encodeURIComponent(id)}`);
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    state.events.detail = json.data;
+    renderEventDetail();
+  } catch (err) {
+    console.error('openEventDetail failed:', err);
+    showToast(err.message || '行程詳情載入失敗');
+    switchEventView('list');
+  } finally {
+    state.events.loadingDetail = false;
+  }
+}
+
+function renderEventDetail() {
+  const d = state.events.detail;
+  if (!d) return;
+
+  const timeText = d.end_at
+    ? `${formatEventDateTimeDisplay(d.start_at)} ～ ${formatEventDateTimeDisplay(d.end_at)}`
+    : formatEventDateTimeDisplay(d.start_at);
+
+  // 封面（可點開原圖）
+  const coverHtml = d.cover_url
+    ? `
+      <p class="mb-3 text-sm font-semibold text-slate-500">封面（可點開）</p>
+      <a href="${escapeHtml(d.cover_url)}" target="_blank" rel="noopener" class="group relative block overflow-hidden rounded-xl ring-1 ring-slate-200">
+        <img src="${escapeHtml(d.cover_url)}" alt="封面" loading="lazy"
+          class="aspect-video w-full object-cover transition group-hover:scale-105">
+      </a>`
+    : '';
+
+  // 相簿（可點開）
+  const album = Array.isArray(d.album) ? d.album : [];
+  const albumHtml = album.length > 0
+    ? `
+      <p class="mb-3 text-sm font-semibold text-slate-500">相簿（${album.length} 張，可點開）</p>
+      <div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
+        ${album.map((p) => `
+          <a href="${escapeHtml(p.url || p.signed_url || '#')}" target="_blank" rel="noopener" class="group relative block overflow-hidden rounded-xl ring-1 ring-slate-200">
+            <img src="${escapeHtml(p.url || p.signed_url || '')}" alt="相簿照片" loading="lazy"
+              class="aspect-square w-full object-cover transition group-hover:scale-105">
+          </a>
+        `).join('')}
+      </div>`
+    : '';
+
+  const videoHtml = d.video_url
+    ? `
+      <a href="${escapeHtml(d.video_url)}" target="_blank" rel="noopener"
+        class="inline-flex items-center gap-2 rounded-full bg-violet-50 px-5 py-2.5 text-sm font-semibold text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-100">
+        <i data-lucide="youtube" class="h-4 w-4"></i><span>影片連結</span>
+      </a>`
+    : '';
+
+  // 報名名單（與手機版同一份 data.rsvps：created_at 新到舊；姓名/電話優先報平安→最近反映）
+  const rsvps = Array.isArray(d.rsvps) ? d.rsvps : [];
+  const rsvpListHtml = rsvps.length === 0
+    ? '<p class="text-sm text-slate-400">尚無人報名</p>'
+    : `
+      <ul class="max-h-[28rem] space-y-2 overflow-y-auto">
+        ${rsvps.map((r) => `
+          <li class="flex items-center justify-between gap-2 rounded-xl bg-slate-50/70 px-4 py-3 ring-1 ring-slate-200/70">
+            <div class="min-w-0">
+              <p class="truncate text-base font-semibold text-slate-800">${escapeHtml(r.display_name || '未留姓名')}</p>
+              <p class="mt-0.5 text-xs text-slate-400">報名於 ${formatEventDateTimeDisplay(r.created_at)}</p>
+            </div>
+            ${r.phone ? `
+              <button type="button" data-copy-text="${escapeHtml(r.phone)}"
+                class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-semibold text-violet-600 ring-1 ring-violet-100 transition hover:bg-violet-50 active:scale-95">
+                <i data-lucide="copy" class="h-3.5 w-3.5"></i>
+                <span>${escapeHtml(r.phone)}</span>
+              </button>
+            ` : ''}
+          </li>
+        `).join('')}
+      </ul>
+    `;
+
+  elements.eventsDetailBody.innerHTML = `
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
+      <!-- 左欄：行程內容 -->
+      <div class="space-y-6 lg:col-span-3">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">行程 #${d.id}</p>
+              <h2 class="mt-1.5 break-words text-2xl font-bold text-slate-900">${escapeHtml(d.title || '（無標題）')}</h2>
+            </div>
+          </div>
+          <div class="mt-6 space-y-4 text-base">
+            <div class="flex items-start justify-between gap-4">
+              <span class="shrink-0 text-slate-400">時間</span>
+              <span class="text-right font-semibold text-slate-800">${timeText}</span>
+            </div>
+            <div class="flex items-start justify-between gap-4">
+              <span class="shrink-0 text-slate-400">地點</span>
+              <span class="text-right font-semibold text-slate-800">${escapeHtml(d.location || '—')}</span>
+            </div>
+          </div>
+          ${d.description ? `
+            <div class="mt-6">
+              <p class="mb-2 text-sm font-semibold text-slate-500">摘要</p>
+              <p class="whitespace-pre-wrap rounded-xl bg-slate-50/70 p-4 text-base leading-8 text-slate-700">${escapeHtml(d.description)}</p>
+            </div>` : ''}
+          ${d.content ? `
+            <div class="mt-6">
+              <p class="mb-2 text-sm font-semibold text-slate-500">完整內容</p>
+              <p class="whitespace-pre-wrap rounded-xl bg-slate-50/70 p-4 text-base leading-8 text-slate-700">${escapeHtml(d.content)}</p>
+            </div>` : ''}
+          ${coverHtml ? `<div class="mt-6">${coverHtml}</div>` : ''}
+          ${albumHtml ? `<div class="mt-6">${albumHtml}</div>` : ''}
+          ${videoHtml ? `<div class="mt-6">${videoHtml}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- 右欄：狀態 + 報名名單 -->
+      <div class="space-y-6 lg:col-span-2">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm">
+          <p class="text-base font-bold text-slate-900">行程狀態</p>
+          <div class="mt-5 space-y-4 text-base">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">上架狀態</span>
+              ${eventPublishedBadgeHtml(d.is_published)}
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">報名人數</span>
+              <span class="text-2xl font-bold text-violet-950">${Number(d.rsvp_count) || 0}<span class="ml-1 text-sm font-medium text-slate-500">人</span></span>
+            </div>
+          </div>
+          <p class="mt-4 text-xs leading-5 text-slate-400">新增／編輯／刪除行程請至手機 LINE「盾牌管理 → 行程管理」操作。</p>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm">
+          <p class="text-base font-bold text-slate-900">報名名單 <span class="text-sm font-normal text-slate-400">（新到舊）</span></p>
+          <div class="mt-4">${rsvpListHtml}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  renderIcons();
+}
+
 async function copyTextToClipboard(text) {
   const value = String(text || '').trim();
   if (!value) return;
@@ -1683,6 +1982,14 @@ function bindEvents() {
 
   // 複製電話（按鈕為動態渲染，用事件委派）
   elements.safetyDetailView.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-copy-text]');
+    if (btn) copyTextToClipboard(btn.dataset.copyText);
+  });
+
+  // 競選行程：更新 / 返回 / 報名電話複製（委派）
+  elements.eventsRefreshButton.addEventListener('click', () => loadEventsList());
+  elements.eventsBackButton.addEventListener('click', () => switchEventView('list'));
+  elements.eventsDetailView.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-copy-text]');
     if (btn) copyTextToClipboard(btn.dataset.copyText);
   });

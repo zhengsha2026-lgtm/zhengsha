@@ -82,15 +82,16 @@
 - 排序交換：PATCH sort_order 時後端自動與佔用者交換
 - `is_published = false` 的政見里民端不顯示
 
-### 管理端電腦版（許願管理 + 報平安管理）
+### 管理端電腦版（許願管理 + 報平安管理 + 行程管理〔唯讀〕）
 - **網址**：`https://zhengsha.vercel.app/admin.html`
 - **登入方式**：電腦瀏覽器開啟後，透過**第二個 LIFF app**（`ADMIN_LIFF_ID`，與里民 LIFF 同一個 LINE Login 頻道）做 LINE Login（掃 QR 或用已登入的 LINE 帳號）
 - **權限**：登入後打 `GET /api/admin/me` 檢查白名單（`ADMIN_LINE_USER_IDS`，後端以 LINE verify API 回傳的 `sub` 為準）；非白名單顯示「沒有管理權限」頁，**不會打任何會碰里民個資的 API**
 - **登入／驗證中畫面標題**：「管理後台」（`<title>`、authScreen `<h1>`、header 三處一致）
-- **頂部模組導覽**：header 內「許願池 | 報平安」segmented tabs（預留未來政見/行程）；`switchModule()` 互斥切換 `#moduleFeedback` / `#moduleSafety`，報平安**第一次切換才打 API**（惰性載入）
+- **頂部模組導覽**：header 內「許願池 | 報平安 | 競選行程」segmented tabs（預留未來政見）；`switchModule()` 互斥切換 `#moduleFeedback` / `#moduleSafety` / `#moduleEvents`，報平安與行程**第一次切換才打 API**（惰性載入）
 - **功能（許願池）**：許願列表（桌面表格：狀態 chips 含計數、搜尋、分頁）＋ 詳情（左右雙欄：案件內容/照片/時間軸 + 里民資訊/狀態變更/回覆填寫）＋ 儲存（自動寫 `status_logs`）＋ 刪除（二次確認，接 `DELETE /api/admin/feedback/:id`）
 - **許願狀態 chips 計數**：一律用 API 回傳的**全域 `counts`**（各狀態總數，後端 5 個獨立 head-count，不吃 `status`/`q`/`limit`/`offset` 參數），**不隨目前篩選/搜尋/分頁變動**（例：點「已結案」後「全部」數字不變）；分頁 UI 的總筆數另用 `data.pagination.total_count`（目前篩選+搜尋下的總數，只給分頁用，**不是**全域數字）
 - **功能（報平安）**：沿用 `/api/admin/safety*` 同一組 API，後端零修改；列表（四組篩選 chips 含計數 + 表格：稱呼/狀態/未簽天數/里民電話/聯絡人/最後簽到/暫停至，暫停中顯示 amber chip 且不計入待關懷）＋ 詳情（雙欄：關懷歷史時間軸 + 近期簽到；里民/聯絡人電話一鍵複製、標記已電訪/已家訪 + 備註、「暫不提醒幹部 3 天」按鈕—暫停中隱藏顯示到期日）；已退出會員只可看不可操作
+- **功能（競選行程，2026-09-25 起，本期唯讀）**：沿用 `/api/admin/events*` 同一組 API，後端零修改；列表（`GET /api/admin/events`，表格：標題〔truncate＋title 全名〕/時間〔`formatEventDateTimeDisplay` 固定台北 +8 24 小時制〕/地點/上架/報名人數，整列點擊進詳情、空狀態「尚無行程」、更新按鈕重抓）＋ 詳情（`GET /api/admin/events/:id`，雙欄：左＝標題/時間區間/地點/摘要/完整內容/封面與相簿〔可點開原圖〕/影片連結；右＝上架狀態、報名人數、**報名名單**〔與手機版同一份 `data.rsvps`：稱呼或「未留姓名」、電話一鍵複製、報名時間台北 24 小時、新到舊〕）；**本期不做**新增／刪除／編輯文案／上傳封面相簿／取消別人報名／LINE 通知按鈕（頁面有文字提示至手機盾牌管理操作）
 - **電腦閱讀體驗**：內容最大寬度 1280px 置中左右留白；正文/表格/姓名/摘要 16px、時間與分類 14px（表格不低於 14px 的次要欄、主要欄 16px）；列高加大（py-4 + px-6）好點擊；chips/搜尋框/按鈕/狀態徽章同步放大；詳情標題 24px、正文 16px leading-8
 - **API**：全部沿用既有 `/api/admin/*`，後端驗證邏輯零修改（同一 channel → 同 `aud`）；僅 `/api/client-config` 多回 `adminLiffId`
 - **登出**：`liff.logout()` 後重整；ID Token 過期（401）自動重新 `liff.login()`
@@ -174,7 +175,7 @@
 - **寫入來源（只有三類，fire-and-forget）**：新反映（`POST /api/feedback` 成功後）、報平安待審核（`POST /api/safety/join` 成功後）、行程新報名（`POST /api/events/:id/rsvp` 成功後）→ 寫 `admin_notifications`；`insertAdminNotification()` 不 await、失敗只 log，**絕不擋里民主流程**；摘要不放完整電話（`buildFeedbackNotificationSummary` 只取稱呼 ≤20 字＋內容前 40 字）
 - **後台紅點（liff.html 盾牌管理首頁＋admin.html header）**：
   - 鈴鐺按鈕＋紅點（未讀 >0 顯示，>99 顯「99+」）；點開為未讀列表（中文類型〔新反映／報平安待審核／行程新報名〕＋摘要＋相對時間），支援「全部已讀」
-  - 點擊單則 → 標已讀＋導向：新反映→反映詳情、待審核→報平安該筆詳情、行程報名→liff.html 開該場編輯／admin.html 無行程模組僅提示改用手機盾牌端；已讀標記失敗不擋導向
+  - 點擊單則 → 標已讀＋導向：新反映→反映詳情、待審核→報平安該筆詳情、行程報名→liff.html 開該場編輯／admin.html 切行程模組開該場詳情（2026-09-25 起，原為提示改用手機盾牌端）；已讀標記失敗不擋導向
   - 輪詢：確認管理員身分後每 45 秒＋window focus／visibility 回前台，靜默拉 `unread-count` 更新紅點；**不新增底部 Tab（維持 4 個）**
 - **即時 Email（Resend，2026-09-25 起取代每日彙整）**：三類通知**寫入成功後立刻**逐封寄給 `ADMIN_NOTIFY_EMAILS`（`sendAdminNotifyEmail()`，fire-and-forget，**無 key／寄信失敗只 log，不擋里民 201**）；主旨短（「【幸福正砂】新反映：摘要前 30 字」式）、摘要不含完整電話、正文附 `https://zhengsha.vercel.app/admin.html` 連結；**不寄**：每日簽到、取消報名、幹部操作（標記關懷／暫停／審核）
 - **寄件人／回覆**：`ADMIN_NOTIFY_FROM`（已驗證自有網域 `notify@mail.zhengshavil.com`，顯示名「幸福正砂」；未設才 fallback `onboarding@resend.dev`）；`ADMIN_NOTIFY_REPLY_TO`（選填真實信箱，有設才帶 `reply_to`）
@@ -219,7 +220,7 @@
 | 檔案 | 說明 |
 |------|------|
 | `public/liff.html` | 前端主檔（里民端 + 手機管理端，幾乎所有 UI 與前端邏輯） |
-| `public/admin.html` | 管理端電腦版（許願管理 + 報平安管理，LINE Login via 第二個 LIFF app） |
+| `public/admin.html` | 管理端電腦版（許願管理 + 報平安管理 + 行程管理〔唯讀〕，LINE Login via 第二個 LIFF app） |
 | `app.js` | 後端 API 與 LINE 身分驗證 |
 | `schema.sql` / `supabase/migrations/` | 資料庫結構 |
 | `.env` | 本機環境變數（不可提交 Git） |
@@ -385,7 +386,8 @@
 - 管理首頁有四個模組卡：許願管理（可用）、政見管理（可用）、行程管理（可用）、報平安（可用）
 - 許願管理流程：管理首頁 → 許願列表（返回管理首頁）→ 詳情處理（返回列表）
 - 政見管理流程：管理首頁 → 政見列表（返回管理首頁，可上移/下移/設主打/進入編輯）→ 編輯頁（返回列表）
-- 行程管理流程：管理首頁 → 行程列表（返回管理首頁，可新增/編輯/刪除）→ 編輯頁（返回列表，封面/相簿/時間/影片/文案/上架/通知；**封面/相簿上傳後只更新自己那塊 DOM，不會清空其他已填欄位**）
+- 行程管理流程：管理首頁 → 行程列表（返回管理首頁，可新增/編輯/刪除）→ 編輯頁（返回列表，封面/相簿/時間/影片/文案/上架/通知；**封面/相簿上傳後只更新自己那塊 DOM，不會清空其他已填欄位**；編輯頁「報名人數」卡內含報名名單）
+- 行程管理（電腦版 admin.html，2026-09-25 起）：頂部分頁「競選行程」→ 列表（整列點擊進詳情）→ 詳情（**唯讀**：內容/封面/相簿/影片 + 報名人數與報名名單；新增/編輯/刪除/通知仍須至手機盾牌管理）
 - 報平安流程：管理首頁 → 簽到名單（返回管理首頁；篩選 chips 全部/今日已簽/今日未簽/待關懷、可一鍵標記已電訪/已家訪）→ 詳情頁（返回名單；完整關懷歷史 + 近期簽到 + 補備註標記關懷）
 - 行程通知兩顆手動按鈕：`notify-rsvp`（已報名里民）、`notify-wish-pool`（許願池里民），不會自動發，會消耗 LINE 官方帳號推播則數
 - 行程時間 24 小時制統一顯示；編輯頁 `datetime-local` 之下另附 `YYYY/MM/DD HH:mm` 文字；**結束時間必須晚於開始時間，前後端雙重檢查**
@@ -516,9 +518,16 @@
   - migration `008_admin_notifications.sql`（已於 Supabase 執行；repo 補存同內容冪等版）：`admin_notifications`＋`admin_notification_reads`（`UNIQUE(notification_id, line_user_id)`）
   - `.env.example` 已加 `RESEND_API_KEY`／`ADMIN_NOTIFY_EMAILS`／`ADMIN_NOTIFY_FROM`／`ADMIN_NOTIFY_REPLY_TO`；Vercel 環境變數需手動補上
 - **行程報名名單（2026-09-25）**：`GET /api/admin/events/:id` 回傳加 `rsvps[]`（`line_user_id`/`display_name`/`phone`/`created_at` 新到舊；姓名與電話逐欄優先報平安〔`left_at IS NULL`，不看 approval_status〕→ 該 user 最近一筆 `user_feedback` → null；查詢失敗 `rsvps=[]` 不 500；無新表）；liff.html 行程編輯頁「報名人數」卡內加報名名單（空＝「尚無人報名」；有＝稱呼〔無則「未留姓名」〕＋電話一鍵複製〔`data-event-rsvp-copy`，渲染後逐鈕綁定〕＋報名時間〔`formatEventDateTimeDisplay` 台北 24 小時〕；名單最長 max-h-64 可捲動）；**此頁不做取消別人報名**；里民報名/取消、通知、時區、admin.html 皆未動
+- **管理端電腦版第三期：競選行程模組（2026-09-25，本次變更，僅改 public/admin.html，後端零修改）**
+  - 導覽：header 模組分頁加「競選行程」（與有事找里長、報平安並列）；`switchModule()` 加 events 分支＋**惰性載入**（第一次切換才打 `GET /api/admin/events`）
+  - 列表：表格欄位＝標題（`max-w-[18rem] truncate`＋`title` 全名）/時間/地點（truncate＋title）/上架 badge/報名人數；整列點擊進詳情；空狀態「尚無行程」；更新按鈕重抓
+  - 詳情（`renderEventDetail()` 雙欄）：左＝標題/時間區間/地點/摘要/完整內容/封面（可點開原圖）/相簿（可點開）/影片連結；右＝上架狀態、報名人數、報名名單（同份 `data.rsvps`：稱呼或「未留姓名」、電話 `data-copy-text` 委派 `copyTextToClipboard`、報名時間台北 24 小時、新到舊、max-h-[28rem] 可捲動）
+  - 新增 `formatEventDateTimeDisplay()`（admin.html 版）：固定台北 +8 用 UTC getter 格式化 24 小時制，不隨裝置時區變動；既有 `formatDateTime()`（裝置本地時區）保留給非行程欄位
+  - 通知導向同步：admin.html 通知面板點「行程新報名」改為切 events 模組＋開該場詳情（原為提示改用手機盾牌端）
+  - **本期不做**：新增／刪除／編輯文案／上傳封面相簿／取消別人報名／LINE 通知按鈕（列表與詳情頁均有文字提示至手機盾牌管理操作）；API 契約、liff.html、里民報名、401/403 處理、chips 計數、許願與報平安流程皆未動
 
 ### 仍可優化 / 尚未完成
-- 管理端電腦版**第三期**：政見管理、行程管理的電腦版（已有許願管理與報平安管理）
+- 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）
 - 報平安排程通知的**推播則數成本監控**（每日 20:00 催本人會消耗官方帳號推播額度，人數多時需留意；Hobby 方案 cron 2 jobs/天上限已用滿）
 - 許願案件狀態變更後的 **LINE 主動通知里民**（推播進度）尚未做
 - 後台管理的進階功能：批次變更狀態、匯出 CSV、依日期區間篩選
