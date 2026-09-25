@@ -4762,6 +4762,18 @@ async function runSafetyAdminCareNotifications(today) {
 
 const ADMIN_NOTIFY_FROM_FALLBACK = 'onboarding@resend.dev';
 const ADMIN_NOTIFY_ADMIN_URL = 'https://zhengsha.vercel.app/admin.html';
+// 通知 ref_table → 後台模組深連結參數（Email 點了直接進對應模組與該筆）
+const ADMIN_NOTIFY_REF_MODULES = {
+  user_feedback: 'feedback',
+  safety_members: 'safety',
+  campaign_events: 'events',
+};
+
+function buildAdminNotifyLink(refTable, refId) {
+  const moduleName = ADMIN_NOTIFY_REF_MODULES[refTable];
+  if (!moduleName || refId == null || String(refId) === '') return ADMIN_NOTIFY_ADMIN_URL;
+  return `${ADMIN_NOTIFY_ADMIN_URL}?module=${moduleName}&id=${encodeURIComponent(refId)}`;
+}
 
 function getAdminNotifyEmails() {
   return String(process.env.ADMIN_NOTIFY_EMAILS || '')
@@ -4770,7 +4782,7 @@ function getAdminNotifyEmails() {
     .filter(Boolean);
 }
 
-async function sendAdminNotifyEmail(title, summary) {
+async function sendAdminNotifyEmail(title, summary, linkUrl) {
   const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
   const recipients = getAdminNotifyEmails();
 
@@ -4786,7 +4798,8 @@ async function sendAdminNotifyEmail(title, summary) {
   const brief = String(summary || '').trim().slice(0, 30);
   const subject = brief ? `【幸福正砂】${title}：${brief}` : `【幸福正砂】${title}`;
   const summaryText = String(summary || '').trim() || '（無摘要）';
-  const textBody = [`${title}：${summaryText}`, '', `後台連結：${ADMIN_NOTIFY_ADMIN_URL}`].join('\n');
+  const adminUrl = String(linkUrl || '').trim() || ADMIN_NOTIFY_ADMIN_URL;
+  const textBody = [`${title}：${summaryText}`, '', `後台連結：${adminUrl}`].join('\n');
 
   const fromEmail = String(process.env.ADMIN_NOTIFY_FROM || '').trim() || ADMIN_NOTIFY_FROM_FALLBACK;
   const replyTo = String(process.env.ADMIN_NOTIFY_REPLY_TO || '').trim();
@@ -5042,7 +5055,8 @@ function insertAdminNotification(type, title, summary, refTable, refId) {
         return;
       }
       // 即時 Email：通知寫入成功後立刻寄（fire-and-forget，失敗只 log、不擋里民 201）
-      sendAdminNotifyEmail(title, summary).catch((err) =>
+      // 連結帶 module/id 深連結：電腦開 admin.html 直接進該模組該筆、手機自動分流 LIFF 後同樣導向
+      sendAdminNotifyEmail(title, summary, buildAdminNotifyLink(refTable, refId)).catch((err) =>
         console.error('admin notify email error:', err)
       );
     })

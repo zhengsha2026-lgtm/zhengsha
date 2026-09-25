@@ -2666,6 +2666,36 @@
         // intro / admin：靜態或由各自管理流程載入
       }
 
+      // 通知信深連結參數：?tab=admin&module=feedback|safety|events&id=…（search 或 hash 皆可）
+      // 用於管理通知信在手機開啟時，直接進對應模組並打開該筆
+      function readAdminDeepLinkParams() {
+        let module = '';
+        let id = 0;
+        const readFrom = (params) => {
+          if (!params) return;
+          if (!module) {
+            const m = params.get('module');
+            if (m === 'feedback' || m === 'safety' || m === 'events') module = m;
+          }
+          if (!id) {
+            const raw = Number(params.get('id'));
+            if (Number.isInteger(raw) && raw > 0) id = raw;
+          }
+        };
+        try {
+          readFrom(new URLSearchParams(window.location.search));
+        } catch (_) { /* ignore */ }
+        try {
+          const hash = window.location.hash || '';
+          if (hash.length > 1) {
+            const clean = hash.startsWith('#') ? hash.slice(1) : hash;
+            const stripped = clean.startsWith('?') ? clean : (clean.startsWith('/?') ? clean.slice(1) : `?${clean.replace(/^\//, '')}`);
+            readFrom(new URLSearchParams(stripped.startsWith('?') ? stripped.slice(1) : stripped));
+          }
+        } catch (_) { /* ignore */ }
+        return { module, id };
+      }
+
       async function checkAdminIdentity() {
         if (state.mode !== 'liff') {
           state.isAdmin = false;
@@ -2714,6 +2744,18 @@
             const urlTab = readTabFromUrl();
             if (urlTab === ADMIN_TAB_KEY) {
               switchTab(ADMIN_TAB_KEY, { updateHistory: false });
+              // 通知信深連結：?tab=admin&module=…&id=… → 直接開對應模組的該筆
+              // （三個詳情函式都獨立 by-id 抓資料，不依賴列表先載入；沒帶 module 開管理首頁）
+              const deep = readAdminDeepLinkParams();
+              if (deep.module && deep.id) {
+                if (deep.module === 'feedback') {
+                  openAdminDetail(deep.id);
+                } else if (deep.module === 'safety') {
+                  openAdminSafetyDetail(deep.id);
+                } else if (deep.module === 'events') {
+                  openAdminEventEdit(deep.id);
+                }
+              }
             }
           }
         } catch (err) {

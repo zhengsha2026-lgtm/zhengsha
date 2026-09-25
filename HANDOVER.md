@@ -95,6 +95,7 @@
 - **電腦閱讀體驗**：內容最大寬度 1280px 置中左右留白；正文/表格/姓名/摘要 16px、時間與分類 14px（表格不低於 14px 的次要欄、主要欄 16px）；列高加大（py-4 + px-6）好點擊；chips/搜尋框/按鈕/狀態徽章同步放大；詳情標題 24px、正文 16px leading-8
 - **API**：全部沿用既有 `/api/admin/*`，後端驗證邏輯零修改（同一 channel → 同 `aud`）；僅 `/api/client-config` 多回 `adminLiffId`
 - **手機分流（2026-09-25 起）**：`bootstrap()` 在 LIFF init 前同步判斷——**寬度 < 768 或手機 UA**（如管理通知信連結在手機開啟）→ 顯示轉址提示 → 抓 `/api/client-config` 的里民 `liffId` → `location.replace('https://liff.line.me/<liffId>?tab=admin')`（管理員 → 盾牌管理首頁；非管理員 → liff.html 既有邏輯導回 platforms）；抓不到 `liffId` 顯示「請改用電腦前往管理後台」；**寬度 ≥ 768 且非手機 UA** → 電腦版流程完全不變（判斷在任何畫面渲染前執行，不閃版）；**通知信連結＝手機開 LIFF 管理、電腦開 admin.html，同一個網址自動分流**；本期未做 admin.html 整套 RWD
+- **深連結（2026-09-25 起）**：`admin.html?module=<feedback|safety|events>&id=<該筆id>`——`bootstrap()` 登入成功後 `readAdminDeepLinkParams()`（search＋hash 皆可）切對應模組，有 id 再開該筆詳情（`openDetail`／`openSafetyDetail`／`openEventDetail`）；id 不存在／載入失敗由既有 handler toast＋回該模組列表（不白屏）；沒帶 id 只切模組；沒帶 module 走預設 feedback；手機分流 `redirectToMobileAdmin()` 會把 module/id 原樣接到 `liff.line.me/<liffId>?tab=admin&…`
 - **登出**：`liff.logout()` 後重整；ID Token 過期（401）自動重新 `liff.login()`
 - **手機 LINE 內的盾牌管理入口完全不受影響**（`public/liff.html` 未動）
 - **環境變數**：`ADMIN_LIFF_ID`（Vercel 與本機 `.env` 都要設）；`.env.example` 已有說明
@@ -178,7 +179,7 @@
   - 鈴鐺按鈕＋紅點（未讀 >0 顯示，>99 顯「99+」）；點開為未讀列表（中文類型〔新反映／報平安待審核／行程新報名〕＋摘要＋相對時間），支援「全部已讀」
   - 點擊單則 → 標已讀＋導向：新反映→反映詳情、待審核→報平安該筆詳情、行程報名→liff.html 開該場編輯／admin.html 切行程模組開該場詳情（2026-09-25 起，原為提示改用手機盾牌端）；已讀標記失敗不擋導向
   - 輪詢：確認管理員身分後每 45 秒＋window focus／visibility 回前台，靜默拉 `unread-count` 更新紅點；**不新增底部 Tab（維持 4 個）**
-- **即時 Email（Resend，2026-09-25 起取代每日彙整）**：三類通知**寫入成功後立刻**逐封寄給 `ADMIN_NOTIFY_EMAILS`（`sendAdminNotifyEmail()`，fire-and-forget，**無 key／寄信失敗只 log，不擋里民 201**）；主旨短（「【幸福正砂】新反映：摘要前 30 字」式）、摘要不含完整電話、正文附 `https://zhengsha.vercel.app/admin.html` 連結（**手機開啟自動導向 LIFF 管理、電腦開 admin.html，同一網址分流**）；**不寄**：每日簽到、取消報名、幹部操作（標記關懷／暫停／審核）
+- **即時 Email（Resend，2026-09-25 起取代每日彙整）**：三類通知**寫入成功後立刻**逐封寄給 `ADMIN_NOTIFY_EMAILS`（`sendAdminNotifyEmail()`，fire-and-forget，**無 key／寄信失敗只 log，不擋里民 201**）；主旨短（「【幸福正砂】新反映：摘要前 30 字」式）、摘要不含完整電話；**正文附深連結 `admin.html?module=<feedback|safety|events>&id=<該筆id>`**（`buildAdminNotifyLink()` 依 `ref_table` 對照 module）——**電腦開啟 admin.html 自動切該模組並開該筆詳情（id 無效→toast＋回列表，不白屏）；手機開啟自動分流 LIFF 後由 `checkAdminIdentity()` 讀 module/id 直接開對應筆（liff.html 三個詳情函式皆獨立 by-id 抓資料；沒帶 module 開管理首頁，非管理員導回 platforms）**；**不寄**：每日簽到、取消報名、幹部操作（標記關懷／暫停／審核）
 - **寄件人／回覆**：`ADMIN_NOTIFY_FROM`（已驗證自有網域 `notify@mail.zhengshavil.com`，顯示名「幸福正砂」；未設才 fallback `onboarding@resend.dev`）；`ADMIN_NOTIFY_REPLY_TO`（選填真實信箱，有設才帶 `reply_to`）
 - **不做**（第一期）：每日簽到、取消報名、狀態變更、snooze 不寫通知；LINE 推播（避免消耗官方帳號額度）；API key 不進 repo／HANDOVER
 
@@ -531,6 +532,12 @@
   - `bootstrap()` 在 LIFF init 前同步判斷 `isMobileDevice()`（寬度 < 768 或手機 UA：`/Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile/i`）→ `redirectToMobileAdmin()`：顯示轉址提示 → 抓 `GET /api/client-config` 的里民 `liffId` → `location.replace('https://liff.line.me/<liffId>?tab=admin')`（管理員 → 盾牌管理首頁；非管理員 → liff.html 既有邏輯自動導回 platforms，與既有 `?tab=admin`／盾牌入口相容）；抓不到 `liffId` 顯示「無法開啟手機版，請改用電腦前往管理後台」
   - 寬度 ≥ 768 且非手機 UA → 電腦版流程完全不變；判斷在任何畫面渲染前執行，不閃版
   - **本期未做**：admin.html 整套 RWD；寄信時機、紅點、里民流程皆未動
+- **通知信深連結：點信直接進對應模組該筆（2026-09-25，app.js＋admin.html＋liff.html）**
+  - app.js：新增 `ADMIN_NOTIFY_REF_MODULES` 對照（`user_feedback`→feedback／`safety_members`→safety／`campaign_events`→events）與 `buildAdminNotifyLink(refTable, refId)`；`sendAdminNotifyEmail` 加第三個選填參數 `linkUrl`（沒帶 fallback 原網址），正文後台連結改為 `admin.html?module=X&id=Y`；寄信時機／摘要規則／fire-and-forget 不變
+  - admin.html（電腦）：`bootstrap()` 登入成功後 `readAdminDeepLinkParams()`（search＋hash、module 白名單三值、id 正整數）→ `switchModule(module || 'feedback')` → 有 id 開對應詳情；id 不存在／失敗由既有 open*Detail handler toast＋回列表不白屏；沒帶 id 只切模組；feedback 列表維持登入後必載
+  - admin.html（手機分流）：`redirectToMobileAdmin()` 把 module/id 原樣接到 `liff.line.me/<liffId>?tab=admin&module=…&id=…`
+  - liff.html：`checkAdminIdentity()` 確認管理員＋`?tab=admin` 後讀 `readAdminDeepLinkParams()` → `openAdminDetail`／`openAdminSafetyDetail`／`openAdminEventEdit`（皆獨立 by-id 抓資料，不依賴列表）；沒帶 module 開管理首頁（相容舊連結與盾牌入口）；非管理員維持導回 platforms
+  - 通知鈴鐺：admin.html `navigateToNotifyTarget` 與 liff.html `navigateToAdminNotifyTarget` 原本就能導到對應筆，本期未動
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

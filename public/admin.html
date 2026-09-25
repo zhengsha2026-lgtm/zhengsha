@@ -576,7 +576,38 @@ function isMobileDevice() {
   }
 }
 
+// 通知信深連結參數：admin.html?module=feedback|safety|events&id=…（search 或 hash 皆可）
+// 沒帶 module → 走預設 feedback；id 需為正整數
+function readAdminDeepLinkParams() {
+  let module = '';
+  let id = 0;
+  const readFrom = (params) => {
+    if (!params) return;
+    if (!module) {
+      const m = params.get('module');
+      if (m === 'feedback' || m === 'safety' || m === 'events') module = m;
+    }
+    if (!id) {
+      const raw = Number(params.get('id'));
+      if (Number.isInteger(raw) && raw > 0) id = raw;
+    }
+  };
+  try {
+    readFrom(new URLSearchParams(window.location.search));
+  } catch (_) { /* ignore */ }
+  try {
+    const hash = window.location.hash || '';
+    if (hash.length > 1) {
+      const clean = hash.startsWith('#') ? hash.slice(1) : hash;
+      const stripped = clean.startsWith('?') ? clean : (clean.startsWith('/?') ? clean.slice(1) : `?${clean.replace(/^\//, '')}`);
+      readFrom(new URLSearchParams(stripped.startsWith('?') ? stripped.slice(1) : stripped));
+    }
+  } catch (_) { /* ignore */ }
+  return { module, id };
+}
+
 // 導向里民 LIFF 管理面板：管理員 → 盾牌管理首頁；非管理員 → liff.html 原本導回 platforms
+// module/id 深連結參數原樣帶過去（liff.html 端會開對應模組該筆）
 async function redirectToMobileAdmin() {
   showScreen('auth');
   setAuthStatus('手機版將透過 LINE 開啟管理功能，正在轉址…', true);
@@ -585,7 +616,11 @@ async function redirectToMobileAdmin() {
     const json = await res.json().catch(() => null);
     const liffId = json && json.liffId;
     if (!liffId) throw new Error('LIFF_ID 未設定');
-    window.location.replace(`https://liff.line.me/${liffId}?tab=admin`);
+    const deep = readAdminDeepLinkParams();
+    const params = new URLSearchParams({ tab: 'admin' });
+    if (deep.module) params.set('module', deep.module);
+    if (deep.id) params.set('id', String(deep.id));
+    window.location.replace(`https://liff.line.me/${liffId}?${params.toString()}`);
   } catch (err) {
     console.error('redirectToMobileAdmin failed:', err);
     setAuthStatus('無法開啟手機版，請改用電腦前往管理後台。', false);
@@ -2091,11 +2126,19 @@ async function bootstrap() {
     }
     state.authReady = true;
     showScreen('app');
-    switchModule('feedback');
+    // 通知信深連結：?module=feedback|safety|events（可含 &id=直接開該筆詳情）
+    // id 不存在／載入失敗 → open*Detail 內建 toast + 回該模組列表，不會白屏
+    const deepLink = readAdminDeepLinkParams();
+    switchModule(deepLink.module || 'feedback');
     // 管理員通知：進入後台即拉紅點 + 啟動輪詢（45 秒 + focus）
     fetchNotifyUnreadCount({ silent: true });
     startNotifyPolling();
     await loadList();
+    if (deepLink.id) {
+      if (deepLink.module === 'safety') openSafetyDetail(deepLink.id);
+      else if (deepLink.module === 'events') openEventDetail(deepLink.id);
+      else openDetail(deepLink.id);
+    }
   } catch (err) {
     if (err && err.code === 'NEED_RELOGIN') {
       await handleRelogin();
