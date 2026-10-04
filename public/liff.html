@@ -244,29 +244,15 @@
       .app-splash__progress-fill {
         display: block;
         height: 100%;
-        width: 0;
+        width: 8%;
         border-radius: 9999px;
         background: #6d28d9;
-        animation: splash-progress 2.2s ease-out infinite;
-      }
-
-      /* 填色只往右：一輪 2.2 秒，93.18% 前填到 100%（ease-out），最後 0.15 秒停在 100%，循環重啟瞬間歸零 */
-      @keyframes splash-progress {
-        0% {
-          width: 0;
-        }
-        93.18% {
-          width: 100%;
-        }
-        100% {
-          width: 100%;
-        }
+        transition: width 0.35s ease-out;
       }
 
       @media (prefers-reduced-motion: reduce) {
         .app-splash__progress-fill {
-          animation: none;
-          width: 40%;
+          transition: none;
         }
       }
     </style>
@@ -293,13 +279,34 @@
           <p style="margin-top: 6px; font-size: 15px; color: #8b5cf6; letter-spacing: 0.18em">正砂里長候選人</p>
         </div>
       </div>
-      <div class="app-splash__progress-track"><span class="app-splash__progress-fill"></span></div>
+      <div class="app-splash__progress-track"><span id="appSplashProgressFill" class="app-splash__progress-fill"></span></div>
       <p style="font-size: 14px; color: #94a3b8">正在開啟</p>
     </div>
     <script>
-      // 啟動頁移除：主流程 ready 時呼叫；最長 8 秒保險絲，主 script 異常也能進頁
+      // 啟動頁進度 + 移除：主流程 ready 時呼叫 dismiss；最長 8 秒保險絲，主 script 異常也能進頁
       (function () {
         var dismissed = false;
+        var currentPercent = 8;
+        var fillEl = document.getElementById('appSplashProgressFill');
+
+        // 內部套用寬度：只增不減（dismiss 內部也用它直接拉 100，不受 dismissed guard 影響）
+        function applySplashProgress(n) {
+          if (n <= currentPercent) return;
+          currentPercent = n;
+          if (fillEl) fillEl.style.width = n + '%';
+        }
+
+        // 啟動進度（0–100）：只增不減，同一百分比或倒退皆略過；不開計時器、不顯示數字
+        function setSplashProgress(percent) {
+          if (dismissed) return;
+          var n = Number(percent);
+          if (!isFinite(n)) return;
+          if (n < 0) n = 0;
+          if (n > 100) n = 100;
+          applySplashProgress(n);
+        }
+        window.__zhengshaSetSplashProgress = setSplashProgress;
+
         function dismissSplash() {
           if (dismissed) return;
           dismissed = true;
@@ -322,10 +329,35 @@
               }
             }
           }
-          el.classList.add('is-leaving');
-          setTimeout(function () {
-            if (el && el.parentNode) el.parentNode.removeChild(el);
-          }, 320);
+          // 淡出移除啟動頁（沿用既有 280ms opacity 過渡 + 320ms 移除）
+          var hideSplash = function () {
+            el.classList.add('is-leaving');
+            setTimeout(function () {
+              if (el && el.parentNode) el.parentNode.removeChild(el);
+            }, 320);
+          };
+          // 關頁前先拉到 100，等寬度過渡結束（transitionend，保險絲 420ms）再隱藏；
+          // prefers-reduced-motion 無寬度動畫，直接關頁
+          var reduced = false;
+          try {
+            reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          } catch (_) {
+            reduced = false;
+          }
+          currentPercent = 0;
+          applySplashProgress(100);
+          if (reduced || !fillEl || typeof fillEl.addEventListener !== 'function') {
+            hideSplash();
+            return;
+          }
+          var ended = false;
+          var finish = function () {
+            if (ended) return;
+            ended = true;
+            hideSplash();
+          };
+          fillEl.addEventListener('transitionend', finish);
+          setTimeout(finish, 420);
         }
         window.__zhengshaDismissSplash = dismissSplash;
         setTimeout(dismissSplash, 8000);
@@ -2559,6 +2591,13 @@
 
       document.addEventListener('DOMContentLoaded', bootstrap);
 
+      // 啟動頁進度（0–100，只增不減）：內部實作在 splash inline script；splash 已移除時靜默略過
+      function setSplashProgress(percent) {
+        if (typeof window.__zhengshaSetSplashProgress === 'function') {
+          window.__zhengshaSetSplashProgress(percent);
+        }
+      }
+
       async function bootstrap() {
         bindEvents();
         // 注意：第一幀 panel 可見態已由「底部導覽後的 inline script」處理。
@@ -2569,6 +2608,8 @@
         // 許願池：先不打 API（保持 inline script 載入時的空白狀態，不預設 platforms 訊息）
         setWishStatus('已就緒，進入「有事找里長」即可載入。', 'info');
 
+        // 啟動進度：開始讀設定 / liff.init
+        setSplashProgress(28);
         try {
           const config = await fetchRuntimeConfig();
           state.liffId = config.liffId || '';
@@ -2577,6 +2618,8 @@
           }
           syncCandidateName();
           await initializeIdentity(config);
+          // 啟動進度：身分驗證完成
+          setSplashProgress(62);
 
           // LIFF init 完成，這時候才能穩定解析 tab（圖文選單參數常藏在 permanentLink）
           // 來源優先序：location.search → location.hash → liff.permanentLink.createUrl() → fallback platforms
@@ -2599,7 +2642,10 @@
           }
         }
 
-        // 啟動頁：身分與初始 Tab 已解析、目標面板已可顯示，淡出移除（另有 8 秒保險絲）
+        // 啟動進度：初始 Tab 已解析，該 Tab 資料即將載入
+        setSplashProgress(82);
+
+        // 啟動頁：先拉到 100、等寬度過渡結束再淡出移除（另有 8 秒保險絲；失敗路徑同樣由此關頁）
         if (typeof window.__zhengshaDismissSplash === 'function') {
           window.__zhengshaDismissSplash();
         }
