@@ -233,18 +233,39 @@
         pointer-events: none;
       }
 
-      .app-splash__spinner {
-        width: 34px;
-        height: 34px;
+      .app-splash__progress-track {
+        width: 120px;
+        height: 3px;
         border-radius: 9999px;
-        border: 4px solid rgba(139, 92, 246, 0.18);
-        border-top-color: rgba(139, 92, 246, 0.9);
-        animation: splash-spin 0.9s linear infinite;
+        background: #ede9fe;
+        overflow: hidden;
       }
 
-      @keyframes splash-spin {
-        to {
-          transform: rotate(360deg);
+      .app-splash__progress-fill {
+        display: block;
+        height: 100%;
+        width: 0;
+        border-radius: 9999px;
+        background: #6d28d9;
+        animation: splash-progress 1.4s ease-in-out infinite;
+      }
+
+      @keyframes splash-progress {
+        0% {
+          width: 0;
+        }
+        50% {
+          width: 70%;
+        }
+        100% {
+          width: 0;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app-splash__progress-fill {
+          animation: none;
+          width: 40%;
         }
       }
     </style>
@@ -253,7 +274,7 @@
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-800">
     <!-- ===== 啟動頁：HTML 一落地即顯示（純 CSS），身分與初始 Tab 就緒後由主流程淡出移除 ===== -->
-    <div id="appSplash" class="app-splash" role="status" aria-label="載入中">
+    <div id="appSplash" class="app-splash" role="status" aria-label="正在開啟">
       <div style="display: flex; flex-direction: column; align-items: center; gap: 14px">
         <div
           style="height: 96px; width: 96px; border-radius: 9999px; background: linear-gradient(135deg, #e9d5ff, #fbcfe8, #fde68a); padding: 4px; box-shadow: 0 16px 50px rgba(139, 92, 246, 0.18)"
@@ -271,8 +292,8 @@
           <p style="margin-top: 6px; font-size: 15px; color: #8b5cf6; letter-spacing: 0.18em">正砂里長候選人</p>
         </div>
       </div>
-      <div class="app-splash__spinner"></div>
-      <p style="font-size: 14px; color: #94a3b8">載入中…</p>
+      <div class="app-splash__progress-track"><span class="app-splash__progress-fill"></span></div>
+      <p style="font-size: 14px; color: #94a3b8">正在開啟</p>
     </div>
     <script>
       // 啟動頁移除：主流程 ready 時呼叫；最長 8 秒保險絲，主 script 異常也能進頁
