@@ -247,18 +247,19 @@
         width: 0;
         border-radius: 9999px;
         background: #6d28d9;
-        animation: splash-progress 1.4s ease-in-out infinite;
+        animation: splash-progress 2.2s ease-out infinite;
       }
 
+      /* 填色只往右：一輪 2.2 秒，93.18% 前填到 100%（ease-out），最後 0.15 秒停在 100%，循環重啟瞬間歸零 */
       @keyframes splash-progress {
         0% {
           width: 0;
         }
-        50% {
-          width: 70%;
+        93.18% {
+          width: 100%;
         }
         100% {
-          width: 0;
+          width: 100%;
         }
       }
 
