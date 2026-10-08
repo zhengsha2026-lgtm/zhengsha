@@ -2390,7 +2390,7 @@
             return '';
           }
           function applyTabUi(tabOrEmpty) {
-            var PUBLIC_TABS = { platforms: 1, intro: 1, wish: 1, schedule: 1, safety: 1 };
+            var PUBLIC_TABS = { platforms: 1, intro: 1, wish: 1, schedule: 1, safety: 1, bulletin: 1 };
             var tab = PUBLIC_TABS[tabOrEmpty] ? tabOrEmpty : '';
             // 1) Panels：命中才顯示；沒命中就「全部維持 hidden」（HTML 預設全 hidden），決不落回 platforms
             try {
@@ -2964,7 +2964,7 @@
 
       // LIFF init 後解析 tab：來源依序是 search / hash / liff.permanentLink.createUrl()，最後才 fallback platforms
       async function resolveTabAfterLiffInit() {
-        const PUBLIC = { platforms: 1, intro: 1, wish: 1, schedule: 1, safety: 1 };
+        const PUBLIC = { platforms: 1, intro: 1, wish: 1, schedule: 1, safety: 1, bulletin: 1 };
         // 1 & 2: search + hash — 用底層 readTabFromUrl() 真實值，不提前 fallback
         let tab = '';
         try { tab = readTabFromUrl() || ''; } catch (_) { tab = ''; }
