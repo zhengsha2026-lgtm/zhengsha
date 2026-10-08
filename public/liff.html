@@ -463,6 +463,28 @@
         </div>
       </div>
 
+      <!-- 公布欄詳情 modal（z-50 同其他 modal；點擊全文用） -->
+      <div
+        id="bulletinDetailModal"
+        class="platform-modal-anim fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
+      >
+        <div
+          class="glass-modal relative max-h-[88vh] w-full max-w-md overflow-y-auto overflow-x-hidden rounded-[2rem] border border-white/55 bg-white/90 shadow-2xl shadow-slate-900/20"
+        >
+          <div class="relative p-5 sm:p-6">
+            <div id="bulletinDetailContainer" class="space-y-4"></div>
+            <button
+              id="closeBulletinDetailButton"
+              type="button"
+              class="absolute right-4 top-4 rounded-full bg-white/75 p-2 text-slate-500 shadow-sm ring-1 ring-slate-200 transition hover:text-slate-900"
+              aria-label="關閉公告詳情"
+            >
+              <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- 行程詳情封面放大層（z-60 高於行程詳情 z-50；只放大封面，相簿暫不支援） -->
       <div
         id="eventCoverLightbox"
@@ -1507,6 +1529,52 @@
             </div>
           </section>
 
+          <!-- ===== 公布欄（?tab=bulletin 直開；選前不進底部四格） ===== -->
+          <section
+            id="bulletinPanel"
+            data-tab-panel="bulletin"
+            class="hidden space-y-5"
+          >
+            <div class="rounded-[2rem] border border-violet-100/80 bg-white p-5 shadow-shell sm:p-6">
+              <div>
+                <p class="text-sm font-semibold text-violet-600">公布欄</p>
+                <h2 class="mt-2 text-2xl font-semibold tracking-tight text-violet-950">
+                  里的大小事，即時看得到
+                </h2>
+              </div>
+
+              <div id="bulletinChipsRow" class="mt-5 flex flex-wrap gap-2"></div>
+
+              <div id="bulletinLoading" class="mt-5 space-y-3">
+                <div class="h-20 animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                <div class="h-20 animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                <div class="h-20 animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+              </div>
+
+              <div id="bulletinEmpty" class="hidden mt-5 rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                  <i data-lucide="megaphone-off" class="h-6 w-6"></i>
+                </div>
+                <p class="mt-4 text-base font-semibold text-violet-950">目前沒有公告</p>
+              </div>
+
+              <div id="bulletinError" class="hidden mt-5 rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                <p class="font-semibold text-rose-700">公布欄載入失敗</p>
+                <p id="bulletinErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                <button
+                  type="button"
+                  id="bulletinRetryButton"
+                  class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                >
+                  <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                  <span>再試一次</span>
+                </button>
+              </div>
+
+              <div id="bulletinListContainer" class="mt-5 space-y-3"></div>
+            </div>
+          </section>
+
           <section
             id="adminPanel"
             data-tab-panel="admin"
@@ -1664,6 +1732,24 @@
                     <p class="mt-4 text-base font-semibold text-violet-950">報平安</p>
                     <p class="mt-2 text-xs leading-6 text-slate-500">
                       查看每日簽到名單、待關懷提醒與關懷紀錄
+                    </p>
+                    <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
+                      <span>進入</span>
+                      <i data-lucide="chevron-right" class="h-3 w-3"></i>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-admin-module="bulletin"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/50 p-5 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] active:scale-[0.995]"
+                  >
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                      <i data-lucide="megaphone" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-base font-semibold text-violet-950">公布欄</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-500">
+                      發布里內公告：分類、置頂、上架與到期日
                     </p>
                     <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
                       <span>進入</span>
@@ -2042,6 +2128,174 @@
 
                 <div id="adminSafetyDetailContainer" class="hidden space-y-5"></div>
               </div>
+
+              <!-- 公布欄管理：列表 -->
+              <div id="adminBulletinListView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminBulletinListBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回管理首頁</span>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="adminBulletinCreateButton"
+                      class="inline-flex h-9 items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-500 active:scale-95"
+                    >
+                      <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+                      <span>新增公告</span>
+                    </button>
+                    <p class="text-sm font-semibold text-violet-950">公布欄管理</p>
+                  </div>
+                </div>
+
+                <div id="adminBulletinListLoading" class="space-y-3">
+                  <div class="h-[76px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[76px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[76px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminBulletinListEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                    <i data-lucide="megaphone-off" class="h-6 w-6"></i>
+                  </div>
+                  <p class="mt-4 text-base font-semibold text-violet-950">目前沒有公告</p>
+                  <p class="mt-2 text-sm leading-7 text-slate-500">點擊右上「新增公告」發布第一則。</p>
+                </div>
+
+                <div id="adminBulletinListError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入公告列表失敗</p>
+                  <p id="adminBulletinListErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    id="adminBulletinListRetryButton"
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminBulletinListContainer" class="space-y-3"></div>
+              </div>
+
+              <!-- 公布欄管理：新增 / 編輯 -->
+              <div id="adminBulletinEditView" class="hidden mt-6 space-y-5">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminBulletinEditBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回公告列表</span>
+                  </button>
+                  <p id="adminBulletinEditTitle" class="text-sm font-semibold text-violet-950">新增公告</p>
+                </div>
+
+                <form id="adminBulletinForm" class="space-y-4">
+                  <div>
+                    <label for="adminBulletinTitle" class="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      標題 <span class="text-violet-500">（必填）</span>
+                    </label>
+                    <input
+                      id="adminBulletinTitle"
+                      type="text"
+                      maxlength="100"
+                      placeholder="公告標題"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label for="adminBulletinCategory" class="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      分類 <span class="text-violet-500">（必填）</span>
+                    </label>
+                    <select
+                      id="adminBulletinCategory"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    >
+                      <option value="緊急">緊急</option>
+                      <option value="垃圾回收">垃圾回收</option>
+                      <option value="里務">里務</option>
+                      <option value="補助申請">補助申請</option>
+                      <option value="其他">其他</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label for="adminBulletinSummary" class="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      摘要 <span class="text-slate-400">（選填，列表顯示）</span>
+                    </label>
+                    <textarea
+                      id="adminBulletinSummary"
+                      rows="2"
+                      maxlength="300"
+                      placeholder="一句話說明這則公告（列表顯示）"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    ></textarea>
+                  </div>
+
+                  <div>
+                    <label for="adminBulletinContent" class="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      內容 <span class="text-violet-500">（必填）</span>
+                    </label>
+                    <textarea
+                      id="adminBulletinContent"
+                      rows="8"
+                      maxlength="5000"
+                      placeholder="公告完整內容"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    ></textarea>
+                  </div>
+
+                  <div>
+                    <label for="adminBulletinExpiresAt" class="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      到期日 <span class="text-slate-400">（選填，留空 = 永不過期）</span>
+                    </label>
+                    <input
+                      id="adminBulletinExpiresAt"
+                      type="datetime-local"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    />
+                    <p class="mt-1.5 text-xs leading-5 text-slate-400">過了這個時間，里民端自動不再顯示。</p>
+                  </div>
+
+                  <div class="space-y-3 rounded-[1.25rem] border border-violet-100/60 bg-violet-50/30 p-4">
+                    <label class="flex items-center justify-between gap-3 text-sm font-medium text-slate-700">
+                      <span>置頂公告（列表最上方）</span>
+                      <input id="adminBulletinPinned" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+                    </label>
+                    <label class="flex items-center justify-between gap-3 text-sm font-medium text-slate-700">
+                      <span>立即上架（里民端顯示）</span>
+                      <input id="adminBulletinPublished" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+                    </label>
+                  </div>
+
+                  <div class="flex flex-col gap-3">
+                    <button
+                      type="submit"
+                      id="adminBulletinSubmitButton"
+                      class="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <i data-lucide="check" class="h-4 w-4"></i>
+                      <span id="adminBulletinSubmitButtonText">儲存公告</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="adminBulletinDeleteButton"
+                      class="hidden inline-flex h-11 items-center justify-center gap-2 rounded-full bg-rose-50 px-6 text-sm font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <i data-lucide="trash-2" class="h-4 w-4"></i>
+                      <span id="adminBulletinDeleteButtonText">刪除公告</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </section>
         </section>
@@ -2179,8 +2433,8 @@
     </div>
 
     <script>
-      const TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule', 'safety', 'admin'];
-      const PUBLIC_TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule', 'safety'];
+      const TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule', 'safety', 'bulletin', 'admin'];
+      const PUBLIC_TAB_KEYS = ['platforms', 'intro', 'wish', 'schedule', 'safety', 'bulletin'];
       const ADMIN_TAB_KEY = 'admin';
       const ADMIN_STATUS_FILTERS = ['全部', '已收到', '處理中', '已回覆', '已結案'];
       const ADMIN_LIST_LIMIT = 20;
@@ -2342,6 +2596,18 @@
               saving: false,
             },
           },
+          bulletin: {
+            view: 'list',
+            items: [],
+            loading: false,
+            error: null,
+            refreshedAt: null,
+            edit: {
+              id: null, // null = 新增
+              saving: false,
+              deleting: false,
+            },
+          },
         },
         wish: {
           view: 'form',
@@ -2375,6 +2641,12 @@
           savingProfile: false,
           leaving: false,
           leaveArmed: false,
+        },
+        bulletin: {
+          // 里民端公布欄：列表一次拉全（公告量小），分類純前端過濾
+          category: 'all', // 'all' | '緊急' | '垃圾回收' | '里務' | '補助申請' | '其他'
+          meta: { loading: false, error: null, refreshedAt: null },
+          list: [],
         },
       };
 
@@ -2564,6 +2836,40 @@
         adminSafetyDetailErrorText: document.getElementById('adminSafetyDetailErrorText'),
         adminSafetyDetailContainer: document.getElementById('adminSafetyDetailContainer'),
         adminSafetyDetailRetryButton: document.getElementById('adminSafetyDetailRetryButton'),
+        bulletinChipsRow: document.getElementById('bulletinChipsRow'),
+        bulletinLoading: document.getElementById('bulletinLoading'),
+        bulletinEmpty: document.getElementById('bulletinEmpty'),
+        bulletinError: document.getElementById('bulletinError'),
+        bulletinErrorText: document.getElementById('bulletinErrorText'),
+        bulletinRetryButton: document.getElementById('bulletinRetryButton'),
+        bulletinListContainer: document.getElementById('bulletinListContainer'),
+        bulletinDetailModal: document.getElementById('bulletinDetailModal'),
+        bulletinDetailContainer: document.getElementById('bulletinDetailContainer'),
+        closeBulletinDetailButton: document.getElementById('closeBulletinDetailButton'),
+        adminBulletinListView: document.getElementById('adminBulletinListView'),
+        adminBulletinEditView: document.getElementById('adminBulletinEditView'),
+        adminBulletinListBackButton: document.getElementById('adminBulletinListBackButton'),
+        adminBulletinCreateButton: document.getElementById('adminBulletinCreateButton'),
+        adminBulletinListLoading: document.getElementById('adminBulletinListLoading'),
+        adminBulletinListEmpty: document.getElementById('adminBulletinListEmpty'),
+        adminBulletinListError: document.getElementById('adminBulletinListError'),
+        adminBulletinListErrorText: document.getElementById('adminBulletinListErrorText'),
+        adminBulletinListContainer: document.getElementById('adminBulletinListContainer'),
+        adminBulletinListRetryButton: document.getElementById('adminBulletinListRetryButton'),
+        adminBulletinEditBackButton: document.getElementById('adminBulletinEditBackButton'),
+        adminBulletinEditTitle: document.getElementById('adminBulletinEditTitle'),
+        adminBulletinForm: document.getElementById('adminBulletinForm'),
+        adminBulletinTitle: document.getElementById('adminBulletinTitle'),
+        adminBulletinCategory: document.getElementById('adminBulletinCategory'),
+        adminBulletinSummary: document.getElementById('adminBulletinSummary'),
+        adminBulletinContent: document.getElementById('adminBulletinContent'),
+        adminBulletinExpiresAt: document.getElementById('adminBulletinExpiresAt'),
+        adminBulletinPinned: document.getElementById('adminBulletinPinned'),
+        adminBulletinPublished: document.getElementById('adminBulletinPublished'),
+        adminBulletinSubmitButton: document.getElementById('adminBulletinSubmitButton'),
+        adminBulletinSubmitButtonText: document.getElementById('adminBulletinSubmitButtonText'),
+        adminBulletinDeleteButton: document.getElementById('adminBulletinDeleteButton'),
+        adminBulletinDeleteButtonText: document.getElementById('adminBulletinDeleteButtonText'),
         adminChipsRow: document.getElementById('adminChipsRow'),
         adminSearchInput: document.getElementById('adminSearchInput'),
         adminListLoading: document.getElementById('adminListLoading'),
@@ -2731,10 +3037,17 @@
           }
           return;
         }
+        if (tab === 'bulletin') {
+          // 公布欄：點進此頁才打 API（有快取就不重打）
+          if (options.force === true || (!state.bulletin.meta.refreshedAt && !state.bulletin.meta.loading)) {
+            await loadBulletin({ force: !!options.force });
+          }
+          return;
+        }
         // intro / admin：靜態或由各自管理流程載入
       }
 
-      // 通知信深連結參數：?tab=admin&module=feedback|safety|events&id=…（search 或 hash 皆可）
+      // 通知信深連結參數：?tab=admin&module=feedback|safety|events|bulletin&id=…（search 或 hash 皆可）
       // 用於管理通知信在手機開啟時，直接進對應模組並打開該筆
       function readAdminDeepLinkParams() {
         let module = '';
@@ -2743,7 +3056,7 @@
           if (!params) return;
           if (!module) {
             const m = params.get('module');
-            if (m === 'feedback' || m === 'safety' || m === 'events') module = m;
+            if (m === 'feedback' || m === 'safety' || m === 'events' || m === 'bulletin') module = m;
           }
           if (!id) {
             const raw = Number(params.get('id'));
@@ -2822,6 +3135,8 @@
                   openAdminSafetyDetail(deep.id);
                 } else if (deep.module === 'events') {
                   openAdminEventEdit(deep.id);
+                } else if (deep.module === 'bulletin') {
+                  openAdminBulletinEdit(deep.id);
                 }
               }
             }
@@ -2863,6 +3178,7 @@
         feedback_new: '新反映',
         safety_pending: '報平安待審核',
         event_rsvp: '行程新報名',
+        bulletin_new: '公布欄新公告',
       };
       const ADMIN_NOTIFY_POLL_INTERVAL_MS = 45000;
       const ADMIN_NOTIFY_LIST_LIMIT = 50;
@@ -3040,6 +3356,8 @@
           openAdminSafetyDetail(refId);
         } else if (item.type === 'event_rsvp') {
           openAdminEventEdit(refId);
+        } else if (item.type === 'bulletin_new') {
+          openAdminBulletinEdit(refId);
         } else {
           showToast('找不到對應的項目。');
         }
@@ -3327,6 +3645,8 @@
               switchAdminEventView('list', { autoload: true });
             } else if (module === 'safety') {
               switchAdminSafetyView('list', { autoload: true });
+            } else if (module === 'bulletin') {
+              switchAdminBulletinView('list', { autoload: true });
             }
           });
         }
@@ -3530,6 +3850,53 @@
         // 報平安管理事件
         if (elements.adminSafetyListBackButton) {
           elements.adminSafetyListBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
+        // 公布欄（里民端）
+        if (elements.bulletinRetryButton) {
+          elements.bulletinRetryButton.addEventListener('click', () => loadBulletin({ force: true }));
+        }
+        if (elements.closeBulletinDetailButton) {
+          elements.closeBulletinDetailButton.addEventListener('click', closeBulletinDetail);
+        }
+        if (elements.bulletinDetailModal) {
+          elements.bulletinDetailModal.addEventListener('click', (event) => {
+            if (event.target === elements.bulletinDetailModal) closeBulletinDetail();
+          });
+        }
+        // 公布欄管理事件
+        if (elements.adminBulletinListBackButton) {
+          elements.adminBulletinListBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
+        if (elements.adminBulletinCreateButton) {
+          elements.adminBulletinCreateButton.addEventListener('click', () => openAdminBulletinEdit(null));
+        }
+        if (elements.adminBulletinListRetryButton) {
+          elements.adminBulletinListRetryButton.addEventListener('click', () => loadAdminBulletin({ force: true }));
+        }
+        if (elements.adminBulletinListContainer) {
+          elements.adminBulletinListContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-bulletin-action]');
+            if (!btn) return;
+            const action = btn.dataset.bulletinAction;
+            const id = Number(btn.dataset.bulletinId);
+            if (!id) return;
+            if (action === 'toggle-publish') {
+              toggleAdminBulletinFlag(id, 'is_published');
+            } else if (action === 'toggle-pin') {
+              toggleAdminBulletinFlag(id, 'is_pinned');
+            } else if (action === 'edit') {
+              openAdminBulletinEdit(id);
+            }
+          });
+        }
+        if (elements.adminBulletinEditBackButton) {
+          elements.adminBulletinEditBackButton.addEventListener('click', () => switchAdminBulletinView('list'));
+        }
+        if (elements.adminBulletinForm) {
+          elements.adminBulletinForm.addEventListener('submit', saveAdminBulletin);
+        }
+        if (elements.adminBulletinDeleteButton) {
+          elements.adminBulletinDeleteButton.addEventListener('click', deleteAdminBulletin);
         }
         if (elements.adminSafetyDetailBackButton) {
           elements.adminSafetyDetailBackButton.addEventListener('click', () => switchAdminSafetyView('list'));
@@ -6162,6 +6529,9 @@
         // 報平安管理子頁一併隱藏（避免跨模組殘留）
         if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
         if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
+        // 公布欄管理子頁一併隱藏（避免跨模組殘留）
+        if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
+        if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
 
         if (
           targetView === 'list' &&
@@ -6190,6 +6560,8 @@
         if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
         if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
         if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
+        if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
+        if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
 
         if (elements.adminPlatformListView) {
           elements.adminPlatformListView.classList.toggle('hidden', targetView !== 'list');
@@ -6220,6 +6592,8 @@
         if (elements.adminPlatformEditView) elements.adminPlatformEditView.classList.add('hidden');
         if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
         if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
+        if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
+        if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
 
         if (elements.adminEventListView) {
           elements.adminEventListView.classList.toggle('hidden', targetView !== 'list');
@@ -6250,6 +6624,8 @@
         if (elements.adminPlatformEditView) elements.adminPlatformEditView.classList.add('hidden');
         if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
         if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
+        if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
+        if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
 
         if (elements.adminSafetyListView) {
           elements.adminSafetyListView.classList.toggle('hidden', targetView !== 'list');
@@ -6265,6 +6641,493 @@
         const scrollContainer = document.scrollingElement || document.documentElement || document.body;
         if (scrollContainer) scrollContainer.scrollTop = 0;
         renderIcons();
+      }
+
+      // 公布欄管理子頁切換（bulletinList / bulletinEdit）
+      function switchAdminBulletinView(view, options = {}) {
+        const targetView = ['list', 'edit'].includes(view) ? view : 'list';
+        state.admin.bulletin.view = targetView;
+
+        // 先隱藏其他模組相關 view
+        if (elements.adminHomeView) elements.adminHomeView.classList.add('hidden');
+        if (elements.adminListView) elements.adminListView.classList.add('hidden');
+        if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
+        if (elements.adminPlatformListView) elements.adminPlatformListView.classList.add('hidden');
+        if (elements.adminPlatformEditView) elements.adminPlatformEditView.classList.add('hidden');
+        if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
+        if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
+        if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
+        if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
+
+        if (elements.adminBulletinListView) {
+          elements.adminBulletinListView.classList.toggle('hidden', targetView !== 'list');
+        }
+        if (elements.adminBulletinEditView) {
+          elements.adminBulletinEditView.classList.toggle('hidden', targetView !== 'edit');
+        }
+
+        if (targetView === 'list' && options.autoload === true) {
+          loadAdminBulletin({ force: true });
+        }
+
+        const scrollContainer = document.scrollingElement || document.documentElement || document.body;
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+        renderIcons();
+      }
+
+      function setAdminBulletinListLoading(visible) {
+        if (elements.adminBulletinListLoading) elements.adminBulletinListLoading.classList.toggle('hidden', !visible);
+      }
+
+      function setAdminBulletinListError(message) {
+        if (!elements.adminBulletinListError) return;
+        if (message) {
+          if (elements.adminBulletinListErrorText) elements.adminBulletinListErrorText.textContent = message;
+          elements.adminBulletinListError.classList.remove('hidden');
+        } else {
+          elements.adminBulletinListError.classList.add('hidden');
+        }
+      }
+
+      async function loadAdminBulletin(options = {}) {
+        if (state.admin.bulletin.loading && options.force !== true) return;
+        state.admin.bulletin.loading = true;
+        state.admin.bulletin.error = null;
+
+        setAdminBulletinListLoading(true);
+        setAdminBulletinListError(null);
+        if (elements.adminBulletinListContainer) elements.adminBulletinListContainer.classList.add('hidden');
+        if (elements.adminBulletinListEmpty) elements.adminBulletinListEmpty.classList.add('hidden');
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            throw new Error('請透過 LINE 重新開啟管理功能。');
+          }
+          const res = await fetch('/api/admin/bulletin', {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            throw new Error((result && result.message) || '公告載入失敗，請稍後再試。');
+          }
+          state.admin.bulletin.items = Array.isArray(result.items) ? result.items : [];
+          state.admin.bulletin.refreshedAt = Date.now();
+          renderAdminBulletinList();
+        } catch (err) {
+          state.admin.bulletin.error = err.message || '公告載入失敗，請稍後再試。';
+          setAdminBulletinListError(state.admin.bulletin.error);
+        } finally {
+          state.admin.bulletin.loading = false;
+          setAdminBulletinListLoading(false);
+        }
+      }
+
+      function renderAdminBulletinList() {
+        if (!elements.adminBulletinListContainer) return;
+        const items = state.admin.bulletin.items;
+
+        if (elements.adminBulletinListEmpty) {
+          elements.adminBulletinListEmpty.classList.toggle('hidden', items.length > 0);
+        }
+        elements.adminBulletinListContainer.classList.toggle('hidden', items.length === 0);
+        elements.adminBulletinListContainer.innerHTML = '';
+
+        for (const item of items) {
+          const expired = item.expires_at && new Date(item.expires_at).getTime() <= Date.now();
+          const badgeClass = getBulletinCategoryBadgeClass(item.category);
+          const publishedHtml = item.is_published
+            ? '<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-100"><i data-lucide="eye" class="h-3 w-3"></i>已上架</span>'
+            : '<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200"><i data-lucide="eye-off" class="h-3 w-3"></i>未上架</span>';
+          const pinnedHtml = item.is_pinned
+            ? '<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-600 ring-1 ring-amber-100"><i data-lucide="pin" class="h-3 w-3"></i>置頂</span>'
+            : '';
+          const expiredHtml = expired
+            ? '<span class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100">已過期</span>'
+            : '';
+          const expiresText = item.expires_at
+            ? `到期：${formatEventDateTimeDisplay(item.expires_at)}`
+            : '永不過期';
+
+          const card = document.createElement('div');
+          card.className =
+            'rounded-[1.25rem] border border-violet-100/80 bg-white p-4 shadow-[0_10px_28px_-24px_rgba(139,92,246,0.4)]';
+          card.innerHTML = `
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${badgeClass}">${escapeHtml(item.category)}</span>
+              ${publishedHtml}
+              ${pinnedHtml}
+              ${expiredHtml}
+            </div>
+            <p class="mt-3 max-w-[26rem] truncate text-base font-semibold text-violet-950" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</p>
+            <p class="mt-1 text-xs text-slate-400">${formatBulletinDate(item.created_at)} ・ ${expiresText}</p>
+            <div class="mt-3 flex items-center gap-2">
+              <button type="button" data-bulletin-action="toggle-publish" data-bulletin-id="${item.id}" class="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-slate-600 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95">
+                ${item.is_published ? '下架' : '上架'}
+              </button>
+              <button type="button" data-bulletin-action="toggle-pin" data-bulletin-id="${item.id}" class="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-slate-600 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95">
+                ${item.is_pinned ? '取消置頂' : '置頂'}
+              </button>
+              <button type="button" data-bulletin-action="edit" data-bulletin-id="${item.id}" class="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-500 active:scale-95">
+                <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
+                <span>編輯</span>
+              </button>
+            </div>
+          `;
+          elements.adminBulletinListContainer.appendChild(card);
+        }
+        renderIcons();
+      }
+
+      async function toggleAdminBulletinFlag(id, field) {
+        const item = state.admin.bulletin.items.find((b) => Number(b.id) === Number(id));
+        if (!item) return;
+        const nextValue = field === 'is_pinned' ? !item.is_pinned : !item.is_published;
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/bulletin/${id}`, {
+            method: 'PATCH',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: nextValue }),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '操作失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '已更新。');
+          await loadAdminBulletin({ force: true });
+        } catch (err) {
+          showToast('操作失敗，請稍後再試。');
+        }
+      }
+
+      function fillAdminBulletinForm(item) {
+        if (!elements.adminBulletinForm) return;
+        elements.adminBulletinTitle.value = item ? String(item.title || '') : '';
+        elements.adminBulletinCategory.value = item ? String(item.category || '其他') : '其他';
+        elements.adminBulletinSummary.value = item ? String(item.summary || '') : '';
+        elements.adminBulletinContent.value = item ? String(item.content || '') : '';
+        elements.adminBulletinExpiresAt.value = item && item.expires_at ? formatEventDateTimeLocal(item.expires_at) : '';
+        elements.adminBulletinPinned.checked = item ? item.is_pinned === true : false;
+        elements.adminBulletinPublished.checked = item ? item.is_published === true : false;
+      }
+
+      async function openAdminBulletinEdit(id) {
+        // 通知深連結可能在列表未載入時進來：先確保列表已載（有快取不打 API）
+        if (!state.admin.bulletin.refreshedAt && !state.admin.bulletin.loading) {
+          await loadAdminBulletin();
+        }
+
+        if (id != null) {
+          const item = state.admin.bulletin.items.find((b) => Number(b.id) === Number(id));
+          if (!item) {
+            showToast('找不到這則公告，可能已被刪除。');
+            switchAdminBulletinView('list', { autoload: true });
+            return;
+          }
+          state.admin.bulletin.edit.id = Number(item.id);
+          if (elements.adminBulletinEditTitle) elements.adminBulletinEditTitle.textContent = '編輯公告';
+          if (elements.adminBulletinDeleteButton) elements.adminBulletinDeleteButton.classList.remove('hidden');
+          fillAdminBulletinForm(item);
+        } else {
+          state.admin.bulletin.edit.id = null;
+          if (elements.adminBulletinEditTitle) elements.adminBulletinEditTitle.textContent = '新增公告';
+          if (elements.adminBulletinDeleteButton) elements.adminBulletinDeleteButton.classList.add('hidden');
+          fillAdminBulletinForm(null);
+        }
+        switchAdminBulletinView('edit');
+      }
+
+      async function saveAdminBulletin(event) {
+        if (event) event.preventDefault();
+        if (state.admin.bulletin.edit.saving) return;
+
+        const title = String(elements.adminBulletinTitle.value || '').trim();
+        const category = String(elements.adminBulletinCategory.value || '').trim();
+        const content = String(elements.adminBulletinContent.value || '').trim();
+        if (!title) {
+          showToast('請填寫公告標題。');
+          return;
+        }
+        if (!content) {
+          showToast('請填寫公告內容。');
+          return;
+        }
+
+        state.admin.bulletin.edit.saving = true;
+        if (elements.adminBulletinSubmitButton) elements.adminBulletinSubmitButton.disabled = true;
+        if (elements.adminBulletinSubmitButtonText) elements.adminBulletinSubmitButtonText.textContent = '儲存中…';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+
+          const payload = {
+            title,
+            category,
+            summary: String(elements.adminBulletinSummary.value || '').trim(),
+            content,
+            is_pinned: elements.adminBulletinPinned.checked === true,
+            is_published: elements.adminBulletinPublished.checked === true,
+            expires_at: String(elements.adminBulletinExpiresAt.value || '').trim(),
+          };
+
+          const isCreate = state.admin.bulletin.edit.id == null;
+          const res = await fetch(isCreate ? '/api/admin/bulletin' : `/api/admin/bulletin/${state.admin.bulletin.edit.id}`, {
+            method: isCreate ? 'POST' : 'PATCH',
+            headers: { ...buildAuthHeaders(tokenBundle), 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '儲存失敗，請稍後再試。');
+            return;
+          }
+
+          showToast(result.message || '公告已儲存。');
+          await loadAdminBulletin({ force: true });
+          switchAdminBulletinView('list');
+        } catch (err) {
+          showToast('儲存失敗，請稍後再試。');
+        } finally {
+          state.admin.bulletin.edit.saving = false;
+          if (elements.adminBulletinSubmitButton) elements.adminBulletinSubmitButton.disabled = false;
+          if (elements.adminBulletinSubmitButtonText) elements.adminBulletinSubmitButtonText.textContent = '儲存公告';
+        }
+      }
+
+      async function deleteAdminBulletin() {
+        const id = state.admin.bulletin.edit.id;
+        if (id == null || state.admin.bulletin.edit.deleting) return;
+        if (!window.confirm('確定刪除這則公告？刪除後里民端立即不再顯示。')) return;
+
+        state.admin.bulletin.edit.deleting = true;
+        if (elements.adminBulletinDeleteButton) elements.adminBulletinDeleteButton.disabled = true;
+        if (elements.adminBulletinDeleteButtonText) elements.adminBulletinDeleteButtonText.textContent = '刪除中…';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/bulletin/${id}`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '刪除失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '公告已刪除。');
+          await loadAdminBulletin({ force: true });
+          switchAdminBulletinView('list');
+        } catch (err) {
+          showToast('刪除失敗，請稍後再試。');
+        } finally {
+          state.admin.bulletin.edit.deleting = false;
+          if (elements.adminBulletinDeleteButton) elements.adminBulletinDeleteButton.disabled = false;
+          if (elements.adminBulletinDeleteButtonText) elements.adminBulletinDeleteButtonText.textContent = '刪除公告';
+        }
+      }
+
+      // ==========================================================================
+      // 公布欄 — 里民端（?tab=bulletin；點進此頁才打 API，不進底部四格）
+      // ==========================================================================
+
+      const BULLETIN_CATEGORIES = ['全部', '緊急', '垃圾回收', '里務', '補助申請', '其他'];
+
+      // 分類徽章樣式（緊急=rose / 垃圾回收=emerald / 里務=violet / 補助申請=amber / 其他=slate）
+      function getBulletinCategoryBadgeClass(category) {
+        switch (category) {
+          case '緊急':
+            return 'bg-rose-50 text-rose-600 ring-rose-100';
+          case '垃圾回收':
+            return 'bg-emerald-50 text-emerald-600 ring-emerald-100';
+          case '里務':
+            return 'bg-violet-50 text-violet-600 ring-violet-100';
+          case '補助申請':
+            return 'bg-amber-50 text-amber-600 ring-amber-100';
+          default:
+            return 'bg-slate-100 text-slate-500 ring-slate-200';
+        }
+      }
+
+      // 公告日期顯示（台北時區 YYYY/MM/DD）
+      function formatBulletinDate(iso) {
+        const time = new Date(iso).getTime();
+        if (Number.isNaN(time)) return '';
+        try {
+          return new Intl.DateTimeFormat('zh-TW', {
+            timeZone: 'Asia/Taipei',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(new Date(time));
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function setBulletinLoadingVisible(visible) {
+        if (elements.bulletinLoading) elements.bulletinLoading.classList.toggle('hidden', !visible);
+      }
+
+      function setBulletinError(message) {
+        if (!elements.bulletinError) return;
+        if (message) {
+          if (elements.bulletinErrorText) elements.bulletinErrorText.textContent = message;
+          elements.bulletinError.classList.remove('hidden');
+        } else {
+          elements.bulletinError.classList.add('hidden');
+        }
+      }
+
+      function renderBulletinChips() {
+        if (!elements.bulletinChipsRow) return;
+        elements.bulletinChipsRow.innerHTML = '';
+        for (const category of BULLETIN_CATEGORIES) {
+          const isActive = state.bulletin.category === category;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = isActive
+            ? 'inline-flex h-9 items-center rounded-full bg-violet-600 px-4 text-xs font-semibold text-white shadow-lg shadow-violet-500/25 transition active:scale-95'
+            : 'inline-flex h-9 items-center rounded-full bg-white px-4 text-xs font-semibold text-slate-500 shadow-input ring-1 ring-slate-200 transition hover:text-violet-600 active:scale-95';
+          button.textContent = category;
+          button.addEventListener('click', () => {
+            if (state.bulletin.category === category) return;
+            state.bulletin.category = category;
+            renderBulletinChips();
+            renderBulletinList();
+          });
+          elements.bulletinChipsRow.appendChild(button);
+        }
+      }
+
+      function getFilteredBulletinList() {
+        const category = state.bulletin.category;
+        if (!category || category === '全部') return state.bulletin.list;
+        return state.bulletin.list.filter((item) => item.category === category);
+      }
+
+      function renderBulletinList() {
+        if (!elements.bulletinListContainer) return;
+        const items = getFilteredBulletinList();
+
+        if (elements.bulletinEmpty) {
+          elements.bulletinEmpty.classList.toggle('hidden', items.length > 0);
+        }
+        if (elements.bulletinListContainer) {
+          elements.bulletinListContainer.classList.toggle('hidden', items.length === 0);
+        }
+
+        elements.bulletinListContainer.innerHTML = '';
+        for (const item of items) {
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.setAttribute('data-bulletin-id', String(item.id));
+          card.className =
+            'block w-full rounded-[1.25rem] border border-violet-100/80 bg-white p-4 text-left shadow-[0_10px_28px_-24px_rgba(139,92,246,0.4)] transition hover:-translate-y-0.5 hover:border-violet-200 active:scale-[0.995]';
+
+          const badgeClass = getBulletinCategoryBadgeClass(item.category);
+          const summaryHtml = item.summary
+            ? `<p class="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">${escapeHtml(item.summary)}</p>`
+            : '';
+          const pinnedHtml = item.is_pinned
+            ? `<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-600 ring-1 ring-amber-100"><i data-lucide="pin" class="h-3 w-3"></i>置頂</span>`
+            : '';
+
+          card.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${badgeClass}">${escapeHtml(item.category)}</span>
+              ${pinnedHtml}
+              <span class="ml-auto text-[11px] font-medium text-slate-400">${formatBulletinDate(item.created_at)}</span>
+            </div>
+            <p class="mt-3 text-base font-semibold leading-7 text-violet-950">${escapeHtml(item.title)}</p>
+            ${summaryHtml}
+          `;
+          card.addEventListener('click', () => openBulletinDetail(item.id));
+          elements.bulletinListContainer.appendChild(card);
+        }
+        renderIcons();
+      }
+
+      async function loadBulletin(options = {}) {
+        if (state.bulletin.meta.loading && options.force !== true) return;
+        state.bulletin.meta.loading = true;
+        state.bulletin.meta.error = null;
+
+        setBulletinLoadingVisible(true);
+        setBulletinError(null);
+        if (elements.bulletinListContainer) elements.bulletinListContainer.classList.add('hidden');
+        if (elements.bulletinEmpty) elements.bulletinEmpty.classList.add('hidden');
+
+        try {
+          const res = await fetch('/api/bulletin');
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            throw new Error((result && result.message) || '公布欄載入失敗，請稍後再試。');
+          }
+          state.bulletin.list = Array.isArray(result.items) ? result.items : [];
+          state.bulletin.meta.refreshedAt = Date.now();
+          renderBulletinChips();
+          renderBulletinList();
+        } catch (err) {
+          state.bulletin.meta.error = err.message || '公布欄載入失敗，請稍後再試。';
+          setBulletinError(state.bulletin.meta.error);
+        } finally {
+          state.bulletin.meta.loading = false;
+          setBulletinLoadingVisible(false);
+        }
+      }
+
+      function openBulletinDetail(id) {
+        const item = state.bulletin.list.find((b) => Number(b.id) === Number(id));
+        if (!item || !elements.bulletinDetailModal || !elements.bulletinDetailContainer) return;
+
+        const badgeClass = getBulletinCategoryBadgeClass(item.category);
+        const pinnedHtml = item.is_pinned
+          ? '<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-600 ring-1 ring-amber-100"><i data-lucide="pin" class="h-3 w-3"></i>置頂</span>'
+          : '';
+        const expiresHtml = item.expires_at
+          ? `<p class="text-xs text-slate-400">顯示至 ${formatEventDateTimeDisplay(item.expires_at)} 止</p>`
+          : '';
+        const summaryHtml = item.summary
+          ? `<div class="rounded-[1.25rem] bg-violet-50/40 px-4 py-3 text-sm leading-7 text-slate-600">${escapeHtml(item.summary)}</div>`
+          : '';
+
+        elements.bulletinDetailContainer.innerHTML = `
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${badgeClass}">${escapeHtml(item.category)}</span>
+            ${pinnedHtml}
+          </div>
+          <h3 class="text-xl font-semibold leading-9 tracking-tight text-violet-950">${escapeHtml(item.title)}</h3>
+          <div class="space-y-1">
+            <p class="text-xs text-slate-400">發布於 ${formatBulletinDate(item.created_at)}</p>
+            ${expiresHtml}
+          </div>
+          ${summaryHtml}
+          <div class="text-sm leading-8 text-slate-700 whitespace-pre-line">${escapeHtml(item.content)}</div>
+        `;
+        elements.bulletinDetailModal.classList.remove('hidden');
+        elements.bulletinDetailModal.classList.add('flex');
+        renderIcons();
+      }
+
+      function closeBulletinDetail() {
+        if (!elements.bulletinDetailModal) return;
+        elements.bulletinDetailModal.classList.add('hidden');
+        elements.bulletinDetailModal.classList.remove('flex');
       }
 
       // ==========================================================================

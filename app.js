@@ -3362,6 +3362,372 @@ app.delete('/api/admin/events/:id', async (req, res) => {
   }
 });
 
+// ============================================================================
+// 公布欄（bulletin_posts）：里民展示用公告；不上架或已過期里民端不顯示
+// 選前不進底部四格，?tab=bulletin 直開；分類固定五值
+// ============================================================================
+
+const BULLETIN_CATEGORIES = ['緊急', '垃圾回收', '里務', '補助申請', '其他'];
+
+// 新增公告 payload 正規化（title、category、content 必填；expires_at 選填 = 永不過期）
+function normalizeBulletinPayload(body = {}) {
+  const title = String(body.title || '').trim();
+  const category = String(body.category || '').trim();
+  const summary = String(body.summary || '').trim();
+  const content = String(body.content || '').trim();
+  const expiresRaw = String(body.expires_at || '').trim();
+
+  if (!title) {
+    return { success: false, message: '請填寫公告標題。' };
+  }
+  if (title.length > 100) {
+    return { success: false, message: '公告標題過長，請精簡至 100 字內。' };
+  }
+  if (!BULLETIN_CATEGORIES.includes(category)) {
+    return { success: false, message: '請選擇正確的公告分類。' };
+  }
+  if (!content) {
+    return { success: false, message: '請填寫公告內容。' };
+  }
+  if (content.length > 5000) {
+    return { success: false, message: '公告內容過長，請精簡至 5000 字內。' };
+  }
+  if (summary.length > 300) {
+    return { success: false, message: '摘要過長，請精簡至 300 字內。' };
+  }
+
+  const data = {
+    title,
+    category,
+    content,
+    is_pinned: body.is_pinned === true,
+    is_published: body.is_published === true,
+  };
+  if (summary) data.summary = summary;
+  if (expiresRaw) {
+    if (Number.isNaN(parseEventDateTime(expiresRaw).getTime())) {
+      return { success: false, message: '到期時間格式不正確。' };
+    }
+    data.expires_at = parseEventDateTime(expiresRaw).toISOString();
+  }
+
+  return { success: true, data };
+}
+
+// 編輯公告 payload（選擇性欄位都允許；expires_at 空字串 = 清空到期日）
+function buildBulletinUpdatePayload(body = {}) {
+  const payload = {};
+
+  if (Object.prototype.hasOwnProperty.call(body, 'title')) {
+    const title = String(body.title || '').trim();
+    if (!title) {
+      throw Object.assign(new Error('公告標題不可為空。'), { status: 400 });
+    }
+    if (title.length > 100) {
+      throw Object.assign(new Error('公告標題過長，請精簡至 100 字內。'), { status: 400 });
+    }
+    payload.title = title;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'category')) {
+    const category = String(body.category || '').trim();
+    if (!BULLETIN_CATEGORIES.includes(category)) {
+      throw Object.assign(new Error('請選擇正確的公告分類。'), { status: 400 });
+    }
+    payload.category = category;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'summary')) {
+    const summary = String(body.summary || '').trim();
+    if (summary.length > 300) {
+      throw Object.assign(new Error('摘要過長，請精簡至 300 字內。'), { status: 400 });
+    }
+    payload.summary = summary || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'content')) {
+    const content = String(body.content || '').trim();
+    if (!content) {
+      throw Object.assign(new Error('公告內容不可為空。'), { status: 400 });
+    }
+    if (content.length > 5000) {
+      throw Object.assign(new Error('公告內容過長，請精簡至 5000 字內。'), { status: 400 });
+    }
+    payload.content = content;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'is_pinned')) {
+    payload.is_pinned = body.is_pinned === true;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'is_published')) {
+    payload.is_published = body.is_published === true;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'expires_at')) {
+    const expiresRaw = String(body.expires_at || '').trim();
+    if (expiresRaw) {
+      if (Number.isNaN(parseEventDateTime(expiresRaw).getTime())) {
+        throw Object.assign(new Error('到期時間格式不正確。'), { status: 400 });
+      }
+      payload.expires_at = parseEventDateTime(expiresRaw).toISOString();
+    } else {
+      payload.expires_at = null;
+    }
+  }
+
+  return payload;
+}
+
+// 里民端：公布欄列表（僅上架且未過期；置頂在前、建立時間新到舊）
+app.get('/api/bulletin', async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: rows, error } = await supabaseAdmin
+      .from('bulletin_posts')
+      .select('id, title, category, summary, content, is_pinned, expires_at, created_at')
+      .eq('is_published', true)
+      .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('bulletin list failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '公告載入失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({ success: true, items: rows || [] });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'bulletin list failed:');
+  }
+});
+
+// 管理端：公布欄完整列表（含未上架、已過期）
+app.get('/api/admin/bulletin', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: rows, error } = await supabaseAdmin
+      .from('bulletin_posts')
+      .select('id, title, category, summary, content, is_pinned, is_published, expires_at, created_at')
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('admin bulletin list failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '公告載入失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({ success: true, items: rows || [] });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin bulletin list failed:');
+  }
+});
+
+// 管理端：新增公告（新增即上架時發管理員通知：紅點 + 即時 Email）
+app.post('/api/admin/bulletin', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const normalized = normalizeBulletinPayload(req.body || {});
+    if (!normalized.success) {
+      return res.status(400).json({
+        success: false,
+        message: normalized.message,
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from('bulletin_posts')
+      .insert(normalized.data)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('admin bulletin create failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '公告建立失敗，請稍後再試。',
+      });
+    }
+
+    // 管理員通知（fire-and-forget，失敗不擋操作）
+    if (row && row.is_published) {
+      insertAdminNotification('bulletin_new', '公布欄新公告', row.title, 'bulletin_posts', row.id);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: '公告已建立。',
+      item: row,
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin bulletin create failed:');
+  }
+});
+
+// 管理端：編輯公告（未上架 → 上架轉換時發管理員通知）
+app.patch('/api/admin/bulletin/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const bulletinId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(bulletinId) || bulletinId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '公告編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from('bulletin_posts')
+      .select('id, is_published')
+      .eq('id', bulletinId)
+      .maybeSingle();
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這則公告。',
+      });
+    }
+
+    let payload;
+    try {
+      payload = buildBulletinUpdatePayload(req.body || {});
+    } catch (err) {
+      return res.status(err.status || 400).json({
+        success: false,
+        message: err.message || '資料格式不正確。',
+      });
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '沒有要更新的欄位。',
+      });
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from('bulletin_posts')
+      .update(payload)
+      .eq('id', bulletinId)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('admin bulletin update failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '公告更新失敗，請稍後再試。',
+      });
+    }
+
+    // 管理員通知（fire-and-forget）：本來未上架、這次轉為上架
+    if (row && row.is_published && existing.is_published !== true) {
+      insertAdminNotification('bulletin_new', '公布欄新公告', row.title, 'bulletin_posts', row.id);
+    }
+
+    return res.json({
+      success: true,
+      message: '公告已更新。',
+      item: row,
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin bulletin update failed:');
+  }
+});
+
+// 管理端：刪除公告
+app.delete('/api/admin/bulletin/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const bulletinId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(bulletinId) || bulletinId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '公告編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from('bulletin_posts')
+      .select('id')
+      .eq('id', bulletinId)
+      .maybeSingle();
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這則公告。',
+      });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('bulletin_posts')
+      .delete()
+      .eq('id', bulletinId);
+
+    if (error) {
+      console.error('admin bulletin delete failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '公告刪除失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: '公告已刪除。',
+      data: { id: bulletinId },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin bulletin delete failed:');
+  }
+});
+
 // 取得封面上傳 URL
 app.post('/api/admin/events/:id/cover-upload-url', async (req, res) => {
   try {
@@ -4767,6 +5133,7 @@ const ADMIN_NOTIFY_REF_MODULES = {
   user_feedback: 'feedback',
   safety_members: 'safety',
   campaign_events: 'events',
+  bulletin_posts: 'bulletin',
 };
 
 function buildAdminNotifyLink(refTable, refId) {

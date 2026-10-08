@@ -173,13 +173,23 @@
   - 管理端（liff.html 盾牌 + admin.html 電腦版同步）：chips 加「待審核」；pending 列顯示 sky「待審核」badge、未簽天數與最後簽到顯示「—」、稱呼後綴「（YYYY 年生）」、最後簽到欄改顯示申請時間；詳情頁 pending 顯示「審核申請」卡（核准／不通過＋原因 textarea），pending 時「標記關懷」與「暫不提醒幹部」皆唯讀隱藏；核准/不通過後重抓詳情與列表同步計數
   - 新增欄位（migration `007_safety_approval.sql`，已於 Supabase 執行）：`safety_members` 加 `approval_status text NOT NULL DEFAULT 'pending'`（CHECK 三值；**既有列 migration 內一律 backfill 為 `approved`**，行為不變）、`applied_at timestamptz NOT NULL DEFAULT now()`、`reviewed_at timestamptz`、`reviewed_by text`、`birth_year int`、`reject_reason text`
 
+### 公布欄（里民端 + 管理端；?tab=bulletin 獨立頁，選前不進底部導覽）
+- **定位**：給里民看的公告欄（競選期間展示用）；**底部導覽維持 4 個 Tab 不變**，bulletin 是隱藏 panel，只有 URL 帶 `?tab=bulletin` 才會開（同 safety 模式）；**圖文選單暫不加**、選後才考慮進底部
+- **展示網址**：`https://liff.line.me/{LIFF_ID}?tab=bulletin`
+- **資料表 `bulletin_posts`**：`title`（必填 ≤100）、`category`（五選一：**緊急／垃圾回收／里務／補助申請／其他**，DB CHECK）、`summary`（摘要 ≤300 選填，列表顯示）、`content`（內文必填 ≤5000）、`is_pinned`（置頂）、`is_published`（上架）、`expires_at`（到期時間 timestamptz，NULL = 永不過期）、`created_at`
+- **里民端（public/liff.html `bulletinPanel`）**：列表上方 chips 可篩「全部＋五分類」（純前端過濾，同許願池模式）；**置頂在前**、其餘建立時間新到舊；**不上架或已過期不出現**（後端過濾）；點卡片開詳情 modal（分類徽章＋置頂＋標題＋發布日＋到期日＋摘要＋內文 `whitespace-pre-line`；列表 API 直接回全文，**不打第二支 API**）；空狀態「目前沒有公告」；**沒有報名、沒有留言**；「補助申請」類只顯示說明、**不做線上送件**；「其他」放不屬於前四類的公告
+- **管理端（liff.html 盾牌第 5 張模組卡「公布欄」＋ admin.html 第 4 個分頁「公布欄」）**：列表（分類徽章＋上架/置頂/已過期徽章＋標題＋建立日＋到期日）；可**新增、修改、上架/下架（一鍵切換）、置頂（一鍵切換）、設分類、設到期日（datetime-local，台北時區同 `parseEventDateTime`）、刪除**（須 confirm）；表單 title/category/summary/content/expires_at/is_pinned/is_published
+- **通知**：**未上架 → 上架轉換時**（含新增即上架）寫 `bulletin_new` 管理員通知＋寄即時 Email（沿用紅點/鈴鐺/深連結體系；下架再上架會再通知，語義上視為重新上架）
+- **seed（migration 內）**：3 則可上架範例——【緊急】豪雨特報（置頂）、本週垃圾清運時間調整（垃圾回收）、里民活動中心借用須知（其他）
+- **本期未做**：進底部四格（選後才做）、圖文選單入口、補助申請線上送件、公告附圖
+
 ### 管理員通知（第一期：後台紅點＋即時 Email）
-- **寫入來源（只有三類，fire-and-forget）**：新反映（`POST /api/feedback` 成功後）、報平安待審核（`POST /api/safety/join` 成功後）、行程新報名（`POST /api/events/:id/rsvp` 成功後）→ 寫 `admin_notifications`；`insertAdminNotification()` 不 await、失敗只 log，**絕不擋里民主流程**；摘要不放完整電話（`buildFeedbackNotificationSummary` 只取稱呼 ≤20 字＋內容前 40 字）
+- **寫入來源（只有四類，fire-and-forget）**：新反映（`POST /api/feedback` 成功後）、報平安待審核（`POST /api/safety/join` 成功後）、行程新報名（`POST /api/events/:id/rsvp` 成功後）、公布欄上架（`POST /api/admin/bulletin` 新增即上架、`PATCH /api/admin/bulletin/:id` 未上架→上架轉換時）→ 寫 `admin_notifications`；`insertAdminNotification()` 不 await、失敗只 log，**絕不擋里民主流程**；摘要不放完整電話（`buildFeedbackNotificationSummary` 只取稱呼 ≤20 字＋內容前 40 字）
 - **後台紅點（liff.html 盾牌管理首頁＋admin.html header）**：
-  - 鈴鐺按鈕＋紅點（未讀 >0 顯示，>99 顯「99+」）；點開為未讀列表（中文類型〔新反映／報平安待審核／行程新報名〕＋摘要＋相對時間），支援「全部已讀」
-  - 點擊單則 → 標已讀＋導向：新反映→反映詳情、待審核→報平安該筆詳情、行程報名→liff.html 開該場編輯／admin.html 切行程模組開該場詳情（2026-09-25 起，原為提示改用手機盾牌端）；已讀標記失敗不擋導向
+  - 鈴鐺按鈕＋紅點（未讀 >0 顯示，>99 顯「99+」）；點開為未讀列表（中文類型〔新反映／報平安待審核／行程新報名／公布欄新公告〕＋摘要＋相對時間），支援「全部已讀」
+  - 點擊單則 → 標已讀＋導向：新反映→反映詳情、待審核→報平安該筆詳情、行程報名→liff.html 開該場編輯／admin.html 切行程模組開該場詳情（2026-09-25 起，原為提示改用手機盾牌端）、公布欄→開該則公告編輯；已讀標記失敗不擋導向
   - 輪詢：確認管理員身分後每 45 秒＋window focus／visibility 回前台，靜默拉 `unread-count` 更新紅點；**不新增底部 Tab（維持 4 個）**
-- **即時 Email（Resend，2026-09-25 起取代每日彙整）**：三類通知**寫入成功後立刻**逐封寄給 `ADMIN_NOTIFY_EMAILS`（`sendAdminNotifyEmail()`，fire-and-forget，**無 key／寄信失敗只 log，不擋里民 201**）；主旨短（「【幸福正砂】新反映：摘要前 30 字」式）、摘要不含完整電話；**正文附深連結 `admin.html?module=<feedback|safety|events>&id=<該筆id>`**（`buildAdminNotifyLink()` 依 `ref_table` 對照 module）——**電腦開啟 admin.html 自動切該模組並開該筆詳情（id 無效→toast＋回列表，不白屏）；手機開啟自動分流 LIFF 後由 `checkAdminIdentity()` 讀 module/id 直接開對應筆（liff.html 三個詳情函式皆獨立 by-id 抓資料；沒帶 module 開管理首頁，非管理員導回 platforms）**；**不寄**：每日簽到、取消報名、幹部操作（標記關懷／暫停／審核）
+- **即時 Email（Resend，2026-09-25 起取代每日彙整）**：四類通知**寫入成功後立刻**逐封寄給 `ADMIN_NOTIFY_EMAILS`（`sendAdminNotifyEmail()`，fire-and-forget，**無 key／寄信失敗只 log，不擋里民 201**）；主旨短（「【幸福正砂】新反映：摘要前 30 字」式）、摘要不含完整電話；**正文附深連結 `admin.html?module=<feedback|safety|events|bulletin>&id=<該筆id>`**（`buildAdminNotifyLink()` 依 `ref_table` 對照 module）——**電腦開啟 admin.html 自動切該模組並開該筆詳情（id 無效→toast＋回列表，不白屏）；手機開啟自動分流 LIFF 後由 `checkAdminIdentity()` 讀 module/id 直接開對應筆（liff.html 詳情函式皆獨立 by-id 抓資料；沒帶 module 開管理首頁，非管理員導回 platforms）**；**不寄**：每日簽到、取消報名、幹部操作（標記關懷／暫停／審核）
 - **寄件人／回覆**：`ADMIN_NOTIFY_FROM`（已驗證自有網域 `notify@mail.zhengshavil.com`，顯示名「幸福正砂」；未設才 fallback `onboarding@resend.dev`）；`ADMIN_NOTIFY_REPLY_TO`（選填真實信箱，有設才帶 `reply_to`）
 - **不做**（第一期）：每日簽到、取消報名、狀態變更、snooze 不寫通知；LINE 推播（避免消耗官方帳號額度）；API key 不進 repo／HANDOVER
 
@@ -244,10 +254,11 @@
 - `safety_checkins`：每日簽到（`UNIQUE(member_id, checkin_date)`，一天一筆；CASCADE 刪除）
 - `safety_care_logs`：關懷紀錄（`method` CHECK：`已電訪`/`已家訪`/`暫停幹部通知`、`note` 備註、`created_by` 管理員 LINE id；CASCADE 刪除）
 - `safety_notification_logs`：報平安通知發送紀錄（`notify_type` CHECK：`resident_same_day`/`admin_care`、`UNIQUE(notify_type, line_user_id, notify_date)` 冪等；**成功才寫**；不 FK `safety_members`，管理員收件人不一定是會員）
-- `admin_notifications`：管理員通知（`type` CHECK：`feedback_new`/`safety_pending`/`event_rsvp`、`title`、`summary`〔不放完整電話〕、`ref_table`、`ref_id` text；三處里民 API 成功後 fire-and-forget 寫入，失敗不擋主流程）
+- `admin_notifications`：管理員通知（`type` CHECK：`feedback_new`/`safety_pending`/`event_rsvp`/`bulletin_new`、`title`、`summary`〔不放完整電話〕、`ref_table`、`ref_id` text；三處里民 API 成功後 fire-and-forget 寫入，失敗不擋主流程）
 - `admin_notification_reads`：管理員通知已讀紀錄（`UNIQUE(notification_id, line_user_id)` 每人每則一筆、upsert `ignoreDuplicates` 冪等；`notification_id` FK CASCADE）
+- `bulletin_posts`：公布欄公告（`title` ≤100、`category` CHECK 五值：`緊急`/`垃圾回收`/`里務`/`補助申請`/`其他`、`summary` ≤300 選填、`content` ≤5000、`is_pinned` 置頂、`is_published` 上架、`expires_at` 到期日 NULL=永不過期〔過期里民端不顯示〕、`created_at`；里民端排序：置頂在前、建立時間新到舊）
 
-> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`、申請審核欄位詳見 `007_safety_approval.sql`（皆已於 Supabase 執行）；管理員通知兩張表詳見 `008_admin_notifications.sql`（已於 Supabase 執行）
+> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`、申請審核欄位詳見 `007_safety_approval.sql`（皆已於 Supabase 執行）；管理員通知兩張表詳見 `008_admin_notifications.sql`（已於 Supabase 執行）；公布欄詳見 `009_bulletin_posts.sql`（含 `admin_notifications.type` 放寬加 `bulletin_new` 與 3 則 seed，**尚未於 Supabase 執行**）
 
 ### 狀態值
 `已收到` / `處理中` / `已回覆` / `已結案`
@@ -273,6 +284,7 @@
 | GET | `/api/my-feedback/:id` | 我的許願詳情（含照片 signed URL、狀態時間軸） |
 | GET | `/api/events` | 公開行程列表（`is_published = true`），回傳 `{ next, upcoming, past }` |
 | GET | `/api/events/:id` | 單筆行程詳情（含封面 signed URL、相簿 signed URL、`my_rsvp`） |
+| GET | `/api/bulletin` | 公布欄列表（公開，免驗證；僅 `is_published = true` 且未過期，置頂在前、建立時間新到舊，回 `{ items }` 含全文，前端直接開詳情） |
 | POST | `/api/events/:id/rsvp` | 報名行程（已結束 `start_at < now` 擋新增） |
 | DELETE | `/api/events/:id/rsvp` | 取消報名（**不擋已結束**） |
 | GET | `/api/safety/status` | 我的報平安狀態（joined、`approval_status`〔null/pending/rejected/approved，前端據此切四態〕、rejected 時附 `reject_reason`、今日是否已簽、上次簽到日、approved 時另附 `streak` 連續簽到天數〔後端現算，今日未簽 = 0〕） |
@@ -320,6 +332,10 @@
 | POST | `/api/admin/safety/:id/care` | 標記關懷，body `{ method: '已電訪'\|'已家訪', note }`（**僅 approved**，否則 400） |
 | POST | `/api/admin/safety/:id/approve` | 核准加入申請（第四期；pending/rejected → approved，重設 `baseline_date` 為核准當天、清 `reject_reason` 與殘留暫停；已 approved 冪等回 200） |
 | POST | `/api/admin/safety/:id/reject` | 不通過申請（第四期；**僅 pending**，approved 回 400；body `{ reason }` 選填 ≤ 200 字） |
+| GET | `/api/admin/bulletin` | 公布欄完整列表（含未上架、已過期），置頂在前、建立時間新到舊 |
+| POST | `/api/admin/bulletin` | 新增公告（`title`/`category`/`content` 必填、`summary`/`expires_at` 選填、`is_pinned`/`is_published` 預設 false；新增即上架 → fire-and-forget 管理員通知 `bulletin_new`） |
+| PATCH | `/api/admin/bulletin/:id` | 選擇性更新任一欄位（`expires_at` 空字串 = 清空到期日；未上架 → 上架轉換時通知 `bulletin_new`） |
+| DELETE | `/api/admin/bulletin/:id` | 刪除公告 |
 
 ### 排程任務 API（Cron）
 
@@ -538,6 +554,14 @@
   - admin.html（手機分流）：`redirectToMobileAdmin()` 把 module/id 原樣接到 `liff.line.me/<liffId>?tab=admin&module=…&id=…`
   - liff.html：`checkAdminIdentity()` 確認管理員＋`?tab=admin` 後讀 `readAdminDeepLinkParams()` → `openAdminDetail`／`openAdminSafetyDetail`／`openAdminEventEdit`（皆獨立 by-id 抓資料，不依賴列表）；沒帶 module 開管理首頁（相容舊連結與盾牌入口）；非管理員維持導回 platforms
   - 通知鈴鐺：admin.html `navigateToNotifyTarget` 與 liff.html `navigateToAdminNotifyTarget` 原本就能導到對應筆，本期未動
+- **公布欄模組（2026-10-08，里民端展示用；?tab=bulletin 獨立頁，選前不進底部導覽）**
+  - **migration `009_bulletin_posts.sql`（⚠️ 尚未於 Supabase 執行，需手動執行後功能才有資料）**：建 `bulletin_posts` 表（title/category〔CHECK 五值〕/summary/content/is_pinned/is_published/expires_at/created_at＋listing 索引）；DO block 放寬 `admin_notifications.type` CHECK 為四值（加 `bulletin_new`，冪等 DROP+ADD）；seed 3 則上架範例（緊急〔置頂〕／垃圾回收／其他，僅空表插入）
+  - API（app.js）：里民 `GET /api/bulletin`（**公開免驗證**，僅上架且未過期，置頂在前，回全文）；管理四支（GET 全含未上架已過期／POST／PATCH 選擇性更新〔expires_at 空字串=清空〕／DELETE，皆 requireAdmin）；`ADMIN_NOTIFY_REF_MODULES` 加 `bulletin_posts → bulletin`
+  - 里民端（liff.html）：`bulletinPanel`（chips 全部＋五分類純前端過濾、卡片列表、詳情 modal、空狀態「目前沒有公告」）；`TAB_KEYS`/`PUBLIC_TAB_KEYS` 加 bulletin、`loadTabDataForCurrentTab` 惰性載入；**底部 4 Tab 未動、圖文選單未加**
+  - 管理端：liff.html 盾牌第 5 張模組卡＋列表/編輯頁（新增/修改/上下架/置頂/分類/到期日/刪除，busy 態防重複提交）；admin.html 第 4 個模組分頁＋表格＋編輯 modal（`switchModule` 惰性載入、401/403 沿用既有處理）；四個 switch 函式同步隱藏 bulletin views
+  - 通知：`bulletin_new`（新增即上架／未上架→上架轉換時寫入＋寄信）；兩端鈴鐺中文標籤「公布欄新公告」＋點擊導向開該則編輯；深連結 module 白名單（admin.html＋liff.html）加 bulletin；**既有三類通知邏輯零改動**
+  - 到期日時區：沿用行程慣例（datetime-local 補 `+08:00` 存 timestamptz、`formatEventDateTimeLocal` 回填）
+  - **本期未做**：進底部四格（選後才做）、圖文選單入口、補助申請線上送件、公告附圖、里民端分頁
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）
