@@ -5725,17 +5725,28 @@
         safety: '報平安',
       };
 
-      // 瀏覽紀錄回報（fire-and-forget）：未登入／測試模式／失敗一律靜默，不擋里民進頁
-      async function trackPageView(pageCode) {
+      // 瀏覽紀錄回報（fire-and-forget）：未登入／測試模式不送；失敗只在主控台留一行，不擋里民進頁
+      async function trackPageView(pageCode, isRetry = false) {
         try {
           const tokenBundle = await getIdentityToken();
-          if (tokenBundle.kind !== 'liff' || !tokenBundle.token) return; // 沒登入不寫入
+          if (tokenBundle.kind !== 'liff' || !tokenBundle.token) {
+            // 已登入（LIFF 模式）卻拿不到 ID Token 屬異常（SDK 尚未就緒或 token 過期）：
+            // 1.5 秒後重試一次，再失敗留一行；未登入／測試模式本來就不送
+            if (state.mode === 'liff') {
+              if (!isRetry) {
+                setTimeout(() => trackPageView(pageCode, true), 1500);
+              } else {
+                console.warn('page view skipped: LINE ID token unavailable, page =', pageCode);
+              }
+            }
+            return;
+          }
           const res = await fetch('/api/page-views', {
             method: 'POST',
             headers: buildAuthHeaders(tokenBundle),
             body: JSON.stringify({ page: pageCode }),
           });
-          if (!res.ok) console.warn('page view track failed:', res.status);
+          if (!res.ok) console.warn('page view track failed:', res.status, 'page =', pageCode);
         } catch (err) {
           console.warn('page view track error:', err);
         }
