@@ -470,9 +470,10 @@
             <table class="w-full text-left text-base">
               <thead>
                 <tr class="border-b border-slate-100 bg-slate-50/60 text-xs uppercase tracking-wide text-slate-400">
-                  <th class="px-6 py-4 font-semibold">時間</th>
+                  <th class="px-6 py-4 font-semibold">最後時間</th>
                   <th class="px-6 py-4 font-semibold">姓名</th>
-                  <th class="px-6 py-4 font-semibold">頁面</th>
+                  <th class="px-6 py-4 font-semibold">看了幾頁</th>
+                  <th class="px-6 py-4 font-semibold">最後一頁</th>
                 </tr>
               </thead>
               <tbody id="pageViewsTableBody"></tbody>
@@ -558,6 +559,19 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ===== 瀏覽紀錄詳情 modal（點列看這一輪瀏覽的頁面） ===== -->
+  <div id="pageViewsDetailModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/40 px-6 py-10">
+    <div class="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+      <div class="mb-6 flex items-center justify-between">
+        <h2 class="text-xl font-bold text-slate-900">瀏覽紀錄</h2>
+        <button id="pageViewsDetailCloseButton" type="button" class="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700" aria-label="關閉">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+      <div id="pageViewsDetailContainer" class="space-y-3"></div>
     </div>
   </div>
 
@@ -666,6 +680,7 @@ function cacheElements() {
     'bulletinPinnedInput', 'bulletinPublishedInput', 'bulletinSubmitButton', 'bulletinSubmitButtonText',
     'bulletinCancelButton', 'bulletinDeleteButton', 'bulletinDeleteButtonText',
     'modulePageViews', 'pageViewsTodayGrid', 'pageViewsTableBody', 'pageViewsListEmpty', 'pageViewsListLoading', 'pageViewsRefreshButton',
+    'pageViewsDetailModal', 'pageViewsDetailCloseButton', 'pageViewsDetailContainer',
     'safetyListView', 'safetyTableBody', 'safetyListEmpty', 'safetyListLoading', 'safetyRefreshButton',
     'safetyDetailView', 'safetyBackButton', 'safetyMemberInfo', 'safetyCareTimeline', 'safetyCheckinList',
     'safetyCareCard', 'safetyCareMethodSelect', 'safetyCareNote', 'safetyCareNoteCount', 'safetyCareSaveButton',
@@ -2158,7 +2173,7 @@ async function loadPageViewsList() {
     if (!res.ok || !json || json.success === false) {
       throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
     }
-    state.pageviews.data = json.data || { today: '', today_counts: {}, recent: [] };
+    state.pageviews.data = json.data || { today: '', today_counts: {}, sessions: [] };
     state.pageviews.loaded = true;
     renderPageViews();
   } catch (err) {
@@ -2175,9 +2190,9 @@ async function loadPageViewsList() {
 function renderPageViews() {
   const data = state.pageviews.data;
   const counts = (data && data.today_counts) || {};
-  const recent = (data && Array.isArray(data.recent)) ? data.recent : [];
+  const sessions = (data && Array.isArray(data.sessions)) ? data.sessions : [];
 
-  // 今日各頁次數（全部代碼都顯示，0 也顯示）
+  // 今日各頁次數（全部代碼都顯示，0 也顯示；各頁原始次數，不做 session 合併）
   if (elements.pageViewsTodayGrid) {
     elements.pageViewsTodayGrid.innerHTML = Object.keys(PAGE_VIEW_LABELS).map((code) => {
       const count = counts[code] || 0;
@@ -2189,19 +2204,56 @@ function renderPageViews() {
     }).join('');
   }
 
-  // 最近 50 筆：時間 / 姓名 / 頁面（點列不開個資頁）
-  elements.pageViewsTableBody.innerHTML = recent.map((row) => {
-    const label = PAGE_VIEW_LABELS[row.page_code] || row.page_code;
+  // 最近 50 筆「一次瀏覽」：最後時間 / 姓名 / 看了幾頁 / 最後一頁（點列開詳情）
+  elements.pageViewsTableBody.innerHTML = sessions.map((session, index) => {
+    const lastLabel = PAGE_VIEW_LABELS[session.last_page_code] || session.last_page_code;
     return `
-    <tr class="border-b border-slate-50 transition hover:bg-violet-50/40">
-      <td class="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-slate-500">${formatPageViewTime(row.created_at)}</td>
-      <td class="max-w-[14rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(row.name || '未留姓名')}">${escapeHtml(row.name || '未留姓名')}</td>
-      <td class="px-6 py-4 text-base text-slate-700">${escapeHtml(label)}</td>
+    <tr data-pageviews-session="${index}" class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40">
+      <td class="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-slate-500">${formatPageViewTime(session.ended_at)}</td>
+      <td class="max-w-[14rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(session.name || '未留姓名')}">${escapeHtml(session.name || '未留姓名')}</td>
+      <td class="px-6 py-4 text-base text-slate-700">${session.views_count} 頁</td>
+      <td class="px-6 py-4 text-base text-slate-700">${escapeHtml(lastLabel)}</td>
     </tr>`;
   }).join('');
 
-  elements.pageViewsListEmpty.classList.toggle('hidden', recent.length > 0 || state.pageviews.loading);
+  elements.pageViewsListEmpty.classList.toggle('hidden', sessions.length > 0 || state.pageviews.loading);
   renderIcons();
+}
+
+// 瀏覽紀錄詳情：依時間列出這一輪看過的頁面
+function openPageViewsDetail(index) {
+  const data = state.pageviews.data;
+  const sessions = (data && Array.isArray(data.sessions)) ? data.sessions : [];
+  const session = sessions[index];
+  if (!session) return;
+
+  const views = Array.isArray(session.views) ? session.views : [];
+  elements.pageViewsDetailContainer.innerHTML = `
+    <div>
+      <p class="text-lg font-bold text-slate-900">${escapeHtml(session.name || '未留姓名')}</p>
+      <p class="mt-1 text-sm text-slate-500">
+        ${formatPageViewTime(session.started_at)} ～ ${formatPageViewTime(session.ended_at)}｜共 ${session.views_count} 頁
+      </p>
+    </div>
+    <div class="space-y-2">
+      ${views.map((view) => {
+        const label = PAGE_VIEW_LABELS[view.page_code] || view.page_code;
+        return `
+        <div class="flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-2.5">
+          <p class="w-24 shrink-0 text-sm tabular-nums text-slate-500">${formatPageViewTime(view.created_at)}</p>
+          <p class="text-base text-slate-700">${escapeHtml(label)}</p>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  elements.pageViewsDetailModal.classList.remove('hidden');
+  elements.pageViewsDetailModal.classList.add('flex');
+  renderIcons();
+}
+
+function closePageViewsDetail() {
+  elements.pageViewsDetailModal.classList.add('hidden');
+  elements.pageViewsDetailModal.classList.remove('flex');
 }
 
 async function toggleBulletinFlag(id, field) {
@@ -2621,6 +2673,16 @@ function bindEvents() {
 
   // 瀏覽紀錄：更新（僅查看，不提供其他操作）
   elements.pageViewsRefreshButton.addEventListener('click', () => loadPageViewsList());
+  // 瀏覽紀錄詳情：點列開這一輪的頁面列表，關閉回清單
+  elements.pageViewsTableBody.addEventListener('click', (e) => {
+    const row = e.target.closest('tr[data-pageviews-session]');
+    if (!row) return;
+    openPageViewsDetail(Number(row.dataset.pageviewsSession));
+  });
+  elements.pageViewsDetailCloseButton.addEventListener('click', closePageViewsDetail);
+  elements.pageViewsDetailModal.addEventListener('click', (e) => {
+    if (e.target === elements.pageViewsDetailModal) closePageViewsDetail();
+  });
   elements.bulletinForm.addEventListener('submit', saveBulletin);
   elements.bulletinCancelButton.addEventListener('click', closeBulletinEditor);
   elements.bulletinModalCloseButton.addEventListener('click', closeBulletinEditor);

@@ -3859,7 +3859,7 @@ app.get('/api/admin/page-views', async (req, res) => {
       .from('page_views')
       .select('id, line_user_id, page_code, created_at')
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(500);
 
     if (recentError) {
       console.error('admin page views recent fetch failed:', recentError);
@@ -3895,11 +3895,45 @@ app.get('/api/admin/page-views', async (req, res) => {
       }
     }
 
-    const recent = (recentRows || []).map((row) => ({
-      id: row.id,
-      page_code: row.page_code,
-      created_at: row.created_at,
-      name: nameMap.get(row.line_user_id) || '未留姓名',
+    // 一次瀏覽（session）合併：同一人、相鄰兩筆間隔 ≤ 30 分鐘合成一筆；超過 30 分鐘另開一筆
+    const PAGE_VIEW_SESSION_GAP_MS = 30 * 60 * 1000;
+    const byUser = new Map();
+    for (const row of (recentRows || [])) {
+      if (!row.line_user_id) continue;
+      if (!byUser.has(row.line_user_id)) byUser.set(row.line_user_id, []);
+      byUser.get(row.line_user_id).push(row); // 已按 created_at 降冪
+    }
+
+    const sessions = [];
+    for (const rows of byUser.values()) {
+      const asc = [...rows].reverse(); // 改升冪逐筆往後接
+      let current = null;
+      for (const row of asc) {
+        if (current && (new Date(row.created_at).getTime() - new Date(current.ended_at).getTime()) <= PAGE_VIEW_SESSION_GAP_MS) {
+          current.views.push({ page_code: row.page_code, created_at: row.created_at });
+          current.ended_at = row.created_at;
+        } else {
+          if (current) sessions.push(current);
+          current = {
+            line_user_id: row.line_user_id,
+            started_at: row.created_at,
+            ended_at: row.created_at,
+            views: [{ page_code: row.page_code, created_at: row.created_at }],
+          };
+        }
+      }
+      if (current) sessions.push(current);
+    }
+
+    sessions.sort((a, b) => new Date(b.ended_at).getTime() - new Date(a.ended_at).getTime());
+
+    const topSessions = sessions.slice(0, 50).map((session) => ({
+      name: nameMap.get(session.line_user_id) || '未留姓名',
+      started_at: session.started_at,
+      ended_at: session.ended_at,
+      views_count: session.views.length,
+      last_page_code: session.views[session.views.length - 1].page_code,
+      views: session.views,
     }));
 
     return res.json({
@@ -3907,7 +3941,7 @@ app.get('/api/admin/page-views', async (req, res) => {
       data: {
         today,
         today_counts: todayCounts,
-        recent,
+        sessions: topSessions,
       },
     });
   } catch (error) {

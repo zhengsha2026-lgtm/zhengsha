@@ -485,6 +485,28 @@
         </div>
       </div>
 
+      <!-- 瀏覽紀錄詳情 modal（管理端：點列看這一輪瀏覽的頁面） -->
+      <div
+        id="adminPageViewsDetailModal"
+        class="platform-modal-anim fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/38 px-4 pb-4 pt-10 sm:items-center sm:px-6"
+      >
+        <div
+          class="glass-modal relative max-h-[88vh] w-full max-w-md overflow-y-auto overflow-x-hidden rounded-[2rem] border border-white/55 bg-white/90 shadow-2xl shadow-slate-900/20"
+        >
+          <div class="relative p-5 sm:p-6">
+            <div id="adminPageViewsDetailContainer" class="space-y-4"></div>
+            <button
+              id="closeAdminPageViewsDetailButton"
+              type="button"
+              class="absolute right-4 top-4 rounded-full bg-white/75 p-2 text-slate-500 shadow-sm ring-1 ring-slate-200 transition hover:text-slate-900"
+              aria-label="關閉瀏覽紀錄詳情"
+            >
+              <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- 行程詳情封面放大層（z-60 高於行程詳情 z-50；只放大封面，相簿暫不支援） -->
       <div
         id="eventCoverLightbox"
@@ -2969,6 +2991,9 @@
         adminPageViewsTodayGrid: document.getElementById('adminPageViewsTodayGrid'),
         adminPageViewsListContainer: document.getElementById('adminPageViewsListContainer'),
         adminPageViewsEmpty: document.getElementById('adminPageViewsEmpty'),
+        adminPageViewsDetailModal: document.getElementById('adminPageViewsDetailModal'),
+        adminPageViewsDetailContainer: document.getElementById('adminPageViewsDetailContainer'),
+        closeAdminPageViewsDetailButton: document.getElementById('closeAdminPageViewsDetailButton'),
         adminChipsRow: document.getElementById('adminChipsRow'),
         adminSearchInput: document.getElementById('adminSearchInput'),
         adminListLoading: document.getElementById('adminListLoading'),
@@ -4008,6 +4033,22 @@
         }
         if (elements.adminPageViewsRetryButton) {
           elements.adminPageViewsRetryButton.addEventListener('click', () => loadAdminPageViews({ force: true }));
+        }
+        // 瀏覽紀錄詳情：點列開這一輪的頁面列表，關閉回清單
+        if (elements.adminPageViewsListContainer) {
+          elements.adminPageViewsListContainer.addEventListener('click', (event) => {
+            const target = event.target.closest('[data-pageviews-session]');
+            if (!target) return;
+            openAdminPageViewsDetail(Number(target.dataset.pageviewsSession));
+          });
+        }
+        if (elements.closeAdminPageViewsDetailButton) {
+          elements.closeAdminPageViewsDetailButton.addEventListener('click', closeAdminPageViewsDetail);
+        }
+        if (elements.adminPageViewsDetailModal) {
+          elements.adminPageViewsDetailModal.addEventListener('click', (event) => {
+            if (event.target === elements.adminPageViewsDetailModal) closeAdminPageViewsDetail();
+          });
         }
         if (elements.adminSafetyDetailBackButton) {
           elements.adminSafetyDetailBackButton.addEventListener('click', () => switchAdminSafetyView('list'));
@@ -6899,7 +6940,7 @@
           if (!res.ok || !result || !result.success) {
             throw new Error((result && result.message) || '瀏覽紀錄載入失敗，請稍後再試。');
           }
-          state.admin.pageviews.data = result.data || { today: '', today_counts: {}, recent: [] };
+          state.admin.pageviews.data = result.data || { today: '', today_counts: {}, sessions: [] };
           state.admin.pageviews.refreshedAt = Date.now();
           renderAdminPageViews();
         } catch (err) {
@@ -6938,13 +6979,13 @@
         if (!elements.adminPageViewsContent) return;
         const data = state.admin.pageviews.data;
         if (!data) return;
-        const recent = Array.isArray(data.recent) ? data.recent : [];
+        const sessions = Array.isArray(data.sessions) ? data.sessions : [];
         const counts = data.today_counts || {};
 
         if (elements.adminPageViewsEmpty) {
-          elements.adminPageViewsEmpty.classList.toggle('hidden', recent.length > 0);
+          elements.adminPageViewsEmpty.classList.toggle('hidden', sessions.length > 0);
         }
-        elements.adminPageViewsContent.classList.toggle('hidden', recent.length === 0);
+        elements.adminPageViewsContent.classList.toggle('hidden', sessions.length === 0);
 
         if (elements.adminPageViewsTodayDate) {
           elements.adminPageViewsTodayDate.textContent = data.today ? `${data.today} 起` : '';
@@ -6964,21 +7005,65 @@
             .join('');
         }
 
-        // 最近 50 筆：時間 / 姓名 / 頁面（點列不開個資頁）
+        // 最近 50 筆「一次瀏覽」：最後時間 / 姓名 / 看了幾頁 / 最後一頁（點列開詳情）
         if (elements.adminPageViewsListContainer) {
-          elements.adminPageViewsListContainer.innerHTML = recent
-            .map((row) => {
-              const label = PAGE_VIEW_LABELS[row.page_code] || row.page_code;
+          elements.adminPageViewsListContainer.innerHTML = sessions
+            .map((session, index) => {
+              const lastLabel = PAGE_VIEW_LABELS[session.last_page_code] || session.last_page_code;
               return `
-                <div class="flex items-center gap-3 rounded-2xl border border-violet-100/80 bg-white px-4 py-3">
-                  <p class="w-24 shrink-0 text-xs font-semibold tabular-nums text-slate-500">${formatPageViewTime(row.created_at)}</p>
-                  <p class="min-w-0 flex-1 truncate text-sm font-semibold text-violet-950">${escapeHtml(row.name || '未留姓名')}</p>
-                  <span class="shrink-0 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100">${label}</span>
-                </div>`;
+                <button
+                  type="button"
+                  data-pageviews-session="${index}"
+                  class="flex w-full items-center gap-3 rounded-2xl border border-violet-100/80 bg-white px-4 py-3 text-left transition hover:border-violet-200 active:scale-[0.99]"
+                >
+                  <p class="w-24 shrink-0 text-xs font-semibold tabular-nums text-slate-500">${formatPageViewTime(session.ended_at)}</p>
+                  <p class="min-w-0 flex-1 truncate text-sm font-semibold text-violet-950">${escapeHtml(session.name || '未留姓名')}</p>
+                  <span class="shrink-0 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100">${session.views_count} 頁</span>
+                  <span class="shrink-0 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">${lastLabel}</span>
+                </button>`;
             })
             .join('');
         }
         renderIcons();
+      }
+
+      // 瀏覽紀錄詳情：依時間列出這一輪看過的頁面
+      function openAdminPageViewsDetail(index) {
+        const data = state.admin.pageviews.data;
+        const sessions = data && Array.isArray(data.sessions) ? data.sessions : [];
+        const session = sessions[index];
+        if (!session || !elements.adminPageViewsDetailContainer) return;
+
+        const views = Array.isArray(session.views) ? session.views : [];
+        elements.adminPageViewsDetailContainer.innerHTML = `
+          <div>
+            <p class="text-base font-bold text-violet-950">${escapeHtml(session.name || '未留姓名')}</p>
+            <p class="mt-1 text-xs text-slate-500">
+              ${formatPageViewTime(session.started_at)} ～ ${formatPageViewTime(session.ended_at)}｜共 ${session.views_count} 頁
+            </p>
+          </div>
+          <div class="space-y-2">
+            ${views.map((view) => {
+              const label = PAGE_VIEW_LABELS[view.page_code] || view.page_code;
+              return `
+                <div class="flex items-center gap-3 rounded-2xl border border-violet-100/80 bg-white/80 px-4 py-2.5">
+                  <p class="w-24 shrink-0 text-xs font-semibold tabular-nums text-slate-500">${formatPageViewTime(view.created_at)}</p>
+                  <span class="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100">${label}</span>
+                </div>`;
+            }).join('')}
+          </div>`;
+
+        if (elements.adminPageViewsDetailModal) {
+          elements.adminPageViewsDetailModal.classList.remove('hidden');
+          elements.adminPageViewsDetailModal.classList.add('flex');
+        }
+        renderIcons();
+      }
+
+      function closeAdminPageViewsDetail() {
+        if (!elements.adminPageViewsDetailModal) return;
+        elements.adminPageViewsDetailModal.classList.add('hidden');
+        elements.adminPageViewsDetailModal.classList.remove('flex');
       }
 
       function setAdminBulletinListLoading(visible) {

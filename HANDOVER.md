@@ -203,7 +203,7 @@
   - **失敗只在後端 log / 前端 console.warn，不擋里民進頁；不發 LINE、不發 Email、不進紅點**
 - **去重**：同一人、同一頁、5 分鐘內已有紀錄就略過（後端查 `idx_page_views_dedup`），**仍回成功**（冪等，前端無感）
 - **權限**：`admin_*` 頁面代碼後端加驗 requireAdmin（里民頁碼登入即可寫）
-- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（11 格含 0），下方**最近 50 筆**（時間〔台北 24 小時 MM/DD HH:mm〕／姓名／頁面）；**姓名解析**：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；**點列不開個資頁**；空狀態「目前沒有瀏覽紀錄」
+- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（11 格含 0，各頁原始次數、不合并），下方**最近 50 筆「一次瀏覽」**（同一人相鄰兩筆間隔 ≤ 30 分鐘合成一筆 session，超過 30 分鐘另開一筆；一列顯示：最後時間〔台北 24 小時 MM/DD HH:mm〕／姓名／看了幾頁／最後一頁）；**點列開詳情**：依時間列出這一輪看過的頁面（手機 modal／電腦 modal，關閉回清單）；**姓名解析**：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；空狀態「目前沒有瀏覽紀錄」
 
 ---
 
@@ -350,7 +350,7 @@
 | PATCH | `/api/admin/bulletin/:id` | 選擇性更新任一欄位（`expires_at` 空字串 = 清空到期日；未上架 → 上架轉換時通知 `bulletin_new`） |
 | DELETE | `/api/admin/bulletin/:id` | 刪除公告 |
 | POST | `/api/page-views` | 記錄一次分頁瀏覽（body 只帶 `page`；需 LINE ID Token，後端以 verify 的 `sub` 為準；`admin_*` 頁碼僅管理員；同人同頁 5 分鐘內略過仍回成功） |
-| GET | `/api/admin/page-views` | 瀏覽紀錄統計（requireAdmin）：今日（台北）各頁次數 `today_counts`＋最近 50 筆 `recent`〔姓名解析：報平安稱呼→反映姓名→「未留姓名」；不回傳 line_user_id〕 |
+| GET | `/api/admin/page-views` | 瀏覽紀錄統計（requireAdmin）：今日（台北）各頁次數 `today_counts`＋最近 50 筆「一次瀏覽」`sessions`〔同人相鄰 ≤30 分鐘合併；每筆含 name/started_at/ended_at/views_count/last_page_code/views 明細；姓名解析：報平安稱呼→反映姓名→「未留姓名」；不回傳 line_user_id〕 |
 
 ### 排程任務 API（Cron）
 
@@ -583,6 +583,7 @@
   - liff.html：`switchTab()` 掛 `trackPageView()`（platforms/intro/wish/schedule/bulletin/safety＋admin→admin_home，含初始載入；未登入／測試模式不送；fire-and-forget 靜默失敗）；盾牌第 6 張模組卡＋`adminPageViewsView`（今日 11 格次數＋最近 50 筆：時間〔台北 24h MM/DD HH:mm〕／姓名／頁面，不開個資頁）；五個既有 switch 函式同步隱藏 pageviews view
   - admin.html：`trackAdminPageView()`（authedFetch fire-and-forget）；`showScreen('app')` 後記 `admin_home`；nav tab 主動點擊切換模組時記 `admin_feedback`/`admin_safety`/`admin_events`/`admin_bulletin`（初始載入／深連結不自動記；瀏覽紀錄頁本身不記）；第 5 個分頁「瀏覽紀錄」（`switchModule` 惰性載入 `loadPageViewsList`，401→handleRelogin／403→denied 沿用既有模式）
   - **不寫管理員通知／不寄 Email／不進紅點**；底部 4 Tab 未動
+  - **session 合併呈現（2026-10-09 同日追加）**：管理端清單改「一次瀏覽一列」——後端 `GET /api/admin/page-views` 撈最近 500 筆原始記錄，同人相鄰兩筆間隔 ≤30 分鐘合併為一個 session（`PAGE_VIEW_SESSION_GAP_MS`），取最新 50 個 session 回傳（含 `views` 明細）；今日次數維持各頁原始次數；兩端點列開詳情 modal（依時間列頁面）、關閉回清單；寫入（POST）與 5 分鐘去重未動
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）
