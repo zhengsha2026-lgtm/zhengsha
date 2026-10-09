@@ -3061,6 +3061,11 @@
             switchTab(resolvedTab, { updateHistory: false, autoload: false, skipHydrate: false });
           }
 
+          // 瀏覽紀錄：LINE 登入完成、tab 解析後，立刻補記目前這一頁
+          // （早期 script 直開的分頁不會再經過 switchTab，這裡確保初始頁一定記到；同頁 5 分鐘內後端去重）
+          const bootTab = TAB_KEYS.includes(state.activeTab) ? state.activeTab : 'platforms';
+          if (PAGE_VIEW_TAB_CODES[bootTab]) trackPageView(PAGE_VIEW_TAB_CODES[bootTab]);
+
           await checkAdminIdentity();
         } catch (error) {
           console.error('Bootstrap config failed:', error);
@@ -4349,14 +4354,6 @@
         state.activeTab = nextTab;
 
         // 瀏覽紀錄：切到里民端分頁就回報（含初始載入；fire-and-forget，同頁 5 分鐘內後端去重；管理端不記）
-        const PAGE_VIEW_TAB_CODES = {
-          platforms: 'platforms',
-          intro: 'intro',
-          wish: 'wish',
-          schedule: 'schedule',
-          bulletin: 'bulletin',
-          safety: 'safety',
-        };
         if (PAGE_VIEW_TAB_CODES[nextTab]) trackPageView(PAGE_VIEW_TAB_CODES[nextTab]);
 
         elements.panels.forEach((panel) => {
@@ -5725,30 +5722,48 @@
         safety: '報平安',
       };
 
-      // 瀏覽紀錄回報（fire-and-forget）：未登入／測試模式不送；失敗只在主控台留一行，不擋里民進頁
+      // 瀏覽紀錄：分頁 → 頁面代碼（六個里民端分頁；admin 不記）
+      const PAGE_VIEW_TAB_CODES = {
+        platforms: 'platforms',
+        intro: 'intro',
+        wish: 'wish',
+        schedule: 'schedule',
+        bulletin: 'bulletin',
+        safety: 'safety',
+      };
+
+      // 瀏覽紀錄：絕對位址（LINE 內相對路徑可能落到其他網域）
+      const PAGE_VIEW_API_URL = 'https://zhengsha.vercel.app/api/page-views';
+
+      // 瀏覽紀錄回報（fire-and-forget）：未登入／測試模式不送；送失敗 toast 一次（含狀態碼），不擋里民進頁
       async function trackPageView(pageCode, isRetry = false) {
         try {
           const tokenBundle = await getIdentityToken();
           if (tokenBundle.kind !== 'liff' || !tokenBundle.token) {
             // 已登入（LIFF 模式）卻拿不到 ID Token 屬異常（SDK 尚未就緒或 token 過期）：
-            // 1.5 秒後重試一次，再失敗留一行；未登入／測試模式本來就不送
+            // 1.5 秒後重試一次，再失敗 toast 一次；未登入／測試模式本來就不送
             if (state.mode === 'liff') {
               if (!isRetry) {
                 setTimeout(() => trackPageView(pageCode, true), 1500);
               } else {
                 console.warn('page view skipped: LINE ID token unavailable, page =', pageCode);
+                showToast('瀏覽紀錄送出失敗（未取得 LINE 身分）');
               }
             }
             return;
           }
-          const res = await fetch('/api/page-views', {
+          const res = await fetch(PAGE_VIEW_API_URL, {
             method: 'POST',
             headers: buildAuthHeaders(tokenBundle),
             body: JSON.stringify({ page: pageCode }),
           });
-          if (!res.ok) console.warn('page view track failed:', res.status, 'page =', pageCode);
+          if (!res.ok) {
+            console.warn('page view track failed:', res.status, 'page =', pageCode);
+            showToast(`瀏覽紀錄送出失敗（HTTP ${res.status}）`);
+          }
         } catch (err) {
           console.warn('page view track error:', err);
+          showToast('瀏覽紀錄送出失敗（網路異常）');
         }
       }
 
