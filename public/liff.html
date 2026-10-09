@@ -4348,7 +4348,7 @@
         const nextTab = TAB_KEYS.includes(tab) ? tab : 'platforms';
         state.activeTab = nextTab;
 
-        // 瀏覽紀錄：切到追蹤清單內的分頁就回報（含初始載入；fire-and-forget，同頁 5 分鐘內後端去重）
+        // 瀏覽紀錄：切到里民端分頁就回報（含初始載入；fire-and-forget，同頁 5 分鐘內後端去重；管理端不記）
         const PAGE_VIEW_TAB_CODES = {
           platforms: 'platforms',
           intro: 'intro',
@@ -4356,7 +4356,6 @@
           schedule: 'schedule',
           bulletin: 'bulletin',
           safety: 'safety',
-          admin: 'admin_home',
         };
         if (PAGE_VIEW_TAB_CODES[nextTab]) trackPageView(PAGE_VIEW_TAB_CODES[nextTab]);
 
@@ -5716,7 +5715,7 @@
         return headers;
       }
 
-      // 瀏覽紀錄：頁面代碼 → 中文標籤（與 DB CHECK、app.js PAGE_VIEW_CODES 對齊）
+      // 瀏覽紀錄：頁面代碼 → 中文標籤（與 DB CHECK、app.js PAGE_VIEW_CODES 對齊；只記里民端分頁）
       const PAGE_VIEW_LABELS = {
         platforms: '核心政見',
         intro: '候選人介紹',
@@ -5724,11 +5723,6 @@
         schedule: '競選行程',
         bulletin: '公布欄',
         safety: '報平安',
-        admin_home: '管理首頁',
-        admin_feedback: '反映管理',
-        admin_safety: '報平安管理',
-        admin_events: '行程管理',
-        admin_bulletin: '公布欄管理',
       };
 
       // 瀏覽紀錄回報（fire-and-forget）：未登入／測試模式／失敗一律靜默，不擋里民進頁

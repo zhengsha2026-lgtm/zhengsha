@@ -859,24 +859,7 @@ async function authedFetch(path, options = {}) {
   return fetch(path, Object.assign({}, options, { headers }));
 }
 
-// 瀏覽紀錄回報（fire-and-forget）：失敗靜默，不擋管理流程
-function trackAdminPageView(pageCode) {
-  authedFetch('/api/page-views', { method: 'POST', body: JSON.stringify({ page: pageCode }) })
-    .then((res) => {
-      if (!res.ok) console.warn('page view track failed:', res.status);
-    })
-    .catch((err) => console.warn('page view track error:', err));
-}
-
-// 模組 → 瀏覽紀錄頁面代碼（管理首頁由進入後台時記；瀏覽紀錄頁本身不記）
-const ADMIN_MODULE_PAGE_VIEW_CODES = {
-  feedback: 'admin_feedback',
-  safety: 'admin_safety',
-  events: 'admin_events',
-  bulletin: 'admin_bulletin',
-};
-
-// 瀏覽紀錄：頁面代碼 → 中文標籤（與 DB CHECK、app.js PAGE_VIEW_CODES 對齊）
+// 瀏覽紀錄：頁面代碼 → 中文標籤（與 DB CHECK、app.js PAGE_VIEW_CODES 對齊；管理端不記，僅供查看里民端分頁）
 const PAGE_VIEW_LABELS = {
   platforms: '核心政見',
   intro: '候選人介紹',
@@ -884,11 +867,6 @@ const PAGE_VIEW_LABELS = {
   schedule: '競選行程',
   bulletin: '公布欄',
   safety: '報平安',
-  admin_home: '管理首頁',
-  admin_feedback: '反映管理',
-  admin_safety: '報平安管理',
-  admin_events: '行程管理',
-  admin_bulletin: '公布欄管理',
 };
 
 function setAuthStatus(text, showSpinner) {
@@ -2625,15 +2603,9 @@ function bindEvents() {
   elements.saveButton.addEventListener('click', saveDetail);
   elements.deleteButton.addEventListener('click', deleteDetail);
 
-  // 模組切換（許願池 / 報平安 / 行程 / 公布欄 / 瀏覽紀錄）
+  // 模組切換（許願池 / 報平安 / 行程 / 公布欄 / 瀏覽紀錄；管理端不記瀏覽紀錄）
   document.querySelectorAll('[data-module-tab]').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const moduleName = tab.dataset.moduleTab;
-      switchModule(moduleName);
-      // 瀏覽紀錄：主動切換模組時回報（fire-and-forget；瀏覽紀錄頁本身不記）
-      const pageCode = ADMIN_MODULE_PAGE_VIEW_CODES[moduleName];
-      if (pageCode) trackAdminPageView(pageCode);
-    });
+    tab.addEventListener('click', () => switchModule(tab.dataset.moduleTab));
   });
 
   // 報平安：篩選 chips / 更新 / 返回 / 表單
@@ -2759,7 +2731,6 @@ async function bootstrap() {
     }
     state.authReady = true;
     showScreen('app');
-    trackAdminPageView('admin_home'); // 瀏覽紀錄：進入管理頁（fire-and-forget）
     // 通知信深連結：?module=feedback|safety|events（可含 &id=直接開該筆詳情）
     // id 不存在／載入失敗 → open*Detail 內建 toast + 回該模組列表，不會白屏
     const deepLink = readAdminDeepLinkParams();

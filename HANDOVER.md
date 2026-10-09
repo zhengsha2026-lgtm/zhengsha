@@ -193,17 +193,14 @@
 - **寄件人／回覆**：`ADMIN_NOTIFY_FROM`（已驗證自有網域 `notify@mail.zhengshavil.com`，顯示名「幸福正砂」；未設才 fallback `onboarding@resend.dev`）；`ADMIN_NOTIFY_REPLY_TO`（選填真實信箱，有設才帶 `reply_to`）
 - **不做**（第一期）：每日簽到、取消報名、狀態變更、snooze 不寫通知；LINE 推播（避免消耗官方帳號額度）；API key 不進 repo／HANDOVER
 
-### 瀏覽紀錄（2026-10-09：誰、何時、進了哪個分頁）
-- **定位**：僅記錄分頁瀏覽（誰／何時／哪頁），**不做地圖、熱點、停留時間**；只統計、無互動
+### 瀏覽紀錄（2026-10-09：誰、何時、進了哪個分頁；只記里民端，不記管理端）
+- **定位**：僅記錄里民端分頁瀏覽（誰／何時／哪頁），**不做地圖、熱點、停留時間**；只統計、無互動
 - **資料表 `page_views`**：`line_user_id`（後端 verify 的 `sub`，不信前端）、`page_code`（DB CHECK 白名單）、`created_at`；**沒登入不寫入**（前端未登入／測試模式直接不送，後端 401 擋），不存「未登入」流水
-- **頁面代碼（11 個）**：里民端 `platforms`（核心政見）、`intro`（候選人介紹）、`wish`（有事找里長）、`schedule`（競選行程）、`bulletin`（公布欄）、`safety`（報平安）、`admin_home`（管理首頁）；admin.html `admin_feedback`（反映管理）、`admin_safety`（報平安管理）、`admin_events`（行程管理）、`admin_bulletin`（公布欄管理）
-- **寫入（fire-and-forget）**：
-  - liff.html：`switchTab()` 切到上述分頁時打 `POST /api/page-views`（body 只帶 `page`；含初始載入）；盾牌進管理首頁記 `admin_home`；管理端內部模組切換**不記**（那是 admin.html 的事）
-  - admin.html：`showScreen('app')` 後記 `admin_home`；點 nav tab 主動切換模組時記對應 `admin_*`（初始載入／深連結不自動記模組；瀏覽紀錄頁本身不記）
-  - **失敗只在後端 log / 前端 console.warn，不擋里民進頁；不發 LINE、不發 Email、不進紅點**
+- **寫入範圍（2026-10-09 起只記 6 個里民端分頁）**：`platforms`（核心政見）、`intro`（候選人介紹）、`wish`（有事找里長）、`schedule`（競選行程）、`bulletin`（公布欄）、`safety`（報平安）；**管理端一律不記**（liff.html 進盾牌管理、admin.html 進後台或切分頁都不打瀏覽紀錄；後端 `PAGE_VIEW_CODES` 已移除 `admin_*`，打了也 400）
+- **寫入（fire-and-forget）**：liff.html `switchTab()` 切到上述分頁時打 `POST /api/page-views`（body 只帶 `page`；含初始載入）；**失敗只在後端 log / 前端 console.warn，不擋里民進頁；不發 LINE、不發 Email、不進紅點**
 - **去重**：同一人、同一頁、5 分鐘內已有紀錄就略過（後端查 `idx_page_views_dedup`），**仍回成功**（冪等，前端無感）
-- **權限**：`admin_*` 頁面代碼後端加驗 requireAdmin（里民頁碼登入即可寫）
-- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（11 格含 0，各頁原始次數、不合并），下方**最近 50 筆「一次瀏覽」**（同一人相鄰兩筆間隔 ≤ 30 分鐘合成一筆 session，超過 30 分鐘另開一筆；一列顯示：最後時間〔台北 24 小時 MM/DD HH:mm〕／姓名／看了幾頁／最後一頁）；**點列開詳情**：依時間列出這一輪看過的頁面（手機 modal／電腦 modal，關閉回清單）；**姓名解析**：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；空狀態「目前沒有瀏覽紀錄」
+- **舊管理頁紀錄**：DB 保留不刪；查詢一律 `.in('page_code', PAGE_VIEW_CODES)` 濾掉（今日統計與 session 皆然）
+- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（6 格里民端分頁，含 0，各頁原始次數、不合并），下方**最近 50 筆「一次瀏覽」**（同一人相鄰兩筆間隔 ≤ 30 分鐘合成一筆 session，超過 30 分鐘另開一筆；一列顯示：最後時間〔台北 24 小時 MM/DD HH:mm〕／姓名／看了幾頁／最後一頁）；**點列開詳情**：依時間列出這一輪看過的頁面（手機 modal／電腦 modal，關閉回清單）；**姓名解析**：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；空狀態「目前沒有瀏覽紀錄」
 
 ---
 
@@ -349,8 +346,8 @@
 | POST | `/api/admin/bulletin` | 新增公告（`title`/`category`/`content` 必填、`summary`/`expires_at` 選填、`is_pinned`/`is_published` 預設 false；新增即上架 → fire-and-forget 管理員通知 `bulletin_new`） |
 | PATCH | `/api/admin/bulletin/:id` | 選擇性更新任一欄位（`expires_at` 空字串 = 清空到期日；未上架 → 上架轉換時通知 `bulletin_new`） |
 | DELETE | `/api/admin/bulletin/:id` | 刪除公告 |
-| POST | `/api/page-views` | 記錄一次分頁瀏覽（body 只帶 `page`；需 LINE ID Token，後端以 verify 的 `sub` 為準；`admin_*` 頁碼僅管理員；同人同頁 5 分鐘內略過仍回成功） |
-| GET | `/api/admin/page-views` | 瀏覽紀錄統計（requireAdmin）：今日（台北）各頁次數 `today_counts`＋最近 50 筆「一次瀏覽」`sessions`〔同人相鄰 ≤30 分鐘合併；每筆含 name/started_at/ended_at/views_count/last_page_code/views 明細；姓名解析：報平安稱呼→反映姓名→「未留姓名」；不回傳 line_user_id〕 |
+| POST | `/api/page-views` | 記錄一次分頁瀏覽（body 只帶 `page`，**僅 6 個里民端頁碼**；需 LINE ID Token，後端以 verify 的 `sub` 為準；同人同頁 5 分鐘內略過仍回成功） |
+| GET | `/api/admin/page-views` | 瀏覽紀錄統計（requireAdmin）：今日（台北）各頁次數 `today_counts`＋最近 50 筆「一次瀏覽」`sessions`〔同人相鄰 ≤30 分鐘合併；每筆含 name/started_at/ended_at/views_count/last_page_code/views 明細；查詢濾掉 `admin_*` 舊紀錄；姓名解析：報平安稱呼→反映姓名→「未留姓名」；不回傳 line_user_id〕 |
 
 ### 排程任務 API（Cron）
 
@@ -584,6 +581,7 @@
   - admin.html：`trackAdminPageView()`（authedFetch fire-and-forget）；`showScreen('app')` 後記 `admin_home`；nav tab 主動點擊切換模組時記 `admin_feedback`/`admin_safety`/`admin_events`/`admin_bulletin`（初始載入／深連結不自動記；瀏覽紀錄頁本身不記）；第 5 個分頁「瀏覽紀錄」（`switchModule` 惰性載入 `loadPageViewsList`，401→handleRelogin／403→denied 沿用既有模式）
   - **不寫管理員通知／不寄 Email／不進紅點**；底部 4 Tab 未動
   - **session 合併呈現（2026-10-09 同日追加）**：管理端清單改「一次瀏覽一列」——後端 `GET /api/admin/page-views` 撈最近 500 筆原始記錄，同人相鄰兩筆間隔 ≤30 分鐘合併為一個 session（`PAGE_VIEW_SESSION_GAP_MS`），取最新 50 個 session 回傳（含 `views` 明細）；今日次數維持各頁原始次數；兩端點列開詳情 modal（依時間列頁面）、關閉回清單；寫入（POST）與 5 分鐘去重未動
+  - **停止記錄管理頁（2026-10-09 再追加）**：`PAGE_VIEW_CODES` 移除 `admin_home`/`admin_*` 五碼（POST 打了回 400），移除 requireAdmin 寫入分支；liff.html `switchTab()` 不再回報 admin tab；admin.html 移除 `trackAdminPageView()` 與進後台／切分頁的追蹤；GET 查詢（今日統計＋sessions）`.in('page_code', PAGE_VIEW_CODES)` 濾掉舊管理頁紀錄（DB 保留不刪）；今日次數卡兩端改 6 格里民端分頁
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

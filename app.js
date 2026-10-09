@@ -3732,19 +3732,17 @@ app.delete('/api/admin/bulletin/:id', async (req, res) => {
 // 瀏覽紀錄（page_views）：誰、何時、進了哪個分頁
 // 規則：
 //   1. 必須帶 LINE ID Token，後端以 verify 的 sub 為準（沒登入不寫入）
-//   2. body 只帶頁面代碼（page）； admin_* 頁面代碼僅管理員可寫
+//   2. body 只帶頁面代碼（page）；只記里民端分頁，不記管理端
 //   3. 同一人、同一頁、5 分鐘內已有紀錄就略過，仍回成功（冪等）
 //   4. 前端 fire-and-forget：失敗只在後端 log，不擋里民進頁、不發通知
 // ============================================================================
 
 const PAGE_VIEW_CODES = [
   'platforms', 'intro', 'wish', 'schedule', 'bulletin', 'safety',
-  'admin_home', 'admin_feedback', 'admin_safety', 'admin_events', 'admin_bulletin',
 ];
-const ADMIN_PAGE_VIEW_CODES = new Set(['admin_home', 'admin_feedback', 'admin_safety', 'admin_events', 'admin_bulletin']);
 const PAGE_VIEW_DEDUP_MS = 5 * 60 * 1000;
 
-// POST /api/page-views：記錄一次分頁瀏覽（里民端 + admin.html 共用）
+// POST /api/page-views：記錄一次分頁瀏覽（僅里民端分頁）
 app.post('/api/page-views', async (req, res) => {
   try {
     const page = String((req.body && req.body.page) || '').trim();
@@ -3755,10 +3753,7 @@ app.post('/api/page-views', async (req, res) => {
       });
     }
 
-    // admin_* 與 admin_home 只允許管理員寫入；其餘頁面登入即可
-    const identity = ADMIN_PAGE_VIEW_CODES.has(page)
-      ? await requireAdmin(req)
-      : await authenticateLineIdentity(req);
+    const identity = await authenticateLineIdentity(req);
 
     if (!supabaseAdmin) {
       return res.status(500).json({
@@ -3835,6 +3830,7 @@ app.get('/api/admin/page-views', async (req, res) => {
     const { data: todayRows, error: todayError } = await supabaseAdmin
       .from('page_views')
       .select('page_code')
+      .in('page_code', PAGE_VIEW_CODES) // 只統計里民端分頁，舊管理頁紀錄濾掉
       .gte('created_at', todayStart)
       .order('created_at', { ascending: false })
       .limit(10000);
@@ -3858,6 +3854,7 @@ app.get('/api/admin/page-views', async (req, res) => {
     const { data: recentRows, error: recentError } = await supabaseAdmin
       .from('page_views')
       .select('id, line_user_id, page_code, created_at')
+      .in('page_code', PAGE_VIEW_CODES) // 只撈里民端分頁，舊管理頁紀錄濾掉
       .order('created_at', { ascending: false })
       .limit(500);
 
