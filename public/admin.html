@@ -65,6 +65,9 @@
           <button type="button" data-module-tab="bulletin" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
             <i data-lucide="megaphone" class="h-4 w-4"></i><span>公布欄</span>
           </button>
+          <button type="button" data-module-tab="pageviews" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="eye" class="h-4 w-4"></i><span>瀏覽紀錄</span>
+          </button>
         </nav>
         <div class="flex items-center gap-4">
           <div class="relative">
@@ -450,6 +453,32 @@
             <div id="bulletinListLoading" class="hidden px-6 py-20 text-center text-base text-slate-400">載入中…</div>
           </div>
         </section>
+
+        <section id="pageViewsListView">
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <p class="text-sm text-slate-500">今日（台北時間）各分頁瀏覽次數，與最近 50 筆瀏覽紀錄。</p>
+            <button id="pageViewsRefreshButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50">
+              <i data-lucide="refresh-cw" class="h-4 w-4"></i><span>更新</span>
+            </button>
+          </div>
+
+          <div id="pageViewsTodayGrid" class="mb-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6"></div>
+
+          <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+            <table class="w-full text-left text-base">
+              <thead>
+                <tr class="border-b border-slate-100 bg-slate-50/60 text-xs uppercase tracking-wide text-slate-400">
+                  <th class="px-6 py-4 font-semibold">時間</th>
+                  <th class="px-6 py-4 font-semibold">姓名</th>
+                  <th class="px-6 py-4 font-semibold">頁面</th>
+                </tr>
+              </thead>
+              <tbody id="pageViewsTableBody"></tbody>
+            </table>
+            <div id="pageViewsListEmpty" class="hidden px-6 py-20 text-center text-base text-slate-400">目前沒有瀏覽紀錄</div>
+            <div id="pageViewsListLoading" class="hidden px-6 py-20 text-center text-base text-slate-400">載入中…</div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
@@ -602,6 +631,12 @@ const state = {
     deleting: false,
     modalOpen: false,
   },
+  // 瀏覽紀錄（僅查看）
+  pageviews: {
+    loaded: false,
+    loading: false,
+    data: null, // { today, today_counts, recent }
+  },
 };
 
 const elements = {};
@@ -628,6 +663,7 @@ function cacheElements() {
     'bulletinTitleInput', 'bulletinCategorySelect', 'bulletinSummaryInput', 'bulletinContentInput', 'bulletinExpiresInput',
     'bulletinPinnedInput', 'bulletinPublishedInput', 'bulletinSubmitButton', 'bulletinSubmitButtonText',
     'bulletinCancelButton', 'bulletinDeleteButton', 'bulletinDeleteButtonText',
+    'modulePageViews', 'pageViewsTodayGrid', 'pageViewsTableBody', 'pageViewsListEmpty', 'pageViewsListLoading', 'pageViewsRefreshButton',
     'safetyListView', 'safetyTableBody', 'safetyListEmpty', 'safetyListLoading', 'safetyRefreshButton',
     'safetyDetailView', 'safetyBackButton', 'safetyMemberInfo', 'safetyCareTimeline', 'safetyCheckinList',
     'safetyCareCard', 'safetyCareMethodSelect', 'safetyCareNote', 'safetyCareNoteCount', 'safetyCareSaveButton',
@@ -805,6 +841,38 @@ async function authedFetch(path, options = {}) {
   );
   return fetch(path, Object.assign({}, options, { headers }));
 }
+
+// 瀏覽紀錄回報（fire-and-forget）：失敗靜默，不擋管理流程
+function trackAdminPageView(pageCode) {
+  authedFetch('/api/page-views', { method: 'POST', body: JSON.stringify({ page: pageCode }) })
+    .then((res) => {
+      if (!res.ok) console.warn('page view track failed:', res.status);
+    })
+    .catch((err) => console.warn('page view track error:', err));
+}
+
+// 模組 → 瀏覽紀錄頁面代碼（管理首頁由進入後台時記；瀏覽紀錄頁本身不記）
+const ADMIN_MODULE_PAGE_VIEW_CODES = {
+  feedback: 'admin_feedback',
+  safety: 'admin_safety',
+  events: 'admin_events',
+  bulletin: 'admin_bulletin',
+};
+
+// 瀏覽紀錄：頁面代碼 → 中文標籤（與 DB CHECK、app.js PAGE_VIEW_CODES 對齊）
+const PAGE_VIEW_LABELS = {
+  platforms: '核心政見',
+  intro: '候選人介紹',
+  wish: '有事找里長',
+  schedule: '競選行程',
+  bulletin: '公布欄',
+  safety: '報平安',
+  admin_home: '管理首頁',
+  admin_feedback: '反映管理',
+  admin_safety: '報平安管理',
+  admin_events: '行程管理',
+  admin_bulletin: '公布欄管理',
+};
 
 function setAuthStatus(text, showSpinner) {
   if (elements.authStatusText) elements.authStatusText.textContent = text;
@@ -1364,15 +1432,16 @@ const SAFETY_CARE_METHOD_STYLES = {
 };
 
 function switchModule(module) {
-  const target = module === 'safety' ? 'safety' : module === 'events' ? 'events' : module === 'bulletin' ? 'bulletin' : 'feedback';
+  const target = module === 'safety' ? 'safety' : module === 'events' ? 'events' : module === 'bulletin' ? 'bulletin' : module === 'pageviews' ? 'pageviews' : 'feedback';
   state.module = target;
   updateModuleTabs();
   elements.moduleFeedback.classList.toggle('hidden', target !== 'feedback');
   elements.moduleSafety.classList.toggle('hidden', target !== 'safety');
   elements.moduleEvents.classList.toggle('hidden', target !== 'events');
   elements.moduleBulletin.classList.toggle('hidden', target !== 'bulletin');
+  elements.modulePageViews.classList.toggle('hidden', target !== 'pageviews');
   window.scrollTo({ top: 0 });
-  // 進哪個模組才載哪個（報平安／行程／公布欄第一次切換才打 API）
+  // 進哪個模組才載哪個（報平安／行程／公布欄／瀏覽紀錄第一次切換才打 API）
   if (target === 'safety' && !state.safety.loaded) {
     loadSafetyList();
   }
@@ -1381,6 +1450,9 @@ function switchModule(module) {
   }
   if (target === 'bulletin' && !state.bulletin.loaded) {
     loadBulletinList();
+  }
+  if (target === 'pageviews' && !state.pageviews.loaded) {
+    loadPageViewsList();
   }
 }
 
@@ -2042,6 +2114,94 @@ function renderBulletinTable() {
   });
 }
 
+// ============================================================================
+// 瀏覽紀錄（僅查看）：今日各頁次數 + 最近 50 筆
+// ============================================================================
+
+// 台北 24 小時制 MM/DD HH:mm
+function formatPageViewTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const parts = new Intl.DateTimeFormat('zh-TW', {
+      timeZone: 'Asia/Taipei',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(d);
+    const get = (type) => {
+      const part = parts.find((p) => p.type === type);
+      return part ? part.value : '';
+    };
+    return `${get('month')}/${get('day')} ${get('hour')}:${get('minute')}`;
+  } catch (err) {
+    return '';
+  }
+}
+
+async function loadPageViewsList() {
+  if (state.pageviews.loading) return;
+  state.pageviews.loading = true;
+  elements.pageViewsListLoading.classList.remove('hidden');
+  elements.pageViewsListEmpty.classList.add('hidden');
+
+  try {
+    const res = await authedFetch('/api/admin/page-views');
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    state.pageviews.data = json.data || { today: '', today_counts: {}, recent: [] };
+    state.pageviews.loaded = true;
+    renderPageViews();
+  } catch (err) {
+    console.error('loadPageViewsList failed:', err);
+    state.pageviews.data = null;
+    renderPageViews();
+    showToast(err.message || '瀏覽紀錄載入失敗');
+  } finally {
+    state.pageviews.loading = false;
+    elements.pageViewsListLoading.classList.add('hidden');
+  }
+}
+
+function renderPageViews() {
+  const data = state.pageviews.data;
+  const counts = (data && data.today_counts) || {};
+  const recent = (data && Array.isArray(data.recent)) ? data.recent : [];
+
+  // 今日各頁次數（全部代碼都顯示，0 也顯示）
+  if (elements.pageViewsTodayGrid) {
+    elements.pageViewsTodayGrid.innerHTML = Object.keys(PAGE_VIEW_LABELS).map((code) => {
+      const count = counts[code] || 0;
+      return `
+        <div class="rounded-2xl border border-slate-200/70 bg-white px-4 py-3 shadow-sm">
+          <p class="text-sm font-semibold text-slate-600">${PAGE_VIEW_LABELS[code]}</p>
+          <p class="mt-1 text-2xl font-bold ${count > 0 ? 'text-violet-700' : 'text-slate-300'}">${count}</p>
+        </div>`;
+    }).join('');
+  }
+
+  // 最近 50 筆：時間 / 姓名 / 頁面（點列不開個資頁）
+  elements.pageViewsTableBody.innerHTML = recent.map((row) => {
+    const label = PAGE_VIEW_LABELS[row.page_code] || row.page_code;
+    return `
+    <tr class="border-b border-slate-50 transition hover:bg-violet-50/40">
+      <td class="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-slate-500">${formatPageViewTime(row.created_at)}</td>
+      <td class="max-w-[14rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(row.name || '未留姓名')}">${escapeHtml(row.name || '未留姓名')}</td>
+      <td class="px-6 py-4 text-base text-slate-700">${escapeHtml(label)}</td>
+    </tr>`;
+  }).join('');
+
+  elements.pageViewsListEmpty.classList.toggle('hidden', recent.length > 0 || state.pageviews.loading);
+  renderIcons();
+}
+
 async function toggleBulletinFlag(id, field) {
   if (field !== 'is_published' && field !== 'is_pinned') return;
   const item = state.bulletin.items.find((b) => Number(b.id) === Number(id));
@@ -2411,9 +2571,15 @@ function bindEvents() {
   elements.saveButton.addEventListener('click', saveDetail);
   elements.deleteButton.addEventListener('click', deleteDetail);
 
-  // 模組切換（許願池 / 報平安）
+  // 模組切換（許願池 / 報平安 / 行程 / 公布欄 / 瀏覽紀錄）
   document.querySelectorAll('[data-module-tab]').forEach((tab) => {
-    tab.addEventListener('click', () => switchModule(tab.dataset.moduleTab));
+    tab.addEventListener('click', () => {
+      const moduleName = tab.dataset.moduleTab;
+      switchModule(moduleName);
+      // 瀏覽紀錄：主動切換模組時回報（fire-and-forget；瀏覽紀錄頁本身不記）
+      const pageCode = ADMIN_MODULE_PAGE_VIEW_CODES[moduleName];
+      if (pageCode) trackAdminPageView(pageCode);
+    });
   });
 
   // 報平安：篩選 chips / 更新 / 返回 / 表單
@@ -2450,6 +2616,9 @@ function bindEvents() {
   // 公布欄：更新 / 新增 / 編輯 modal
   elements.bulletinRefreshButton.addEventListener('click', () => loadBulletinList());
   elements.bulletinCreateButton.addEventListener('click', () => openBulletinEditor(null));
+
+  // 瀏覽紀錄：更新（僅查看，不提供其他操作）
+  elements.pageViewsRefreshButton.addEventListener('click', () => loadPageViewsList());
   elements.bulletinForm.addEventListener('submit', saveBulletin);
   elements.bulletinCancelButton.addEventListener('click', closeBulletinEditor);
   elements.bulletinModalCloseButton.addEventListener('click', closeBulletinEditor);
@@ -2526,6 +2695,7 @@ async function bootstrap() {
     }
     state.authReady = true;
     showScreen('app');
+    trackAdminPageView('admin_home'); // 瀏覽紀錄：進入管理頁（fire-and-forget）
     // 通知信深連結：?module=feedback|safety|events（可含 &id=直接開該筆詳情）
     // id 不存在／載入失敗 → open*Detail 內建 toast + 回該模組列表，不會白屏
     const deepLink = readAdminDeepLinkParams();

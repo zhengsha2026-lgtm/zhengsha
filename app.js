@@ -3728,6 +3728,193 @@ app.delete('/api/admin/bulletin/:id', async (req, res) => {
   }
 });
 
+// ============================================================================
+// 瀏覽紀錄（page_views）：誰、何時、進了哪個分頁
+// 規則：
+//   1. 必須帶 LINE ID Token，後端以 verify 的 sub 為準（沒登入不寫入）
+//   2. body 只帶頁面代碼（page）； admin_* 頁面代碼僅管理員可寫
+//   3. 同一人、同一頁、5 分鐘內已有紀錄就略過，仍回成功（冪等）
+//   4. 前端 fire-and-forget：失敗只在後端 log，不擋里民進頁、不發通知
+// ============================================================================
+
+const PAGE_VIEW_CODES = [
+  'platforms', 'intro', 'wish', 'schedule', 'bulletin', 'safety',
+  'admin_home', 'admin_feedback', 'admin_safety', 'admin_events', 'admin_bulletin',
+];
+const ADMIN_PAGE_VIEW_CODES = new Set(['admin_home', 'admin_feedback', 'admin_safety', 'admin_events', 'admin_bulletin']);
+const PAGE_VIEW_DEDUP_MS = 5 * 60 * 1000;
+
+// POST /api/page-views：記錄一次分頁瀏覽（里民端 + admin.html 共用）
+app.post('/api/page-views', async (req, res) => {
+  try {
+    const page = String((req.body && req.body.page) || '').trim();
+    if (!PAGE_VIEW_CODES.includes(page)) {
+      return res.status(400).json({
+        success: false,
+        message: '頁面代碼不正確。',
+      });
+    }
+
+    // admin_* 與 admin_home 只允許管理員寫入；其餘頁面登入即可
+    const identity = ADMIN_PAGE_VIEW_CODES.has(page)
+      ? await requireAdmin(req)
+      : await authenticateLineIdentity(req);
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    // 5 分鐘去重：同人同頁已有紀錄就略過，仍回成功
+    const dedupSince = new Date(Date.now() - PAGE_VIEW_DEDUP_MS).toISOString();
+    const { data: recentRows, error: recentError } = await supabaseAdmin
+      .from('page_views')
+      .select('id')
+      .eq('line_user_id', identity.lineUserId)
+      .eq('page_code', page)
+      .gte('created_at', dedupSince)
+      .limit(1);
+
+    if (recentError) {
+      console.error('page view dedup check failed:', recentError);
+      return res.status(500).json({
+        success: false,
+        message: '瀏覽紀錄寫入失敗，請稍後再試。',
+      });
+    }
+
+    if (recentRows && recentRows.length > 0) {
+      return res.json({
+        success: true,
+        message: '已記錄。',
+        data: { deduped: true },
+      });
+    }
+
+    const { error: insertError } = await supabaseAdmin
+      .from('page_views')
+      .insert({ line_user_id: identity.lineUserId, page_code: page });
+
+    if (insertError) {
+      console.error('page view insert failed:', insertError);
+      return res.status(500).json({
+        success: false,
+        message: '瀏覽紀錄寫入失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: '已記錄。',
+      data: { deduped: false },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'page view record failed:');
+  }
+});
+
+// GET /api/admin/page-views：今日（台北）各頁次數 + 最近 50 筆（含姓名解析）
+// 姓名優先序：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；不回傳 line_user_id（個資最小化）
+app.get('/api/admin/page-views', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    // 今日（台北）0 點起算
+    const today = getTaipeiToday();
+    const todayStart = new Date(`${today}T00:00:00+08:00`).toISOString();
+
+    const { data: todayRows, error: todayError } = await supabaseAdmin
+      .from('page_views')
+      .select('page_code')
+      .gte('created_at', todayStart)
+      .order('created_at', { ascending: false })
+      .limit(10000);
+
+    if (todayError) {
+      console.error('admin page views today fetch failed:', todayError);
+      return res.status(500).json({
+        success: false,
+        message: '瀏覽紀錄載入失敗，請稍後再試。',
+      });
+    }
+
+    const todayCounts = {};
+    for (const code of PAGE_VIEW_CODES) todayCounts[code] = 0;
+    for (const row of (todayRows || [])) {
+      if (Object.prototype.hasOwnProperty.call(todayCounts, row.page_code)) {
+        todayCounts[row.page_code] += 1;
+      }
+    }
+
+    const { data: recentRows, error: recentError } = await supabaseAdmin
+      .from('page_views')
+      .select('id, line_user_id, page_code, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (recentError) {
+      console.error('admin page views recent fetch failed:', recentError);
+      return res.status(500).json({
+        success: false,
+        message: '瀏覽紀錄載入失敗，請稍後再試。',
+      });
+    }
+
+    // 姓名解析（同行程報名名單模式）：報平安稱呼 → 最近一筆反映姓名
+    const userIds = [...new Set((recentRows || []).map((row) => row.line_user_id).filter(Boolean))];
+    const nameMap = new Map();
+    if (userIds.length > 0) {
+      const { data: safetyRows, error: safetyError } = await supabaseAdmin
+        .from('safety_members')
+        .select('line_user_id, display_name')
+        .in('line_user_id', userIds);
+      if (safetyError) throw safetyError;
+      for (const row of (safetyRows || [])) {
+        if (row.display_name) nameMap.set(row.line_user_id, row.display_name);
+      }
+
+      const { data: feedbackRows, error: feedbackError } = await supabaseAdmin
+        .from('user_feedback')
+        .select('line_user_id, user_name, created_at')
+        .in('line_user_id', userIds)
+        .order('created_at', { ascending: false });
+      if (feedbackError) throw feedbackError;
+      for (const row of (feedbackRows || [])) {
+        if (!nameMap.has(row.line_user_id) && row.user_name) {
+          nameMap.set(row.line_user_id, row.user_name);
+        }
+      }
+    }
+
+    const recent = (recentRows || []).map((row) => ({
+      id: row.id,
+      page_code: row.page_code,
+      created_at: row.created_at,
+      name: nameMap.get(row.line_user_id) || '未留姓名',
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        today,
+        today_counts: todayCounts,
+        recent,
+      },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin page views fetch failed:');
+  }
+});
+
 // 取得封面上傳 URL
 app.post('/api/admin/events/:id/cover-upload-url', async (req, res) => {
   try {

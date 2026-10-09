@@ -193,6 +193,18 @@
 - **寄件人／回覆**：`ADMIN_NOTIFY_FROM`（已驗證自有網域 `notify@mail.zhengshavil.com`，顯示名「幸福正砂」；未設才 fallback `onboarding@resend.dev`）；`ADMIN_NOTIFY_REPLY_TO`（選填真實信箱，有設才帶 `reply_to`）
 - **不做**（第一期）：每日簽到、取消報名、狀態變更、snooze 不寫通知；LINE 推播（避免消耗官方帳號額度）；API key 不進 repo／HANDOVER
 
+### 瀏覽紀錄（2026-10-09：誰、何時、進了哪個分頁）
+- **定位**：僅記錄分頁瀏覽（誰／何時／哪頁），**不做地圖、熱點、停留時間**；只統計、無互動
+- **資料表 `page_views`**：`line_user_id`（後端 verify 的 `sub`，不信前端）、`page_code`（DB CHECK 白名單）、`created_at`；**沒登入不寫入**（前端未登入／測試模式直接不送，後端 401 擋），不存「未登入」流水
+- **頁面代碼（11 個）**：里民端 `platforms`（核心政見）、`intro`（候選人介紹）、`wish`（有事找里長）、`schedule`（競選行程）、`bulletin`（公布欄）、`safety`（報平安）、`admin_home`（管理首頁）；admin.html `admin_feedback`（反映管理）、`admin_safety`（報平安管理）、`admin_events`（行程管理）、`admin_bulletin`（公布欄管理）
+- **寫入（fire-and-forget）**：
+  - liff.html：`switchTab()` 切到上述分頁時打 `POST /api/page-views`（body 只帶 `page`；含初始載入）；盾牌進管理首頁記 `admin_home`；管理端內部模組切換**不記**（那是 admin.html 的事）
+  - admin.html：`showScreen('app')` 後記 `admin_home`；點 nav tab 主動切換模組時記對應 `admin_*`（初始載入／深連結不自動記模組；瀏覽紀錄頁本身不記）
+  - **失敗只在後端 log / 前端 console.warn，不擋里民進頁；不發 LINE、不發 Email、不進紅點**
+- **去重**：同一人、同一頁、5 分鐘內已有紀錄就略過（後端查 `idx_page_views_dedup`），**仍回成功**（冪等，前端無感）
+- **權限**：`admin_*` 頁面代碼後端加驗 requireAdmin（里民頁碼登入即可寫）
+- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（11 格含 0），下方**最近 50 筆**（時間〔台北 24 小時 MM/DD HH:mm〕／姓名／頁面）；**姓名解析**：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；**點列不開個資頁**；空狀態「目前沒有瀏覽紀錄」
+
 ---
 
 ## 4. 重要架構規則（必須遵守）
@@ -257,8 +269,9 @@
 - `admin_notifications`：管理員通知（`type` CHECK：`feedback_new`/`safety_pending`/`event_rsvp`/`bulletin_new`、`title`、`summary`〔不放完整電話〕、`ref_table`、`ref_id` text；三處里民 API 成功後 fire-and-forget 寫入，失敗不擋主流程）
 - `admin_notification_reads`：管理員通知已讀紀錄（`UNIQUE(notification_id, line_user_id)` 每人每則一筆、upsert `ignoreDuplicates` 冪等；`notification_id` FK CASCADE）
 - `bulletin_posts`：公布欄公告（`title` ≤100、`category` CHECK 五值：`緊急`/`垃圾回收`/`里務`/`補助申請`/`其他`、`summary` ≤300 選填、`content` ≤5000、`is_pinned` 置頂、`is_published` 上架、`expires_at` 到期日 NULL=永不過期〔過期里民端不顯示〕、`created_at`；里民端排序：置頂在前、建立時間新到舊）
+- `page_views`：瀏覽紀錄（`line_user_id` 後端 verify 的 sub、`page_code` CHECK 11 個頁面代碼、`created_at`；未登入不寫入；同人同頁 5 分鐘去重）
 
-> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`、申請審核欄位詳見 `007_safety_approval.sql`（皆已於 Supabase 執行）；管理員通知兩張表詳見 `008_admin_notifications.sql`（已於 Supabase 執行）；公布欄詳見 `009_bulletin_posts.sql`（含 `admin_notifications.type` 放寬加 `bulletin_new` 與 3 則 seed，**尚未於 Supabase 執行**）
+> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`、申請審核欄位詳見 `007_safety_approval.sql`（皆已於 Supabase 執行）；管理員通知兩張表詳見 `008_admin_notifications.sql`（已於 Supabase 執行）；公布欄詳見 `009_bulletin_posts.sql`（含 `admin_notifications.type` 放寬加 `bulletin_new` 與 3 則 seed，**尚未於 Supabase 執行**）；瀏覽紀錄詳見 `010_page_views.sql`（**尚未於 Supabase 執行**）
 
 ### 狀態值
 `已收到` / `處理中` / `已回覆` / `已結案`
@@ -336,6 +349,8 @@
 | POST | `/api/admin/bulletin` | 新增公告（`title`/`category`/`content` 必填、`summary`/`expires_at` 選填、`is_pinned`/`is_published` 預設 false；新增即上架 → fire-and-forget 管理員通知 `bulletin_new`） |
 | PATCH | `/api/admin/bulletin/:id` | 選擇性更新任一欄位（`expires_at` 空字串 = 清空到期日；未上架 → 上架轉換時通知 `bulletin_new`） |
 | DELETE | `/api/admin/bulletin/:id` | 刪除公告 |
+| POST | `/api/page-views` | 記錄一次分頁瀏覽（body 只帶 `page`；需 LINE ID Token，後端以 verify 的 `sub` 為準；`admin_*` 頁碼僅管理員；同人同頁 5 分鐘內略過仍回成功） |
+| GET | `/api/admin/page-views` | 瀏覽紀錄統計（requireAdmin）：今日（台北）各頁次數 `today_counts`＋最近 50 筆 `recent`〔姓名解析：報平安稱呼→反映姓名→「未留姓名」；不回傳 line_user_id〕 |
 
 ### 排程任務 API（Cron）
 
@@ -562,6 +577,12 @@
   - 通知：`bulletin_new`（新增即上架／未上架→上架轉換時寫入＋寄信）；兩端鈴鐺中文標籤「公布欄新公告」＋點擊導向開該則編輯；深連結 module 白名單（admin.html＋liff.html）加 bulletin；**既有三類通知邏輯零改動**
   - 到期日時區：沿用行程慣例（datetime-local 補 `+08:00` 存 timestamptz、`formatEventDateTimeLocal` 回填）
   - **本期未做**：進底部四格（選後才做）、圖文選單入口、補助申請線上送件、公告附圖、里民端分頁
+- **瀏覽紀錄（2026-10-09：誰、何時、進了哪個分頁；不做地圖／熱點／停留時間）**
+  - **migration `010_page_views.sql`（⚠️ 尚未於 Supabase 執行，需手動執行後功能才有資料）**：建 `page_views` 表（line_user_id/page_code〔CHECK 11 個頁面代碼〕/created_at）＋三索引（recent 供最近 50 筆、dedup 供同人同頁 5 分鐘去重、today 供今日統計）
+  - API（app.js）：`POST /api/page-views`（body 只帶 `page`；authenticateLineIdentity 以 verify 的 sub 為準；`admin_*`/`admin_home` 頁碼加驗 requireAdmin；同人同頁 5 分鐘內已有紀錄略過仍回成功；失敗只 log 不擋前端）；`GET /api/admin/page-views`（requireAdmin；今日〔台北 0 點起〕各頁次數＋最近 50 筆；姓名解析同行程報名模式：報平安稱呼→最近一筆反映姓名→「未留姓名」；**不回傳 line_user_id**）
+  - liff.html：`switchTab()` 掛 `trackPageView()`（platforms/intro/wish/schedule/bulletin/safety＋admin→admin_home，含初始載入；未登入／測試模式不送；fire-and-forget 靜默失敗）；盾牌第 6 張模組卡＋`adminPageViewsView`（今日 11 格次數＋最近 50 筆：時間〔台北 24h MM/DD HH:mm〕／姓名／頁面，不開個資頁）；五個既有 switch 函式同步隱藏 pageviews view
+  - admin.html：`trackAdminPageView()`（authedFetch fire-and-forget）；`showScreen('app')` 後記 `admin_home`；nav tab 主動點擊切換模組時記 `admin_feedback`/`admin_safety`/`admin_events`/`admin_bulletin`（初始載入／深連結不自動記；瀏覽紀錄頁本身不記）；第 5 個分頁「瀏覽紀錄」（`switchModule` 惰性載入 `loadPageViewsList`，401→handleRelogin／403→denied 沿用既有模式）
+  - **不寫管理員通知／不寄 Email／不進紅點**；底部 4 Tab 未動
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

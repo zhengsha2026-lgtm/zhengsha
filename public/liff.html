@@ -1756,6 +1756,24 @@
                       <i data-lucide="chevron-right" class="h-3 w-3"></i>
                     </span>
                   </button>
+
+                  <button
+                    type="button"
+                    data-admin-module="pageviews"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/50 p-5 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] active:scale-[0.995]"
+                  >
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                      <i data-lucide="eye" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-base font-semibold text-violet-950">瀏覽紀錄</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-500">
+                      查看今日各分頁瀏覽次數與最近 50 筆紀錄
+                    </p>
+                    <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
+                      <span>進入</span>
+                      <i data-lucide="chevron-right" class="h-3 w-3"></i>
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -2296,6 +2314,69 @@
                   </div>
                 </form>
               </div>
+
+              <!-- 瀏覽紀錄（管理端）：今日各頁次數 + 最近 50 筆 -->
+              <div id="adminPageViewsView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminPageViewsBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回管理首頁</span>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="adminPageViewsRefreshButton"
+                      class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                    >
+                      <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                      <span>更新</span>
+                    </button>
+                    <p class="text-sm font-semibold text-violet-950">瀏覽紀錄</p>
+                  </div>
+                </div>
+
+                <div id="adminPageViewsLoading" class="space-y-3">
+                  <div class="h-[76px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[76px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[76px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminPageViewsError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入瀏覽紀錄失敗</p>
+                  <p id="adminPageViewsErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    id="adminPageViewsRetryButton"
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminPageViewsContent" class="hidden space-y-4">
+                  <div class="rounded-[1.5rem] border border-violet-100/80 bg-white p-5 shadow-[0_10px_28px_-24px_rgba(139,92,246,0.4)]">
+                    <p class="text-sm font-semibold text-violet-950">今日瀏覽（台北時間）</p>
+                    <p id="adminPageViewsTodayDate" class="mt-1 text-xs text-slate-400"></p>
+                    <div id="adminPageViewsTodayGrid" class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4"></div>
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold text-violet-950">最近 50 筆</p>
+                    <div id="adminPageViewsListContainer" class="mt-3 space-y-2"></div>
+                  </div>
+                </div>
+
+                <div id="adminPageViewsEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                    <i data-lucide="eye-off" class="h-6 w-6"></i>
+                  </div>
+                  <p class="mt-4 text-base font-semibold text-violet-950">目前沒有瀏覽紀錄</p>
+                </div>
+              </div>
             </div>
           </section>
         </section>
@@ -2608,6 +2689,12 @@
               deleting: false,
             },
           },
+          pageviews: {
+            loading: false,
+            error: null,
+            refreshedAt: null,
+            data: null, // { today, today_counts, recent }
+          },
         },
         wish: {
           view: 'form',
@@ -2870,6 +2957,18 @@
         adminBulletinSubmitButtonText: document.getElementById('adminBulletinSubmitButtonText'),
         adminBulletinDeleteButton: document.getElementById('adminBulletinDeleteButton'),
         adminBulletinDeleteButtonText: document.getElementById('adminBulletinDeleteButtonText'),
+        adminPageViewsView: document.getElementById('adminPageViewsView'),
+        adminPageViewsBackButton: document.getElementById('adminPageViewsBackButton'),
+        adminPageViewsRefreshButton: document.getElementById('adminPageViewsRefreshButton'),
+        adminPageViewsLoading: document.getElementById('adminPageViewsLoading'),
+        adminPageViewsError: document.getElementById('adminPageViewsError'),
+        adminPageViewsErrorText: document.getElementById('adminPageViewsErrorText'),
+        adminPageViewsRetryButton: document.getElementById('adminPageViewsRetryButton'),
+        adminPageViewsContent: document.getElementById('adminPageViewsContent'),
+        adminPageViewsTodayDate: document.getElementById('adminPageViewsTodayDate'),
+        adminPageViewsTodayGrid: document.getElementById('adminPageViewsTodayGrid'),
+        adminPageViewsListContainer: document.getElementById('adminPageViewsListContainer'),
+        adminPageViewsEmpty: document.getElementById('adminPageViewsEmpty'),
         adminChipsRow: document.getElementById('adminChipsRow'),
         adminSearchInput: document.getElementById('adminSearchInput'),
         adminListLoading: document.getElementById('adminListLoading'),
@@ -3647,6 +3746,8 @@
               switchAdminSafetyView('list', { autoload: true });
             } else if (module === 'bulletin') {
               switchAdminBulletinView('list', { autoload: true });
+            } else if (module === 'pageviews') {
+              switchAdminPageViewsView({ autoload: true });
             }
           });
         }
@@ -3897,6 +3998,16 @@
         }
         if (elements.adminBulletinDeleteButton) {
           elements.adminBulletinDeleteButton.addEventListener('click', deleteAdminBulletin);
+        }
+        // 瀏覽紀錄事件（管理端，僅查看）
+        if (elements.adminPageViewsBackButton) {
+          elements.adminPageViewsBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
+        if (elements.adminPageViewsRefreshButton) {
+          elements.adminPageViewsRefreshButton.addEventListener('click', () => loadAdminPageViews({ force: true }));
+        }
+        if (elements.adminPageViewsRetryButton) {
+          elements.adminPageViewsRetryButton.addEventListener('click', () => loadAdminPageViews({ force: true }));
         }
         if (elements.adminSafetyDetailBackButton) {
           elements.adminSafetyDetailBackButton.addEventListener('click', () => switchAdminSafetyView('list'));
@@ -4195,6 +4306,18 @@
         }
         const nextTab = TAB_KEYS.includes(tab) ? tab : 'platforms';
         state.activeTab = nextTab;
+
+        // 瀏覽紀錄：切到追蹤清單內的分頁就回報（含初始載入；fire-and-forget，同頁 5 分鐘內後端去重）
+        const PAGE_VIEW_TAB_CODES = {
+          platforms: 'platforms',
+          intro: 'intro',
+          wish: 'wish',
+          schedule: 'schedule',
+          bulletin: 'bulletin',
+          safety: 'safety',
+          admin: 'admin_home',
+        };
+        if (PAGE_VIEW_TAB_CODES[nextTab]) trackPageView(PAGE_VIEW_TAB_CODES[nextTab]);
 
         elements.panels.forEach((panel) => {
           panel.classList.toggle('hidden', panel.dataset.tabPanel !== nextTab);
@@ -5552,6 +5675,37 @@
         return headers;
       }
 
+      // 瀏覽紀錄：頁面代碼 → 中文標籤（與 DB CHECK、app.js PAGE_VIEW_CODES 對齊）
+      const PAGE_VIEW_LABELS = {
+        platforms: '核心政見',
+        intro: '候選人介紹',
+        wish: '有事找里長',
+        schedule: '競選行程',
+        bulletin: '公布欄',
+        safety: '報平安',
+        admin_home: '管理首頁',
+        admin_feedback: '反映管理',
+        admin_safety: '報平安管理',
+        admin_events: '行程管理',
+        admin_bulletin: '公布欄管理',
+      };
+
+      // 瀏覽紀錄回報（fire-and-forget）：未登入／測試模式／失敗一律靜默，不擋里民進頁
+      async function trackPageView(pageCode) {
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff' || !tokenBundle.token) return; // 沒登入不寫入
+          const res = await fetch('/api/page-views', {
+            method: 'POST',
+            headers: buildAuthHeaders(tokenBundle),
+            body: JSON.stringify({ page: pageCode }),
+          });
+          if (!res.ok) console.warn('page view track failed:', res.status);
+        } catch (err) {
+          console.warn('page view track error:', err);
+        }
+      }
+
       async function handleSubmit(event) {
         event.preventDefault();
 
@@ -6532,6 +6686,7 @@
         // 公布欄管理子頁一併隱藏（避免跨模組殘留）
         if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
+        if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
 
         if (
           targetView === 'list' &&
@@ -6562,6 +6717,7 @@
         if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
         if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
+        if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
 
         if (elements.adminPlatformListView) {
           elements.adminPlatformListView.classList.toggle('hidden', targetView !== 'list');
@@ -6594,6 +6750,7 @@
         if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
         if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
+        if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
 
         if (elements.adminEventListView) {
           elements.adminEventListView.classList.toggle('hidden', targetView !== 'list');
@@ -6626,6 +6783,7 @@
         if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
         if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
+        if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
 
         if (elements.adminSafetyListView) {
           elements.adminSafetyListView.classList.toggle('hidden', targetView !== 'list');
@@ -6658,6 +6816,7 @@
         if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
         if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
         if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
+        if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
 
         if (elements.adminBulletinListView) {
           elements.adminBulletinListView.classList.toggle('hidden', targetView !== 'list');
@@ -6672,6 +6831,153 @@
 
         const scrollContainer = document.scrollingElement || document.documentElement || document.body;
         if (scrollContainer) scrollContainer.scrollTop = 0;
+        renderIcons();
+      }
+
+      // 瀏覽紀錄子頁切換（管理端，僅查看）
+      function switchAdminPageViewsView(options = {}) {
+        // 先隱藏其他模組相關 view
+        if (elements.adminHomeView) elements.adminHomeView.classList.add('hidden');
+        if (elements.adminListView) elements.adminListView.classList.add('hidden');
+        if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
+        if (elements.adminPlatformListView) elements.adminPlatformListView.classList.add('hidden');
+        if (elements.adminPlatformEditView) elements.adminPlatformEditView.classList.add('hidden');
+        if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
+        if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
+        if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
+        if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
+        if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
+        if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
+
+        if (elements.adminPageViewsView) elements.adminPageViewsView.classList.remove('hidden');
+
+        if (options.autoload === true) {
+          loadAdminPageViews({ force: true });
+        }
+
+        const scrollContainer = document.scrollingElement || document.documentElement || document.body;
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+        renderIcons();
+      }
+
+      function setPageViewsLoading(visible) {
+        if (elements.adminPageViewsLoading) {
+          elements.adminPageViewsLoading.classList.toggle('hidden', !visible);
+        }
+      }
+
+      function setPageViewsError(message) {
+        if (!elements.adminPageViewsError) return;
+        if (message) {
+          if (elements.adminPageViewsErrorText) elements.adminPageViewsErrorText.textContent = message;
+          elements.adminPageViewsError.classList.remove('hidden');
+        } else {
+          elements.adminPageViewsError.classList.add('hidden');
+        }
+      }
+
+      async function loadAdminPageViews(options = {}) {
+        if (state.admin.pageviews.loading && options.force !== true) return;
+        state.admin.pageviews.loading = true;
+        state.admin.pageviews.error = null;
+
+        setPageViewsLoading(true);
+        setPageViewsError(null);
+        if (elements.adminPageViewsContent) elements.adminPageViewsContent.classList.add('hidden');
+        if (elements.adminPageViewsEmpty) elements.adminPageViewsEmpty.classList.add('hidden');
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            throw new Error('請透過 LINE 重新開啟管理功能。');
+          }
+          const res = await fetch('/api/admin/page-views', {
+            method: 'GET',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            throw new Error((result && result.message) || '瀏覽紀錄載入失敗，請稍後再試。');
+          }
+          state.admin.pageviews.data = result.data || { today: '', today_counts: {}, recent: [] };
+          state.admin.pageviews.refreshedAt = Date.now();
+          renderAdminPageViews();
+        } catch (err) {
+          state.admin.pageviews.error = err.message || '瀏覽紀錄載入失敗，請稍後再試。';
+          setPageViewsError(state.admin.pageviews.error);
+        } finally {
+          state.admin.pageviews.loading = false;
+          setPageViewsLoading(false);
+        }
+      }
+
+      // 台北 24 小時制 MM/DD HH:mm
+      function formatPageViewTime(iso) {
+        if (!iso) return '';
+        try {
+          const d = new Date(iso);
+          const parts = new Intl.DateTimeFormat('zh-TW', {
+            timeZone: 'Asia/Taipei',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }).formatToParts(d);
+          const get = (type) => {
+            const part = parts.find((p) => p.type === type);
+            return part ? part.value : '';
+          };
+          return `${get('month')}/${get('day')} ${get('hour')}:${get('minute')}`;
+        } catch (err) {
+          return '';
+        }
+      }
+
+      function renderAdminPageViews() {
+        if (!elements.adminPageViewsContent) return;
+        const data = state.admin.pageviews.data;
+        if (!data) return;
+        const recent = Array.isArray(data.recent) ? data.recent : [];
+        const counts = data.today_counts || {};
+
+        if (elements.adminPageViewsEmpty) {
+          elements.adminPageViewsEmpty.classList.toggle('hidden', recent.length > 0);
+        }
+        elements.adminPageViewsContent.classList.toggle('hidden', recent.length === 0);
+
+        if (elements.adminPageViewsTodayDate) {
+          elements.adminPageViewsTodayDate.textContent = data.today ? `${data.today} 起` : '';
+        }
+
+        // 今日各頁次數（全部代碼都顯示，0 也顯示）
+        if (elements.adminPageViewsTodayGrid) {
+          elements.adminPageViewsTodayGrid.innerHTML = Object.keys(PAGE_VIEW_LABELS)
+            .map((code) => {
+              const count = counts[code] || 0;
+              return `
+                <div class="rounded-2xl border border-violet-100/80 bg-violet-50/40 px-3 py-2.5">
+                  <p class="text-[11px] font-medium leading-4 text-slate-500">${PAGE_VIEW_LABELS[code]}</p>
+                  <p class="mt-1 text-lg font-bold ${count > 0 ? 'text-violet-700' : 'text-slate-300'}">${count}</p>
+                </div>`;
+            })
+            .join('');
+        }
+
+        // 最近 50 筆：時間 / 姓名 / 頁面（點列不開個資頁）
+        if (elements.adminPageViewsListContainer) {
+          elements.adminPageViewsListContainer.innerHTML = recent
+            .map((row) => {
+              const label = PAGE_VIEW_LABELS[row.page_code] || row.page_code;
+              return `
+                <div class="flex items-center gap-3 rounded-2xl border border-violet-100/80 bg-white px-4 py-3">
+                  <p class="w-24 shrink-0 text-xs font-semibold tabular-nums text-slate-500">${formatPageViewTime(row.created_at)}</p>
+                  <p class="min-w-0 flex-1 truncate text-sm font-semibold text-violet-950">${escapeHtml(row.name || '未留姓名')}</p>
+                  <span class="shrink-0 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100">${label}</span>
+                </div>`;
+            })
+            .join('');
+        }
         renderIcons();
       }
 
