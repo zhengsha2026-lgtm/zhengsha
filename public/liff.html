@@ -2400,8 +2400,14 @@
 
                 <div id="adminPageViewsContent" class="hidden space-y-4">
                   <div class="rounded-[1.5rem] border border-violet-100/80 bg-white p-5 shadow-[0_10px_28px_-24px_rgba(139,92,246,0.4)]">
-                    <p class="text-sm font-semibold text-violet-950">今日瀏覽（台北時間）</p>
-                    <p id="adminPageViewsTodayDate" class="mt-1 text-xs text-slate-400"></p>
+                    <p class="text-sm font-semibold text-violet-950">瀏覽次數（台北時間）</p>
+                    <div id="adminPageViewsPeriodTabs" class="mt-3 grid grid-cols-4 gap-1 rounded-full bg-violet-50 p-1">
+                      <button type="button" data-pv-period="today" class="pv-period-tab h-8 rounded-full text-xs font-semibold text-violet-500 transition">今天</button>
+                      <button type="button" data-pv-period="week" class="pv-period-tab h-8 rounded-full text-xs font-semibold text-violet-500 transition">本週</button>
+                      <button type="button" data-pv-period="month" class="pv-period-tab h-8 rounded-full text-xs font-semibold text-violet-500 transition">本月</button>
+                      <button type="button" data-pv-period="total" class="pv-period-tab h-8 rounded-full text-xs font-semibold text-violet-500 transition">總計</button>
+                    </div>
+                    <p id="adminPageViewsTodayDate" class="mt-2 text-xs text-slate-400"></p>
                     <div id="adminPageViewsTodayGrid" class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4"></div>
                   </div>
                   <div>
@@ -2797,7 +2803,8 @@
             loading: false,
             error: null,
             refreshedAt: null,
-            data: null, // { today, today_counts, recent }
+            data: null, // { today, today_counts, period_counts, period_dates, sessions }
+            period: 'week', // 統計時段：today / week / month / total（預設本週）
           },
           friends: {
             loading: false,
@@ -3076,6 +3083,7 @@
         adminPageViewsErrorText: document.getElementById('adminPageViewsErrorText'),
         adminPageViewsRetryButton: document.getElementById('adminPageViewsRetryButton'),
         adminPageViewsContent: document.getElementById('adminPageViewsContent'),
+        adminPageViewsPeriodTabs: document.getElementById('adminPageViewsPeriodTabs'),
         adminPageViewsTodayDate: document.getElementById('adminPageViewsTodayDate'),
         adminPageViewsTodayGrid: document.getElementById('adminPageViewsTodayGrid'),
         adminPageViewsListContainer: document.getElementById('adminPageViewsListContainer'),
@@ -4140,6 +4148,17 @@
         }
         if (elements.adminPageViewsRetryButton) {
           elements.adminPageViewsRetryButton.addEventListener('click', () => loadAdminPageViews({ force: true }));
+        }
+        // 統計時段切換：今天／本週／本月／總計（只重畫卡片，不打 API）
+        if (elements.adminPageViewsPeriodTabs) {
+          elements.adminPageViewsPeriodTabs.addEventListener('click', (event) => {
+            const target = event.target.closest('[data-pv-period]');
+            if (!target) return;
+            const next = target.dataset.pvPeriod;
+            if (!next || next === state.admin.pageviews.period) return;
+            state.admin.pageviews.period = next;
+            renderAdminPageViews();
+          });
         }
         // 瀏覽紀錄詳情：點列開這一輪的頁面列表，關閉回清單
         if (elements.adminPageViewsListContainer) {
@@ -7129,18 +7148,38 @@
         const data = state.admin.pageviews.data;
         if (!data) return;
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
-        const counts = data.today_counts || {};
+        const period = state.admin.pageviews.period || 'week';
+        const periodCounts = data.period_counts || {};
+        const counts = periodCounts[period] || data.today_counts || {};
 
         if (elements.adminPageViewsEmpty) {
           elements.adminPageViewsEmpty.classList.toggle('hidden', sessions.length > 0);
         }
         elements.adminPageViewsContent.classList.toggle('hidden', sessions.length === 0);
 
-        if (elements.adminPageViewsTodayDate) {
-          elements.adminPageViewsTodayDate.textContent = data.today ? `${data.today} 起` : '';
+        // 時段切換按鈕樣式：選中＝白底紫字，未選＝透明紫字
+        if (elements.adminPageViewsPeriodTabs) {
+          elements.adminPageViewsPeriodTabs.querySelectorAll('.pv-period-tab').forEach((btn) => {
+            const active = btn.dataset.pvPeriod === period;
+            btn.classList.toggle('bg-white', active);
+            btn.classList.toggle('shadow-sm', active);
+            btn.classList.toggle('text-violet-700', active);
+            btn.classList.toggle('text-violet-500', !active);
+          });
         }
 
-        // 今日各頁次數（全部代碼都顯示，0 也顯示）
+        // 時段起算日期說明
+        if (elements.adminPageViewsTodayDate) {
+          const dates = data.period_dates || {};
+          const dateText = period === 'total'
+            ? '全部期間'
+            : dates[period]
+              ? `${dates[period].replace(/-/g, '/')} 起`
+              : '';
+          elements.adminPageViewsTodayDate.textContent = dateText;
+        }
+
+        // 各時段各頁次數（全部代碼都顯示，0 也顯示）
         if (elements.adminPageViewsTodayGrid) {
           elements.adminPageViewsTodayGrid.innerHTML = Object.keys(PAGE_VIEW_LABELS)
             .map((code) => {

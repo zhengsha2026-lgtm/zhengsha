@@ -3823,31 +3823,66 @@ app.get('/api/admin/page-views', async (req, res) => {
       });
     }
 
-    // 今日（台北）0 點起算
+    // 時段起算（台北）：今天 0 點 / 本週週一 0 點 / 本月 1 號 0 點
     const today = getTaipeiToday();
-    const todayStart = new Date(`${today}T00:00:00+08:00`).toISOString();
+    const dow = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0=週日
+    const daysSinceMonday = (dow + 6) % 7;
+    const monday = new Date(new Date(`${today}T00:00:00Z`).getTime() - daysSinceMonday * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    const monthStart = `${today.slice(0, 7)}-01`;
+    const periodStarts = {
+      today: new Date(`${today}T00:00:00+08:00`).toISOString(),
+      week: new Date(`${monday}T00:00:00+08:00`).toISOString(),
+      month: new Date(`${monthStart}T00:00:00+08:00`).toISOString(),
+      total: null, // 全部期間
+    };
 
-    const { data: todayRows, error: todayError } = await supabaseAdmin
+    const { data: allRows, error: allError } = await supabaseAdmin
       .from('page_views')
-      .select('page_code')
+      .select('page_code, line_user_id, created_at')
       .in('page_code', PAGE_VIEW_CODES) // 只統計里民端分頁，舊管理頁紀錄濾掉
-      .gte('created_at', todayStart)
-      .order('created_at', { ascending: false })
-      .limit(10000);
+      .order('created_at', { ascending: true })
+      .limit(50000);
 
-    if (todayError) {
-      console.error('admin page views today fetch failed:', todayError);
+    if (allError) {
+      console.error('admin page views counts fetch failed:', allError);
       return res.status(500).json({
         success: false,
         message: '瀏覽紀錄載入失敗，請稍後再試。',
       });
     }
 
-    const todayCounts = {};
-    for (const code of PAGE_VIEW_CODES) todayCounts[code] = 0;
-    for (const row of (todayRows || [])) {
-      if (Object.prototype.hasOwnProperty.call(todayCounts, row.page_code)) {
-        todayCounts[row.page_code] += 1;
+    // 各時段次數：同一人、同一頁、五分鐘內只算一次（同寫入端去重規則）
+    const buildEmptyCounts = () => {
+      const obj = {};
+      for (const code of PAGE_VIEW_CODES) obj[code] = 0;
+      return obj;
+    };
+    const periodCounts = {
+      today: buildEmptyCounts(),
+      week: buildEmptyCounts(),
+      month: buildEmptyCounts(),
+      total: buildEmptyCounts(),
+    };
+    const periodLastCounted = {
+      today: new Map(),
+      week: new Map(),
+      month: new Map(),
+      total: new Map(),
+    };
+    for (const row of (allRows || [])) {
+      if (!Object.prototype.hasOwnProperty.call(periodCounts.total, row.page_code)) continue;
+      for (const [period, startIso] of Object.entries(periodStarts)) {
+        if (startIso && row.created_at < startIso) continue;
+        const key = `${row.line_user_id || ''}::${row.page_code}`;
+        const map = periodLastCounted[period];
+        const rowTime = new Date(row.created_at).getTime();
+        const lastTime = map.get(key);
+        if (lastTime === undefined || rowTime - lastTime >= PAGE_VIEW_DEDUP_MS) {
+          periodCounts[period][row.page_code] += 1;
+          map.set(key, rowTime);
+        }
       }
     }
 
@@ -3947,7 +3982,12 @@ app.get('/api/admin/page-views', async (req, res) => {
       success: true,
       data: {
         today,
-        today_counts: todayCounts,
+        // 相容舊欄位：today_counts＝今天的去重次數
+        today_counts: periodCounts.today,
+        // 四段時段次數（今天／本週／本月／總計），同人同頁五分鐘只算一次
+        period_counts: periodCounts,
+        // 各時段起算日期（YYYY-MM-DD，台北），總計為 null
+        period_dates: { today, week: monday, month: monthStart, total: null },
         sessions: topSessions,
       },
     });

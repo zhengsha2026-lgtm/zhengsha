@@ -463,10 +463,17 @@
       <div id="modulePageViews" class="hidden">
         <section id="pageViewsListView">
           <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <p class="text-sm text-slate-500">今日（台北時間）各分頁瀏覽次數，與最近 50 筆瀏覽紀錄。</p>
+            <p class="text-sm text-slate-500">各分頁瀏覽次數（台北時間，可切換時段），與最近 50 筆瀏覽紀錄。</p>
             <button id="pageViewsRefreshButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50">
               <i data-lucide="refresh-cw" class="h-4 w-4"></i><span>更新</span>
             </button>
+          </div>
+
+          <div id="pageViewsPeriodTabs" class="mb-4 inline-grid grid-cols-4 gap-1 rounded-full bg-slate-100 p-1">
+            <button type="button" data-pv-period="today" class="pv-period-tab h-9 rounded-full px-5 text-sm font-semibold text-slate-500 transition">今天</button>
+            <button type="button" data-pv-period="week" class="pv-period-tab h-9 rounded-full px-5 text-sm font-semibold text-slate-500 transition">本週</button>
+            <button type="button" data-pv-period="month" class="pv-period-tab h-9 rounded-full px-5 text-sm font-semibold text-slate-500 transition">本月</button>
+            <button type="button" data-pv-period="total" class="pv-period-tab h-9 rounded-full px-5 text-sm font-semibold text-slate-500 transition">總計</button>
           </div>
 
           <div id="pageViewsTodayGrid" class="mb-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6"></div>
@@ -697,7 +704,8 @@ const state = {
   pageviews: {
     loaded: false,
     loading: false,
-    data: null, // { today, today_counts, recent }
+    data: null, // { today, today_counts, period_counts, period_dates, sessions }
+    period: 'week', // 統計時段：today / week / month / total（預設本週）
   },
   // 好友名單（僅查看）
   friends: {
@@ -732,7 +740,7 @@ function cacheElements() {
     'bulletinTitleInput', 'bulletinCategorySelect', 'bulletinSummaryInput', 'bulletinContentInput', 'bulletinExpiresInput',
     'bulletinPinnedInput', 'bulletinPublishedInput', 'bulletinSubmitButton', 'bulletinSubmitButtonText',
     'bulletinCancelButton', 'bulletinDeleteButton', 'bulletinDeleteButtonText',
-    'modulePageViews', 'pageViewsTodayGrid', 'pageViewsTableBody', 'pageViewsListEmpty', 'pageViewsListLoading', 'pageViewsRefreshButton',
+    'modulePageViews', 'pageViewsTodayGrid', 'pageViewsPeriodTabs', 'pageViewsTableBody', 'pageViewsListEmpty', 'pageViewsListLoading', 'pageViewsRefreshButton',
     'pageViewsDetailModal', 'pageViewsDetailCloseButton', 'pageViewsDetailContainer',
     'moduleFriends', 'friendsTableBody', 'friendsListEmpty', 'friendsListLoading', 'friendsRefreshButton', 'friendsSearchInput',
     'safetyListView', 'safetyTableBody', 'safetyListEmpty', 'safetyListLoading', 'safetyRefreshButton',
@@ -2225,10 +2233,23 @@ async function loadPageViewsList() {
 
 function renderPageViews() {
   const data = state.pageviews.data;
-  const counts = (data && data.today_counts) || {};
+  const period = state.pageviews.period || 'week';
+  const periodCounts = (data && data.period_counts) || {};
+  const counts = periodCounts[period] || (data && data.today_counts) || {};
   const sessions = (data && Array.isArray(data.sessions)) ? data.sessions : [];
 
-  // 今日各頁次數（全部代碼都顯示，0 也顯示；各頁原始次數，不做 session 合併）
+  // 時段切換按鈕樣式：選中＝白底，未選＝透明（沿用模組分頁樣式）
+  if (elements.pageViewsPeriodTabs) {
+    elements.pageViewsPeriodTabs.querySelectorAll('.pv-period-tab').forEach((btn) => {
+      const active = btn.dataset.pvPeriod === period;
+      btn.classList.toggle('bg-white', active);
+      btn.classList.toggle('shadow-sm', active);
+      btn.classList.toggle('text-slate-700', active);
+      btn.classList.toggle('text-slate-500', !active);
+    });
+  }
+
+  // 各時段各頁次數（全部代碼都顯示，0 也顯示；同人同頁五分鐘只算一次）
   if (elements.pageViewsTodayGrid) {
     elements.pageViewsTodayGrid.innerHTML = Object.keys(PAGE_VIEW_LABELS).map((code) => {
       const count = counts[code] || 0;
@@ -2783,6 +2804,15 @@ function bindEvents() {
 
   // 瀏覽紀錄：更新（僅查看，不提供其他操作）
   elements.pageViewsRefreshButton.addEventListener('click', () => loadPageViewsList());
+  // 統計時段切換：今天／本週／本月／總計（只重畫卡片，不打 API）
+  elements.pageViewsPeriodTabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-pv-period]');
+    if (!btn) return;
+    const next = btn.dataset.pvPeriod;
+    if (!next || next === state.pageviews.period) return;
+    state.pageviews.period = next;
+    renderPageViews();
+  });
   // 瀏覽紀錄詳情：點列開這一輪的頁面列表，關閉回清單
   elements.pageViewsTableBody.addEventListener('click', (e) => {
     const row = e.target.closest('tr[data-pageviews-session]');
