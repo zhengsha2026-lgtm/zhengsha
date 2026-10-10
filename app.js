@@ -3867,27 +3867,36 @@ app.get('/api/admin/page-views', async (req, res) => {
     }
 
     // 姓名解析（同行程報名名單模式）：報平安稱呼 → 最近一筆反映姓名
+    // 電話解析：報平安未退出的電話 → 最近一筆反映的電話 → null
     const userIds = [...new Set((recentRows || []).map((row) => row.line_user_id).filter(Boolean))];
     const nameMap = new Map();
+    const phoneMap = new Map();
     if (userIds.length > 0) {
       const { data: safetyRows, error: safetyError } = await supabaseAdmin
         .from('safety_members')
-        .select('line_user_id, display_name')
+        .select('line_user_id, display_name, phone, left_at')
         .in('line_user_id', userIds);
       if (safetyError) throw safetyError;
       for (const row of (safetyRows || [])) {
         if (row.display_name) nameMap.set(row.line_user_id, row.display_name);
+        // 只取未退出（left_at IS NULL）的電話
+        if (row.left_at === null && row.phone && !phoneMap.has(row.line_user_id)) {
+          phoneMap.set(row.line_user_id, row.phone);
+        }
       }
 
       const { data: feedbackRows, error: feedbackError } = await supabaseAdmin
         .from('user_feedback')
-        .select('line_user_id, user_name, created_at')
+        .select('line_user_id, user_name, phone, created_at')
         .in('line_user_id', userIds)
         .order('created_at', { ascending: false });
       if (feedbackError) throw feedbackError;
       for (const row of (feedbackRows || [])) {
         if (!nameMap.has(row.line_user_id) && row.user_name) {
           nameMap.set(row.line_user_id, row.user_name);
+        }
+        if (!phoneMap.has(row.line_user_id) && row.phone) {
+          phoneMap.set(row.line_user_id, row.phone);
         }
       }
     }
@@ -3926,6 +3935,7 @@ app.get('/api/admin/page-views', async (req, res) => {
 
     const topSessions = sessions.slice(0, 50).map((session) => ({
       name: nameMap.get(session.line_user_id) || '未留姓名',
+      phone: phoneMap.get(session.line_user_id) || null,
       started_at: session.started_at,
       ended_at: session.ended_at,
       views_count: session.views.length,

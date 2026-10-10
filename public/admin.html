@@ -2209,6 +2209,7 @@ function openPageViewsDetail(index) {
   elements.pageViewsDetailContainer.innerHTML = `
     <div>
       <p class="text-lg font-bold text-slate-900">${escapeHtml(session.name || '未留姓名')}</p>
+      <p class="mt-1 text-base font-semibold tabular-nums text-slate-600">${escapeHtml(session.phone || '未留電話')}</p>
       <p class="mt-1 text-sm text-slate-500">
         ${formatPageViewTime(session.started_at)} ～ ${formatPageViewTime(session.ended_at)}｜共 ${session.views_count} 頁
       </p>

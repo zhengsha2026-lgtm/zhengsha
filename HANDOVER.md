@@ -200,7 +200,7 @@
 - **寫入（fire-and-forget）**：liff.html `switchTab()` 切到上述分頁時打 `POST /api/page-views`（body 只帶 `page`；含初始載入）；**失敗只在後端 log / 前端 console.warn，不擋里民進頁；不發 LINE、不發 Email、不進紅點**
 - **去重**：同一人、同一頁、5 分鐘內已有紀錄就略過（後端查 `idx_page_views_dedup`），**仍回成功**（冪等，前端無感）
 - **舊管理頁紀錄**：DB 保留不刪；查詢一律 `.in('page_code', PAGE_VIEW_CODES)` 濾掉（今日統計與 session 皆然）
-- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（6 格里民端分頁，含 0，各頁原始次數、不合并），下方**最近 50 筆「一次瀏覽」**（同一人相鄰兩筆間隔 ≤ 30 分鐘合成一筆 session，超過 30 分鐘另開一筆；一列顯示：最後時間〔台北 24 小時 MM/DD HH:mm〕／姓名／看了幾頁／最後一頁）；**點列開詳情**：依時間列出這一輪看過的頁面（手機 modal／電腦 modal，關閉回清單）；**姓名解析**：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；空狀態「目前沒有瀏覽紀錄」
+- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（6 格里民端分頁，含 0，各頁原始次數、不合并），下方**最近 50 筆「一次瀏覽」**（同一人相鄰兩筆間隔 ≤ 30 分鐘合成一筆 session，超過 30 分鐘另開一筆；一列顯示：最後時間〔台北 24 小時 MM/DD HH:mm〕／姓名／看了幾頁／最後一頁）；**點列開詳情**：姓名下方顯示電話（解析序：報平安未退出〔`left_at IS NULL`〕的電話 → 最近一筆反映的電話 → 顯示「未留電話」；清單不顯示電話），依時間列出這一輪看過的頁面（手機 modal／電腦 modal，關閉回清單）；**姓名解析**：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；空狀態「目前沒有瀏覽紀錄」
 
 ---
 
@@ -347,7 +347,7 @@
 | PATCH | `/api/admin/bulletin/:id` | 選擇性更新任一欄位（`expires_at` 空字串 = 清空到期日；未上架 → 上架轉換時通知 `bulletin_new`） |
 | DELETE | `/api/admin/bulletin/:id` | 刪除公告 |
 | POST | `/api/page-views` | 記錄一次分頁瀏覽（body 只帶 `page`，**僅 6 個里民端頁碼**；需 LINE ID Token，後端以 verify 的 `sub` 為準；同人同頁 5 分鐘內略過仍回成功） |
-| GET | `/api/admin/page-views` | 瀏覽紀錄統計（requireAdmin）：今日（台北）各頁次數 `today_counts`＋最近 50 筆「一次瀏覽」`sessions`〔同人相鄰 ≤30 分鐘合併；每筆含 name/started_at/ended_at/views_count/last_page_code/views 明細；查詢濾掉 `admin_*` 舊紀錄；姓名解析：報平安稱呼→反映姓名→「未留姓名」；不回傳 line_user_id〕 |
+| GET | `/api/admin/page-views` | 瀏覽紀錄統計（requireAdmin）：今日（台北）各頁次數 `today_counts`＋最近 50 筆「一次瀏覽」`sessions`〔同人相鄰 ≤30 分鐘合併；每筆含 name/phone〔報平安未退出→最近一筆反映→null〕/started_at/ended_at/views_count/last_page_code/views 明細；查詢濾掉 `admin_*` 舊紀錄；不回傳 line_user_id〕 |
 
 ### 排程任務 API（Cron）
 
