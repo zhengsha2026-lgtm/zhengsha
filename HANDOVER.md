@@ -200,7 +200,7 @@
 - **寫入（fire-and-forget）**：liff.html `switchTab()` 切到上述分頁時打 `POST /api/page-views`（body 只帶 `page`；含初始載入）；**失敗只在後端 log / 前端 console.warn，不擋里民進頁；不發 LINE、不發 Email、不進紅點**
 - **去重**：同一人、同一頁、5 分鐘內已有紀錄就略過（後端查 `idx_page_views_dedup`），**仍回成功**（冪等，前端無感）
 - **舊管理頁紀錄**：DB 保留不刪；查詢一律 `.in('page_code', PAGE_VIEW_CODES)` 濾掉（今日統計與 session 皆然）
-- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（6 格里民端分頁，含 0，各頁原始次數、不合并），下方**最近 50 筆「一次瀏覽」**（同一人相鄰兩筆間隔 ≤ 30 分鐘合成一筆 session，超過 30 分鐘另開一筆；一列顯示：最後時間〔台北 24 小時 MM/DD HH:mm〕／姓名／看了幾頁／最後一頁）；**點列開詳情**：姓名下方顯示電話（解析序：報平安未退出〔`left_at IS NULL`〕的電話 → 最近一筆反映的電話 → 顯示「未留電話」；清單不顯示電話），依時間列出這一輪看過的頁面（手機 modal／電腦 modal，關閉回清單）；**姓名解析**：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；空狀態「目前沒有瀏覽紀錄」
+- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（6 格里民端分頁，含 0，各頁原始次數、不合并），下方**最近 50 筆「一次瀏覽」**（同一人相鄰兩筆間隔 ≤ 30 分鐘合成一筆 session，超過 30 分鐘另開一筆；一列顯示：最後時間〔台北 24 小時 MM/DD HH:mm〕／姓名／看了幾頁／最後一頁）；**點列開詳情**：姓名下方顯示電話（解析序：報平安未退出〔`left_at IS NULL`〕的電話 → 最近一筆反映的電話 → 顯示「未留電話」；清單不顯示電話），依時間列出這一輪看過的頁面（手機 modal／電腦 modal，關閉回清單）；**姓名解析（三層）**：報平安稱呼 → 最近一筆反映姓名 → 好友名單 LINE 顯示名稱（`line_friends.display_name`，2026-10-10 加入）→ 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；空狀態「目前沒有瀏覽紀錄」
 
 ### 好友名單（2026-10-10：官方帳號好友＋曾使用頁面的里民；僅查看＋搜尋，里民端零改動）
 - **定位**：管理端專用名冊——記錄「誰加過官方帳號好友／誰用過 App」；**里民端完全沒改**，無任何里民互動
@@ -585,7 +585,7 @@
   - **本期未做**：進底部四格（選後才做）、圖文選單入口、補助申請線上送件、公告附圖、里民端分頁
 - **瀏覽紀錄（2026-10-09：誰、何時、進了哪個分頁；不做地圖／熱點／停留時間）**
   - **migration `010_page_views.sql`（⚠️ 尚未於 Supabase 執行，需手動執行後功能才有資料）**：建 `page_views` 表（line_user_id/page_code〔CHECK 11 個頁面代碼〕/created_at）＋三索引（recent 供最近 50 筆、dedup 供同人同頁 5 分鐘去重、today 供今日統計）
-  - API（app.js）：`POST /api/page-views`（body 只帶 `page`；authenticateLineIdentity 以 verify 的 sub 為準；`admin_*`/`admin_home` 頁碼加驗 requireAdmin；同人同頁 5 分鐘內已有紀錄略過仍回成功；失敗只 log 不擋前端）；`GET /api/admin/page-views`（requireAdmin；今日〔台北 0 點起〕各頁次數＋最近 50 筆；姓名解析同行程報名模式：報平安稱呼→最近一筆反映姓名→「未留姓名」；**不回傳 line_user_id**）
+  - API（app.js）：`POST /api/page-views`（body 只帶 `page`；authenticateLineIdentity 以 verify 的 sub 為準；`admin_*`/`admin_home` 頁碼加驗 requireAdmin；同人同頁 5 分鐘內已有紀錄略過仍回成功；失敗只 log 不擋前端）；`GET /api/admin/page-views`（requireAdmin；各時段〔今天/本週/本月/總計，同人同頁 5 分鐘只算一次〕各頁次數＋最近 50 筆；姓名解析三層：報平安稱呼→最近一筆反映姓名→**好友名單 LINE 顯示名稱（line_friends.display_name，2026-10-10 加入；查詢失敗只 log 不影響主流程）**→「未留姓名」；**不回傳 line_user_id**）
   - liff.html：`switchTab()` 掛 `trackPageView()`（platforms/intro/wish/schedule/bulletin/safety＋admin→admin_home，含初始載入；未登入／測試模式不送；fire-and-forget 靜默失敗）；盾牌第 6 張模組卡＋`adminPageViewsView`（今日 11 格次數＋最近 50 筆：時間〔台北 24h MM/DD HH:mm〕／姓名／頁面，不開個資頁）；五個既有 switch 函式同步隱藏 pageviews view
   - admin.html：`trackAdminPageView()`（authedFetch fire-and-forget）；`showScreen('app')` 後記 `admin_home`；nav tab 主動點擊切換模組時記 `admin_feedback`/`admin_safety`/`admin_events`/`admin_bulletin`（初始載入／深連結不自動記；瀏覽紀錄頁本身不記）；第 5 個分頁「瀏覽紀錄」（`switchModule` 惰性載入 `loadPageViewsList`，401→handleRelogin／403→denied 沿用既有模式）
   - **不寫管理員通知／不寄 Email／不進紅點**；底部 4 Tab 未動

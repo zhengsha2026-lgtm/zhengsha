@@ -3934,6 +3934,25 @@ app.get('/api/admin/page-views', async (req, res) => {
           phoneMap.set(row.line_user_id, row.phone);
         }
       }
+
+      // 第三層姓名：好友名單的 LINE 顯示名稱（報平安 → 有事找里長 → 好友名單）
+      // 僅為補名稱用途，查詢失敗（如資料表尚未建立）不影響瀏覽紀錄主流程
+      const unnamedIds = userIds.filter((id) => !nameMap.has(id));
+      if (unnamedIds.length > 0) {
+        const { data: friendRows, error: friendError } = await supabaseAdmin
+          .from('line_friends')
+          .select('line_user_id, display_name')
+          .in('line_user_id', unnamedIds);
+        if (friendError) {
+          console.warn('admin page views line_friends name fetch failed:', friendError.message);
+        } else {
+          for (const row of (friendRows || [])) {
+            if (!nameMap.has(row.line_user_id) && row.display_name) {
+              nameMap.set(row.line_user_id, row.display_name);
+            }
+          }
+        }
+      }
     }
 
     // 一次瀏覽（session）合併：同一人、相鄰兩筆間隔 ≤ 30 分鐘合成一筆；超過 30 分鐘另開一筆
