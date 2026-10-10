@@ -3956,6 +3956,59 @@ app.get('/api/admin/page-views', async (req, res) => {
   }
 });
 
+// ============================================================================
+// 官方帳號好友名單（管理端查看）
+//   清單：姓名、電話、加入時間、來源、是否已退出；可搜尋姓名或電話
+//   不回傳 line_user_id（個資最小化，同瀏覽紀錄慣例）
+// ============================================================================
+
+// GET /api/admin/friends?q=關鍵字
+app.get('/api/admin/friends', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    // 搜尋姓名或電話（ilike 部分 match）；去掉會干擾 PostgREST or 語法的字符
+    const rawQuery = String(req.query.q || '').trim();
+    const q = rawQuery.replace(/[(),%]/g, '').trim();
+
+    let query = supabaseAdmin
+      .from('line_friends')
+      .select('display_name, phone, joined_at, left_at, source')
+      .order('joined_at', { ascending: false })
+      .limit(500);
+
+    if (q) {
+      query = query.or(`display_name.ilike.%${q}%,phone.ilike.%${q}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('admin friends fetch failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '好友名單載入失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        items: data || [],
+        q: rawQuery,
+      },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin friends fetch failed:');
+  }
+});
+
 // 取得封面上傳 URL
 app.post('/api/admin/events/:id/cover-upload-url', async (req, res) => {
   try {
@@ -5973,7 +6026,66 @@ function buildFeedbackInvitation() {
   return `您好！我是里長參選人${CANDIDATE_NAME}。如果您有任何建議或需要協助的地方，歡迎點擊下方連結填寫「有事找里長」表單，讓我為您服務：${LIFF_FORM_URL}`;
 }
 
+// ============================================================================
+// 官方帳號好友名單（line_friends）
+//   follow   → upsert（來源 '加入好友'；重新加入清 left_at；能抓到 profile 就補名稱）
+//   unfollow → 只填 left_at，不刪列
+// 失敗只 log，不讓 webhook 500（LINE 會重送）
+// ============================================================================
+
+async function recordFriendFollow(lineUserId) {
+  if (!lineUserId || !supabaseAdmin) return;
+  try {
+    let displayName = null;
+    if (lineClient) {
+      try {
+        const profile = await lineClient.getProfile(lineUserId);
+        displayName = profile && profile.displayName ? profile.displayName : null;
+      } catch (profileError) {
+        console.warn('friend follow profile fetch failed:', profileError.message);
+      }
+    }
+    const payload = {
+      line_user_id: lineUserId,
+      joined_at: new Date().toISOString(),
+      source: '加入好友',
+      left_at: null, // 重新加入好友，清退出時間
+    };
+    if (displayName) payload.display_name = displayName;
+    const { error } = await supabaseAdmin
+      .from('line_friends')
+      .upsert(payload, { onConflict: 'line_user_id' });
+    if (error) console.error('friend follow upsert failed:', error);
+  } catch (error) {
+    console.error('recordFriendFollow failed:', error);
+  }
+}
+
+async function recordFriendUnfollow(lineUserId) {
+  if (!lineUserId || !supabaseAdmin) return;
+  try {
+    const { error } = await supabaseAdmin
+      .from('line_friends')
+      .update({ left_at: new Date().toISOString() })
+      .eq('line_user_id', lineUserId)
+      .is('left_at', null);
+    if (error) console.error('friend unfollow update failed:', error);
+  } catch (error) {
+    console.error('recordFriendUnfollow failed:', error);
+  }
+}
+
 async function handleEvent(event) {
+  // 好友名單：follow / unfollow 先落庫（不回訊息；失敗只 log）
+  if (event.type === 'follow') {
+    await recordFriendFollow(event.source && event.source.userId);
+    return null;
+  }
+  if (event.type === 'unfollow') {
+    await recordFriendUnfollow(event.source && event.source.userId);
+    return null;
+  }
+
   if (!lineClient) {
     console.warn('LINE credentials are not configured yet. Webhook event skipped.');
     return null;

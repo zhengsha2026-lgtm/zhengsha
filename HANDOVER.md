@@ -202,6 +202,13 @@
 - **舊管理頁紀錄**：DB 保留不刪；查詢一律 `.in('page_code', PAGE_VIEW_CODES)` 濾掉（今日統計與 session 皆然）
 - **管理端查看（僅白名單管理員）**：liff.html 盾牌第 6 張模組卡＋admin.html 第 5 個分頁「瀏覽紀錄」——上方**今日（台北）各頁次數**（6 格里民端分頁，含 0，各頁原始次數、不合并），下方**最近 50 筆「一次瀏覽」**（同一人相鄰兩筆間隔 ≤ 30 分鐘合成一筆 session，超過 30 分鐘另開一筆；一列顯示：最後時間〔台北 24 小時 MM/DD HH:mm〕／姓名／看了幾頁／最後一頁）；**點列開詳情**：姓名下方顯示電話（解析序：報平安未退出〔`left_at IS NULL`〕的電話 → 最近一筆反映的電話 → 顯示「未留電話」；清單不顯示電話），依時間列出這一輪看過的頁面（手機 modal／電腦 modal，關閉回清單）；**姓名解析**：報平安稱呼 → 最近一筆反映姓名 → 「未留姓名」；API 不回傳 `line_user_id`（個資最小化）；空狀態「目前沒有瀏覽紀錄」
 
+### 好友名單（2026-10-10：官方帳號好友＋曾使用頁面的里民；僅查看＋搜尋，里民端零改動）
+- **定位**：管理端專用名冊——記錄「誰加過官方帳號好友／誰用過 App」；**里民端完全沒改**，無任何里民互動
+- **資料表 `line_friends`**：`line_user_id`（UNIQUE，**同一個 LINE 編號只留一筆**）、`display_name`、`phone`、`joined_at`、`left_at`（取消好友**只填時間不刪列**）、`source`（CHECK：`加入好友`／`曾使用頁面`）
+- **舊資料回補（migration 內一次性 SQL）**：來源四張表——`page_views`（瀏覽紀錄）／`user_feedback`（有事找里長）／`safety_members`（報平安）／`event_rsvps`（行程報名）出現過的每個 `line_user_id`；`joined_at` 取四表**最早出現時間**；姓名電話同瀏覽紀錄解析序（報平安未退出優先 → 最近一筆反映）；來源標 `曾使用頁面`（**不代表確定加過好友**）；`ON CONFLICT DO NOTHING` 重跑安全、不覆蓋既有 `加入好友` 記錄
+- **即時寫入（既有 `/webhook`，line.middleware 驗簽）**：`handleEvent` 開頭分流——`follow` → upsert（來源 `加入好友`、`getProfile` 抓 displayName〔best-effort，失敗只 warn〕、重新加入清 `left_at`、payload 不帶 phone 故**保留舊值**）；`unfollow` → 只填 `left_at`（僅對 `left_at IS NULL` 的列）；失敗只 log，不讓 webhook 500
+- **管理端查看（僅白名單管理員）**：liff.html 盾牌第 7 張模組卡＋admin.html 第 6 個分頁「好友名單」——清單顯示姓名／電話／加入時間〔台北 YYYY/MM/DD HH:mm〕／來源 badge（emerald 加入好友／slate 曾使用頁面）／是否已退出（已退出 rose badge＋整列半透明）；可搜尋姓名或電話（400ms debounce、後端 ilike 部分 match）；API 不回傳 `line_user_id`；空狀態「目前沒有好友」／搜尋無結果「找不到符合的好友」
+
 ---
 
 ## 4. 重要架構規則（必須遵守）
@@ -267,8 +274,9 @@
 - `admin_notification_reads`：管理員通知已讀紀錄（`UNIQUE(notification_id, line_user_id)` 每人每則一筆、upsert `ignoreDuplicates` 冪等；`notification_id` FK CASCADE）
 - `bulletin_posts`：公布欄公告（`title` ≤100、`category` CHECK 五值：`緊急`/`垃圾回收`/`里務`/`補助申請`/`其他`、`summary` ≤300 選填、`content` ≤5000、`is_pinned` 置頂、`is_published` 上架、`expires_at` 到期日 NULL=永不過期〔過期里民端不顯示〕、`created_at`；里民端排序：置頂在前、建立時間新到舊）
 - `page_views`：瀏覽紀錄（`line_user_id` 後端 verify 的 sub、`page_code` CHECK 11 個頁面代碼、`created_at`；未登入不寫入；同人同頁 5 分鐘去重）
+- `line_friends`：官方帳號好友名單（`line_user_id` UNIQUE 一人一筆、`display_name`/`phone`、`joined_at` 加入時間、`left_at` 退出時間〔取消好友只填不刪〕、`source` CHECK：`加入好友`〔webhook follow〕/`曾使用頁面`〔舊資料回補〕；listing 索引 `(left_at, joined_at DESC)`）
 
-> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`、申請審核欄位詳見 `007_safety_approval.sql`（皆已於 Supabase 執行）；管理員通知兩張表詳見 `008_admin_notifications.sql`（已於 Supabase 執行）；公布欄詳見 `009_bulletin_posts.sql`（含 `admin_notifications.type` 放寬加 `bulletin_new` 與 3 則 seed，**尚未於 Supabase 執行**）；瀏覽紀錄詳見 `010_page_views.sql`（**尚未於 Supabase 執行**）
+> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`、申請審核欄位詳見 `007_safety_approval.sql`（皆已於 Supabase 執行）；管理員通知兩張表詳見 `008_admin_notifications.sql`（已於 Supabase 執行）；公布欄詳見 `009_bulletin_posts.sql`（已於 Supabase 執行）；瀏覽紀錄詳見 `010_page_views.sql`（已於 Supabase 執行）；好友名單詳見 `011_line_friends.sql`（含四表舊資料回補，**尚未於 Supabase 執行，需手動執行後功能才有資料**）
 
 ### 狀態值
 `已收到` / `處理中` / `已回覆` / `已結案`
@@ -348,6 +356,7 @@
 | DELETE | `/api/admin/bulletin/:id` | 刪除公告 |
 | POST | `/api/page-views` | 記錄一次分頁瀏覽（body 只帶 `page`，**僅 6 個里民端頁碼**；需 LINE ID Token，後端以 verify 的 `sub` 為準；同人同頁 5 分鐘內略過仍回成功） |
 | GET | `/api/admin/page-views` | 瀏覽紀錄統計（requireAdmin）：今日（台北）各頁次數 `today_counts`＋最近 50 筆「一次瀏覽」`sessions`〔同人相鄰 ≤30 分鐘合併；每筆含 name/phone〔報平安未退出→最近一筆反映→null〕/started_at/ended_at/views_count/last_page_code/views 明細；查詢濾掉 `admin_*` 舊紀錄；不回傳 line_user_id〕 |
+| GET | `/api/admin/friends` | 好友名單（requireAdmin），支援 `?q=` 搜尋姓名或電話（ilike 部分 match，去除 `(),%`）；回 `{ items, q }`（display_name/phone/joined_at/left_at/source，最多 500 筆 joined_at 新到舊；不回傳 line_user_id） |
 
 ### 排程任務 API（Cron）
 
@@ -582,6 +591,14 @@
   - **不寫管理員通知／不寄 Email／不進紅點**；底部 4 Tab 未動
   - **session 合併呈現（2026-10-09 同日追加）**：管理端清單改「一次瀏覽一列」——後端 `GET /api/admin/page-views` 撈最近 500 筆原始記錄，同人相鄰兩筆間隔 ≤30 分鐘合併為一個 session（`PAGE_VIEW_SESSION_GAP_MS`），取最新 50 個 session 回傳（含 `views` 明細）；今日次數維持各頁原始次數；兩端點列開詳情 modal（依時間列頁面）、關閉回清單；寫入（POST）與 5 分鐘去重未動
   - **停止記錄管理頁（2026-10-09 再追加）**：`PAGE_VIEW_CODES` 移除 `admin_home`/`admin_*` 五碼（POST 打了回 400），移除 requireAdmin 寫入分支；liff.html `switchTab()` 不再回報 admin tab；admin.html 移除 `trackAdminPageView()` 與進後台／切分頁的追蹤；GET 查詢（今日統計＋sessions）`.in('page_code', PAGE_VIEW_CODES)` 濾掉舊管理頁紀錄（DB 保留不刪）；今日次數卡兩端改 6 格里民端分頁
+- **官方帳號好友名單（2026-10-10：line_friends 表＋webhook follow/unfollow＋管理端兩處查看；里民端零改動）**
+  - **migration `011_line_friends.sql`（⚠️ 尚未於 Supabase 執行，需手動執行後功能才有資料）**：建 `line_friends` 表（line_user_id UNIQUE/display_name/phone/joined_at/left_at/source CHECK 兩值）＋listing 索引；四表（page_views/user_feedback/safety_members/event_rsvps）回補舊人——最早出現時間為 joined_at、姓名電話同瀏覽紀錄解析序（報平安未退出→最近一筆反映）、來源 `曾使用頁面`、`ON CONFLICT DO NOTHING` 冪等
+  - webhook（app.js `handleEvent` 開頭分流，`!lineClient` 檢查之前）：`follow` → `recordFriendFollow`（upsert onConflict line_user_id；getProfile 抓 displayName 失敗只 warn；重新加入清 left_at；payload 不帶 phone 保留舊值）；`unfollow` → `recordFriendUnfollow`（只填 left_at、僅對 left_at IS NULL 的列）；失敗只 log 不 500（LINE 會重送）
+  - API：`GET /api/admin/friends?q=`（requireAdmin；q 搜尋 display_name/phone ilike、sanitize `(),%`；最多 500 筆 joined_at 新到舊；不回 line_user_id）
+  - liff.html：盾牌第 7 張模組卡＋`adminFriendsView`（搜尋框 400ms debounce＋返回/更新鈕＋卡片列表：姓名/來源 badge/已退出 badge/電話/加入時間）；六個既有 switch 函式同步隱藏 friends view
+  - admin.html：第 6 個分頁「好友名單」＋表格（姓名 truncate/電話 tabular-nums/加入時間/來源 badge/狀態 badge；已退出列 opacity-60）＋搜尋 400ms debounce；`switchModule` 惰性載入（401→handleRelogin／403→denied 沿用既有模式）
+  - **LINE Developers 需確認設定**：Messaging API channel →「Messaging API 設定」→ Webhook URL 填 `https://zhengsha.vercel.app/webhook`＋開啟「Use webhook」；Vercel 環境變數需有 `LINE_CHANNEL_SECRET`（驗簽）與 `LINE_CHANNEL_ACCESS_TOKEN`（getProfile 抓名稱）
+  - **本期未做**：封鎖（block）事件、好友數統計、匯出
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

@@ -68,6 +68,9 @@
           <button type="button" data-module-tab="pageviews" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
             <i data-lucide="eye" class="h-4 w-4"></i><span>瀏覽紀錄</span>
           </button>
+          <button type="button" data-module-tab="friends" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="users" class="h-4 w-4"></i><span>好友名單</span>
+          </button>
         </nav>
         <div class="flex items-center gap-4">
           <div class="relative">
@@ -483,6 +486,47 @@
           </div>
         </section>
       </div><!-- /modulePageViews -->
+
+      <div id="moduleFriends" class="hidden">
+        <section id="friendsListView">
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <p class="text-sm text-slate-500">官方帳號好友與曾使用頁面的里民；可搜尋姓名或電話。</p>
+            <button id="friendsRefreshButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50">
+              <i data-lucide="refresh-cw" class="h-4 w-4"></i><span>更新</span>
+            </button>
+          </div>
+
+          <div class="mb-5">
+            <div class="relative">
+              <i data-lucide="search" class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+              <input
+                id="friendsSearchInput"
+                type="search"
+                inputmode="search"
+                placeholder="搜尋姓名或電話"
+                class="h-11 w-full max-w-md rounded-full border-0 bg-white pl-11 pr-4 text-base text-slate-800 shadow-sm ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+          </div>
+
+          <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+            <table class="w-full text-left text-base">
+              <thead>
+                <tr class="border-b border-slate-100 bg-slate-50/60 text-xs uppercase tracking-wide text-slate-400">
+                  <th class="px-6 py-4 font-semibold">姓名</th>
+                  <th class="px-6 py-4 font-semibold">電話</th>
+                  <th class="px-6 py-4 font-semibold">加入時間</th>
+                  <th class="px-6 py-4 font-semibold">來源</th>
+                  <th class="px-6 py-4 font-semibold">狀態</th>
+                </tr>
+              </thead>
+              <tbody id="friendsTableBody"></tbody>
+            </table>
+            <div id="friendsListEmpty" class="hidden px-6 py-20 text-center text-base text-slate-400">目前沒有好友</div>
+            <div id="friendsListLoading" class="hidden px-6 py-20 text-center text-base text-slate-400">載入中…</div>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 
@@ -653,6 +697,13 @@ const state = {
     loading: false,
     data: null, // { today, today_counts, recent }
   },
+  // 好友名單（僅查看）
+  friends: {
+    loaded: false,
+    loading: false,
+    items: [],
+    q: '',
+  },
 };
 
 const elements = {};
@@ -681,6 +732,7 @@ function cacheElements() {
     'bulletinCancelButton', 'bulletinDeleteButton', 'bulletinDeleteButtonText',
     'modulePageViews', 'pageViewsTodayGrid', 'pageViewsTableBody', 'pageViewsListEmpty', 'pageViewsListLoading', 'pageViewsRefreshButton',
     'pageViewsDetailModal', 'pageViewsDetailCloseButton', 'pageViewsDetailContainer',
+    'moduleFriends', 'friendsTableBody', 'friendsListEmpty', 'friendsListLoading', 'friendsRefreshButton', 'friendsSearchInput',
     'safetyListView', 'safetyTableBody', 'safetyListEmpty', 'safetyListLoading', 'safetyRefreshButton',
     'safetyDetailView', 'safetyBackButton', 'safetyMemberInfo', 'safetyCareTimeline', 'safetyCheckinList',
     'safetyCareCard', 'safetyCareMethodSelect', 'safetyCareNote', 'safetyCareNoteCount', 'safetyCareSaveButton',
@@ -1427,7 +1479,7 @@ const SAFETY_CARE_METHOD_STYLES = {
 };
 
 function switchModule(module) {
-  const target = module === 'safety' ? 'safety' : module === 'events' ? 'events' : module === 'bulletin' ? 'bulletin' : module === 'pageviews' ? 'pageviews' : 'feedback';
+  const target = module === 'safety' ? 'safety' : module === 'events' ? 'events' : module === 'bulletin' ? 'bulletin' : module === 'pageviews' ? 'pageviews' : module === 'friends' ? 'friends' : 'feedback';
   state.module = target;
   updateModuleTabs();
   elements.moduleFeedback.classList.toggle('hidden', target !== 'feedback');
@@ -1435,8 +1487,9 @@ function switchModule(module) {
   elements.moduleEvents.classList.toggle('hidden', target !== 'events');
   elements.moduleBulletin.classList.toggle('hidden', target !== 'bulletin');
   elements.modulePageViews.classList.toggle('hidden', target !== 'pageviews');
+  elements.moduleFriends.classList.toggle('hidden', target !== 'friends');
   window.scrollTo({ top: 0 });
-  // 進哪個模組才載哪個（報平安／行程／公布欄／瀏覽紀錄第一次切換才打 API）
+  // 進哪個模組才載哪個（報平安／行程／公布欄／瀏覽紀錄／好友名單第一次切換才打 API）
   if (target === 'safety' && !state.safety.loaded) {
     loadSafetyList();
   }
@@ -1448,6 +1501,9 @@ function switchModule(module) {
   }
   if (target === 'pageviews' && !state.pageviews.loaded) {
     loadPageViewsList();
+  }
+  if (target === 'friends' && !state.friends.loaded) {
+    loadFriendsList();
   }
 }
 
@@ -2235,6 +2291,85 @@ function closePageViewsDetail() {
   elements.pageViewsDetailModal.classList.remove('flex');
 }
 
+// ===== 好友名單（僅查看：姓名／電話／加入時間／來源／是否已退出，可搜尋） =====
+
+// 好友時間：YYYY/MM/DD HH:mm（台北 24 小時制）
+function formatFriendTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d).replace(',', '');
+}
+
+async function loadFriendsList() {
+  if (state.friends.loading) return;
+  state.friends.loading = true;
+  elements.friendsListLoading.classList.remove('hidden');
+  elements.friendsListEmpty.classList.add('hidden');
+
+  try {
+    const q = state.friends.q.trim();
+    const url = '/api/admin/friends' + (q ? `?q=${encodeURIComponent(q)}` : '');
+    const res = await authedFetch(url);
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    state.friends.items = (json.data && Array.isArray(json.data.items)) ? json.data.items : [];
+    state.friends.loaded = true;
+    renderFriendsTable();
+  } catch (err) {
+    console.error('loadFriendsList failed:', err);
+    state.friends.items = [];
+    renderFriendsTable();
+    showToast(err.message || '好友名單載入失敗');
+  } finally {
+    state.friends.loading = false;
+    elements.friendsListLoading.classList.add('hidden');
+  }
+}
+
+function renderFriendsTable() {
+  const items = state.friends.items;
+
+  elements.friendsTableBody.innerHTML = items.map((item) => {
+    const isJoined = item.source === '加入好友';
+    const hasLeft = Boolean(item.left_at);
+    const sourceBadge = isJoined
+      ? '<span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">加入好友</span>'
+      : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">曾使用頁面</span>';
+    const statusBadge = hasLeft
+      ? '<span class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 ring-1 ring-rose-200">已退出</span>'
+      : '<span class="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">使用中</span>';
+    return `
+    <tr class="border-b border-slate-50 ${hasLeft ? 'opacity-60' : ''}">
+      <td class="max-w-[12rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(item.display_name || '未留姓名')}">${escapeHtml(item.display_name || '未留姓名')}</td>
+      <td class="whitespace-nowrap px-6 py-4 text-base tabular-nums text-slate-700">${escapeHtml(item.phone || '未留電話')}</td>
+      <td class="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-slate-500">${formatFriendTime(item.joined_at)}</td>
+      <td class="px-6 py-4">${sourceBadge}</td>
+      <td class="px-6 py-4">${statusBadge}</td>
+    </tr>`;
+  }).join('');
+
+  if (state.friends.q.trim()) {
+    elements.friendsListEmpty.textContent = '找不到符合的好友';
+  } else {
+    elements.friendsListEmpty.textContent = '目前沒有好友';
+  }
+  elements.friendsListEmpty.classList.toggle('hidden', items.length > 0 || state.friends.loading);
+  renderIcons();
+}
+
 async function toggleBulletinFlag(id, field) {
   if (field !== 'is_published' && field !== 'is_pinned') return;
   const item = state.bulletin.items.find((b) => Number(b.id) === Number(id));
@@ -2655,6 +2790,18 @@ function bindEvents() {
   elements.pageViewsDetailCloseButton.addEventListener('click', closePageViewsDetail);
   elements.pageViewsDetailModal.addEventListener('click', (e) => {
     if (e.target === elements.pageViewsDetailModal) closePageViewsDetail();
+  });
+
+  // 好友名單：更新／搜尋（400ms debounce，同手機盾牌）
+  elements.friendsRefreshButton.addEventListener('click', () => loadFriendsList());
+  let friendsSearchTimer = null;
+  elements.friendsSearchInput.addEventListener('input', () => {
+    const value = elements.friendsSearchInput.value;
+    if (friendsSearchTimer) clearTimeout(friendsSearchTimer);
+    friendsSearchTimer = setTimeout(() => {
+      state.friends.q = value;
+      loadFriendsList();
+    }, 400);
   });
   elements.bulletinForm.addEventListener('submit', saveBulletin);
   elements.bulletinCancelButton.addEventListener('click', closeBulletinEditor);
