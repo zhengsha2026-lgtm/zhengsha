@@ -42,7 +42,8 @@
   <!-- ===== 主畫面：許願管理 ===== -->
   <div id="appScreen" class="hidden">
     <header class="sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur">
-      <div class="mx-auto flex max-w-[1280px] items-center justify-between px-8 py-5">
+      <div class="mx-auto max-w-[1280px] px-8">
+        <div class="flex items-center justify-between py-5">
         <div class="flex items-center gap-3.5">
           <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
             <i data-lucide="shield-check" class="h-6 w-6"></i>
@@ -52,26 +53,6 @@
             <p class="text-xs text-slate-400">電腦版 · 有事找里長 / 報平安</p>
           </div>
         </div>
-        <nav class="hidden items-center gap-1 rounded-full bg-slate-100/80 p-1 md:flex" aria-label="模組切換">
-          <button type="button" data-module-tab="feedback" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
-            <i data-lucide="message-square" class="h-4 w-4"></i><span>有事找里長</span>
-          </button>
-          <button type="button" data-module-tab="safety" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
-            <i data-lucide="heart-pulse" class="h-4 w-4"></i><span>報平安</span>
-          </button>
-          <button type="button" data-module-tab="events" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
-            <i data-lucide="calendar-days" class="h-4 w-4"></i><span>競選行程</span>
-          </button>
-          <button type="button" data-module-tab="bulletin" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
-            <i data-lucide="megaphone" class="h-4 w-4"></i><span>公布欄</span>
-          </button>
-          <button type="button" data-module-tab="pageviews" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
-            <i data-lucide="eye" class="h-4 w-4"></i><span>瀏覽紀錄</span>
-          </button>
-          <button type="button" data-module-tab="friends" class="module-tab inline-flex h-10 items-center gap-2 rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
-            <i data-lucide="users" class="h-4 w-4"></i><span>好友名單</span>
-          </button>
-        </nav>
         <div class="flex items-center gap-4">
           <div class="relative">
             <button id="notifyButton" type="button" aria-label="管理通知"
@@ -102,12 +83,33 @@
               <ul id="notifyList" class="mt-4 max-h-[24rem] space-y-2 overflow-y-auto"></ul>
             </div>
           </div>
-          <span id="adminNameLabel" class="hidden text-sm font-medium text-slate-500 sm:block"></span>
+          <span id="adminNameLabel" class="hidden max-w-[10rem] truncate text-sm font-medium text-slate-500 sm:block"></span>
           <button id="logoutButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
             <i data-lucide="log-out" class="h-4 w-4"></i>
             <span>登出</span>
           </button>
         </div>
+        </div>
+        <nav class="mb-5 flex flex-wrap gap-1 rounded-full bg-slate-100/80 p-1.5" aria-label="模組切換">
+          <button type="button" data-module-tab="feedback" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="message-square" class="h-4 w-4"></i><span>有事找里長</span>
+          </button>
+          <button type="button" data-module-tab="safety" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="heart-pulse" class="h-4 w-4"></i><span>報平安</span>
+          </button>
+          <button type="button" data-module-tab="events" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="calendar-days" class="h-4 w-4"></i><span>競選行程</span>
+          </button>
+          <button type="button" data-module-tab="bulletin" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="megaphone" class="h-4 w-4"></i><span>公布欄</span>
+          </button>
+          <button type="button" data-module-tab="pageviews" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="eye" class="h-4 w-4"></i><span>瀏覽紀錄</span>
+          </button>
+          <button type="button" data-module-tab="friends" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="users" class="h-4 w-4"></i><span>好友名單</span>
+          </button>
+        </nav>
       </div>
     </header>
 
@@ -2865,6 +2867,7 @@ async function bootstrap() {
     const profile = await liff.getProfile().catch(() => null);
     if (profile && profile.displayName) {
       elements.adminNameLabel.textContent = profile.displayName;
+      elements.adminNameLabel.title = profile.displayName;
       elements.adminNameLabel.classList.remove('hidden');
     }
   } catch (err) {
