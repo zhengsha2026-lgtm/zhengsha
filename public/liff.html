@@ -498,10 +498,10 @@
             <button
               id="closeAdminPageViewsDetailButton"
               type="button"
-              class="absolute right-4 top-4 rounded-full bg-white/75 p-2 text-slate-500 shadow-sm ring-1 ring-slate-200 transition hover:text-slate-900"
+              class="absolute right-4 top-4 z-10 rounded-full bg-white p-2.5 text-slate-700 shadow-md shadow-slate-900/10 ring-1 ring-slate-200 transition hover:text-slate-900 active:scale-95"
               aria-label="關閉瀏覽紀錄詳情"
             >
-              <i data-lucide="x" class="h-4 w-4"></i>
+              <i data-lucide="x" class="h-5 w-5"></i>
             </button>
           </div>
         </div>
@@ -7227,6 +7227,10 @@
       }
 
       // 瀏覽紀錄詳情：依時間列出這一輪看過的頁面
+      // 關閉動畫計時器＋返回鍵 pushState 記號（同核心政見的 sheet 行為）
+      let pvDetailCloseTimer = null;
+      let pvDetailHistoryPushed = false;
+
       function openAdminPageViewsDetail(index) {
         const data = state.admin.pageviews.data;
         const sessions = data && Array.isArray(data.sessions) ? data.sessions : [];
@@ -7257,17 +7261,67 @@
           </div>`;
 
         if (elements.adminPageViewsDetailModal) {
+          const wasHidden = elements.adminPageViewsDetailModal.classList.contains('hidden');
+          // 取消進行中的關閉動畫（收起中又點開另一筆：直接滑回定位）
+          let cancellingClose = false;
+          if (pvDetailCloseTimer) {
+            clearTimeout(pvDetailCloseTimer);
+            pvDetailCloseTimer = null;
+            elements.adminPageViewsDetailModal.classList.remove('platform-modal-closing');
+            cancellingClose = true;
+          }
           elements.adminPageViewsDetailModal.classList.remove('hidden');
           elements.adminPageViewsDetailModal.classList.add('flex');
+          if (wasHidden) {
+            // display:none → flex：先強制 reflow 讓起點樣式（遮罩透明、卡片在螢幕下緣）生效再升起
+            void elements.adminPageViewsDetailModal.offsetWidth;
+            elements.adminPageViewsDetailModal.classList.add('platform-modal-shown');
+          } else if (cancellingClose) {
+            elements.adminPageViewsDetailModal.classList.add('platform-modal-shown');
+          }
+          // 按硬體／瀏覽器返回鍵也能關（popstate 接手）
+          if (!pvDetailHistoryPushed) {
+            history.pushState({ pvDetail: true }, '');
+            pvDetailHistoryPushed = true;
+          }
         }
+        document.body.classList.add('overflow-hidden');
         renderIcons();
+      }
+
+      // 實際執行關閉動畫（380ms 後真正隱藏，同核心政見速度）
+      function doCloseAdminPageViewsDetail() {
+        if (!elements.adminPageViewsDetailModal || pvDetailCloseTimer) return;
+        if (elements.adminPageViewsDetailModal.classList.contains('hidden')) return;
+        elements.adminPageViewsDetailModal.classList.remove('platform-modal-shown');
+        elements.adminPageViewsDetailModal.classList.add('platform-modal-closing');
+        pvDetailCloseTimer = setTimeout(() => {
+          pvDetailCloseTimer = null;
+          elements.adminPageViewsDetailModal.classList.add('hidden');
+          elements.adminPageViewsDetailModal.classList.remove('flex', 'platform-modal-closing');
+          document.body.classList.remove('overflow-hidden');
+        }, 380);
       }
 
       function closeAdminPageViewsDetail() {
         if (!elements.adminPageViewsDetailModal) return;
-        elements.adminPageViewsDetailModal.classList.add('hidden');
-        elements.adminPageViewsDetailModal.classList.remove('flex');
+        if (pvDetailHistoryPushed) {
+          // pop 掉開啟時 push 的 state（避免下次按返回多跳一層）；
+          // 觸發的 popstate 會被關閉動畫計時器擋住，不會重複關閉
+          pvDetailHistoryPushed = false;
+          history.back();
+        }
+        doCloseAdminPageViewsDetail();
       }
+
+      // 返回鍵：詳情開著就關詳情（不離開頁面）
+      window.addEventListener('popstate', () => {
+        if (!elements.adminPageViewsDetailModal) return;
+        if (!elements.adminPageViewsDetailModal.classList.contains('hidden')) {
+          pvDetailHistoryPushed = false;
+          doCloseAdminPageViewsDetail();
+        }
+      });
 
       // 好友名單子頁切換（管理端，僅查看＋搜尋）
       function switchAdminFriendsView(options = {}) {
