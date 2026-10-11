@@ -605,6 +605,10 @@
   - 後端：共用 helper `buildFriendAvatarMap(userIds)` 撈 `line_friends.picture_url`（查詢失敗回空 Map 不影響主流程）；五個管理 API 附 `avatar` 欄位——feedback 列表/詳情、safety 列表/詳情、events 詳情 `rsvps`、page-views `sessions`、friends 列表（`avatar`=picture_url）
   - 前端兩端共用 `renderAvatarHtml(avatarUrl, rawName, sizeClass)`：有頭像用 `<img>`（referrerpolicy="no-referrer"），沒有用名字第一個字灰圓底（無名稱顯示 `?`）；顯示位置——有事找里長列表/詳情、報平安名單/詳情、行程報名名單、瀏覽紀錄列表/詳情、好友名單
   - **頭像來源限制**：僅 follow 事件寫入 line_friends 的人有頭像；舊資料/未加好友者顯示名字第一個字
+- **瀏覽紀錄訪客自動補進好友名單（2026-10-11；解決 LIFF 訪客「未留姓名」）**
+  - 問題：只開過頁面的訪客（沒加報平安、沒填有事找里長、也沒被 follow webhook 記到〔如 webhook 上線前就加好友、或「曾使用頁面」回補之後才首次瀏覽〕）在瀏覽紀錄三層姓名解析（報平安→有事找里長→line_friends）全落空，顯示「未留姓名」
+  - 後端 `POST /api/page-views`：寫入成功後呼叫 `capturePageViewVisitor(lineUserId, tokenPayload)` 把訪客補進 `line_friends`——名稱/頭像取自 LINE ID Token 驗證回應的 `name`/`picture`（後端已驗證）、來源「曾使用頁面」、`ON CONFLICT DO NOTHING`（不覆蓋 webhook「加入好友」既有列、不清 `left_at`）、失敗只 log 不影響瀏覽紀錄寫入
+  - 一次性回補：10/11 首位此情形訪客（U2f2e52f3…）已用 getProfile 資料手動補入 line_friends（joined_at=最早瀏覽時間），該筆瀏覽紀錄現可顯示「Lee Li❤曉莉」
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

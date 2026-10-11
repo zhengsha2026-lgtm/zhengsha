@@ -3833,6 +3833,9 @@ app.post('/api/page-views', async (req, res) => {
       });
     }
 
+    // 順手補好友名單（新訪客；既有列不覆蓋），失敗只 log 不影響瀏覽紀錄
+    await capturePageViewVisitor(identity.lineUserId, identity.tokenPayload);
+
     return res.json({
       success: true,
       message: '已記錄。',
@@ -6183,6 +6186,35 @@ async function recordFriendUnfollow(lineUserId) {
     if (error) console.error('friend unfollow update failed:', error);
   } catch (error) {
     console.error('recordFriendUnfollow failed:', error);
+  }
+}
+
+// 瀏覽紀錄寫入時順手補好友名單（新訪客首次出現時）
+//   - 名稱/頭像取自 ID Token 驗證回應的 name/picture（後端已驗證，非前端提供）
+//   - ON CONFLICT DO NOTHING：webhook「加入好友」既有列不覆蓋、left_at 不清、來源不動
+//   - 失敗只 log，不影響瀏覽紀錄寫入
+async function capturePageViewVisitor(lineUserId, tokenPayload) {
+  if (!lineUserId || !supabaseAdmin) return;
+  try {
+    const displayName = tokenPayload && typeof tokenPayload.name === 'string' && tokenPayload.name.trim()
+      ? tokenPayload.name.trim()
+      : null;
+    const pictureUrl = tokenPayload && typeof tokenPayload.picture === 'string' && tokenPayload.picture.trim()
+      ? tokenPayload.picture.trim()
+      : null;
+    const payload = {
+      line_user_id: lineUserId,
+      joined_at: new Date().toISOString(),
+      source: '曾使用頁面',
+    };
+    if (displayName) payload.display_name = displayName;
+    if (pictureUrl) payload.picture_url = pictureUrl;
+    const { error } = await supabaseAdmin
+      .from('line_friends')
+      .upsert(payload, { onConflict: 'line_user_id', ignoreDuplicates: true });
+    if (error) console.error('page view visitor capture failed:', error);
+  } catch (error) {
+    console.error('capturePageViewVisitor failed:', error);
   }
 }
 
