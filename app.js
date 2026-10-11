@@ -1881,6 +1881,27 @@ app.post('/api/admin/notifications/read-all', async (req, res) => {
   }
 });
 
+// 共用：撈 line_friends 的 LINE 頭像（picture_url），供管理端名稱前顯示頭像
+// 僅供顯示補充用途：查詢失敗（如表尚未建立）回空 Map，不影響各 API 主流程
+async function buildFriendAvatarMap(userIds) {
+  const map = new Map();
+  const ids = [...new Set((userIds || []).filter(Boolean))];
+  if (!supabaseAdmin || ids.length === 0) return map;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('line_friends')
+      .select('line_user_id, picture_url')
+      .in('line_user_id', ids);
+    if (error) throw error;
+    for (const row of (data || [])) {
+      if (row.picture_url) map.set(row.line_user_id, row.picture_url);
+    }
+  } catch (error) {
+    console.warn('line_friends avatar fetch failed:', error.message);
+  }
+  return map;
+}
+
 app.get('/api/admin/feedback', async (req, res) => {
   let identity;
   try {
@@ -1943,6 +1964,9 @@ app.get('/api/admin/feedback', async (req, res) => {
       });
     }
 
+    // 名稱前頭像：line_friends 的 LINE 頭像（失敗不影響列表）
+    const avatarMap = await buildFriendAvatarMap((data || []).map((row) => row.line_user_id));
+
     const items = (data || []).map((row) => ({
       id: row.id,
       created_at: row.created_at,
@@ -1956,6 +1980,7 @@ app.get('/api/admin/feedback', async (req, res) => {
       has_photos: Boolean(row.has_photos),
       excerpt: buildExcerpt(row.content, 80),
       reply_summary: row.reply_summary ? buildExcerpt(row.reply_summary, 120) : null,
+      avatar: avatarMap.get(row.line_user_id) || null,
     }));
 
     // 同時撈各狀態數量給前端顯示 chips
@@ -2127,6 +2152,9 @@ app.get('/api/admin/feedback/:id', async (req, res) => {
       changed_at: log.changed_at,
     }));
 
+    // 名稱前頭像：line_friends 的 LINE 頭像（失敗不影響詳情）
+    const avatarMap = await buildFriendAvatarMap([feedbackRow.line_user_id]);
+
     return res.json({
       success: true,
       data: {
@@ -2143,6 +2171,7 @@ app.get('/api/admin/feedback/:id', async (req, res) => {
         photo_count: Number(feedbackRow.photo_count) || 0,
         has_photos: Boolean(feedbackRow.has_photos),
         reply_summary: feedbackRow.reply_summary || null,
+        avatar: avatarMap.get(feedbackRow.line_user_id) || null,
         photos: signedPhotos,
         status_logs: statusLogs,
       },
@@ -3120,6 +3149,9 @@ app.get('/api/admin/events/:id', async (req, res) => {
         }
       }
 
+      // 名稱前頭像：line_friends 的 LINE 頭像（失敗不影響名單）
+      const avatarMap = await buildFriendAvatarMap(userIds);
+
       rsvps = (rsvpRows || []).map((row) => {
         const safety = safetyMap.get(row.line_user_id);
         const feedback = feedbackMap.get(row.line_user_id);
@@ -3127,6 +3159,7 @@ app.get('/api/admin/events/:id', async (req, res) => {
           line_user_id: row.line_user_id,
           display_name: (safety && safety.display_name) || (feedback && feedback.user_name) || null,
           phone: (safety && safety.phone) || (feedback && feedback.phone) || null,
+          avatar: avatarMap.get(row.line_user_id) || null,
           created_at: row.created_at,
         };
       });
@@ -3987,9 +4020,13 @@ app.get('/api/admin/page-views', async (req, res) => {
 
     sessions.sort((a, b) => new Date(b.ended_at).getTime() - new Date(a.ended_at).getTime());
 
+    // 名稱前頭像：line_friends 的 LINE 頭像（失敗不影響列表）
+    const avatarMap = await buildFriendAvatarMap([...byUser.keys()]);
+
     const topSessions = sessions.slice(0, 50).map((session) => ({
       name: nameMap.get(session.line_user_id) || '未留姓名',
       phone: phoneMap.get(session.line_user_id) || null,
+      avatar: avatarMap.get(session.line_user_id) || null,
       started_at: session.started_at,
       ended_at: session.ended_at,
       views_count: session.views.length,
@@ -4039,7 +4076,7 @@ app.get('/api/admin/friends', async (req, res) => {
 
     let query = supabaseAdmin
       .from('line_friends')
-      .select('display_name, phone, joined_at, left_at, source')
+      .select('display_name, phone, joined_at, left_at, source, picture_url')
       .order('joined_at', { ascending: false })
       .limit(500);
 
@@ -4059,7 +4096,7 @@ app.get('/api/admin/friends', async (req, res) => {
     return res.json({
       success: true,
       data: {
-        items: data || [],
+        items: (data || []).map((row) => ({ ...row, avatar: row.picture_url || null })),
         q: rawQuery,
       },
     });
@@ -4870,6 +4907,14 @@ app.get('/api/admin/safety', async (req, res) => {
       buildSafetyAdminItem(m, checkinsByMember.get(m.id) || [], latestCareByMember.get(m.id) || null)
     );
 
+    // 名稱前頭像：line_friends 的 LINE 頭像（失敗不影響名單）
+    const avatarMap = await buildFriendAvatarMap((members || []).map((m) => m.line_user_id));
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    for (const m of (members || [])) {
+      const item = itemById.get(m.id);
+      if (item) item.avatar = avatarMap.get(m.line_user_id) || null;
+    }
+
     // 排序：待審核最上（新申請在前）→ 待關懷（未簽天數多者在前）→ 其餘未簽 → 已簽
     items.sort((a, b) => {
       const aPending = a.approval_status === 'pending';
@@ -4982,10 +5027,14 @@ app.get('/api/admin/safety/:id', async (req, res) => {
           needs_care: false,
         };
 
+    // 名稱前頭像：line_friends 的 LINE 頭像（失敗不影響詳情）
+    const avatarMap = await buildFriendAvatarMap([memberRow.line_user_id]);
+
     return res.json({
       success: true,
       data: {
         ...summary,
+        avatar: avatarMap.get(memberRow.line_user_id) || null,
         is_active: isActive,
         left_at: memberRow.left_at || null,
         checkins: checkinRows,
@@ -6096,10 +6145,12 @@ async function recordFriendFollow(lineUserId) {
   if (!lineUserId || !supabaseAdmin) return;
   try {
     let displayName = null;
+    let pictureUrl = null;
     if (lineClient) {
       try {
         const profile = await lineClient.getProfile(lineUserId);
         displayName = profile && profile.displayName ? profile.displayName : null;
+        pictureUrl = profile && profile.pictureUrl ? profile.pictureUrl : null;
       } catch (profileError) {
         console.warn('friend follow profile fetch failed:', profileError.message);
       }
@@ -6111,6 +6162,7 @@ async function recordFriendFollow(lineUserId) {
       left_at: null, // 重新加入好友，清退出時間
     };
     if (displayName) payload.display_name = displayName;
+    if (pictureUrl) payload.picture_url = pictureUrl;
     const { error } = await supabaseAdmin
       .from('line_friends')
       .upsert(payload, { onConflict: 'line_user_id' });

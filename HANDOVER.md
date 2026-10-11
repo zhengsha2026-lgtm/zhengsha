@@ -274,9 +274,9 @@
 - `admin_notification_reads`：管理員通知已讀紀錄（`UNIQUE(notification_id, line_user_id)` 每人每則一筆、upsert `ignoreDuplicates` 冪等；`notification_id` FK CASCADE）
 - `bulletin_posts`：公布欄公告（`title` ≤100、`category` CHECK 五值：`緊急`/`垃圾回收`/`里務`/`補助申請`/`其他`、`summary` ≤300 選填、`content` ≤5000、`is_pinned` 置頂、`is_published` 上架、`expires_at` 到期日 NULL=永不過期〔過期里民端不顯示〕、`created_at`；里民端排序：置頂在前、建立時間新到舊）
 - `page_views`：瀏覽紀錄（`line_user_id` 後端 verify 的 sub、`page_code` CHECK 11 個頁面代碼、`created_at`；未登入不寫入；同人同頁 5 分鐘去重）
-- `line_friends`：官方帳號好友名單（`line_user_id` UNIQUE 一人一筆、`display_name`/`phone`、`joined_at` 加入時間、`left_at` 退出時間〔取消好友只填不刪〕、`source` CHECK：`加入好友`〔webhook follow〕/`曾使用頁面`〔舊資料回補〕；listing 索引 `(left_at, joined_at DESC)`）
+- `line_friends`：官方帳號好友名單（`line_user_id` UNIQUE 一人一筆、`display_name`/`phone`、`joined_at` 加入時間、`left_at` 退出時間〔取消好友只填不刪〕、`source` CHECK：`加入好友`〔webhook follow〕/`曾使用頁面`〔舊資料回補〕、`picture_url` LINE 頭像網址〔2026-10-11 加入，僅 follow 時寫入，舊資料 NULL〕；listing 索引 `(left_at, joined_at DESC)`）
 
-> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`、申請審核欄位詳見 `007_safety_approval.sql`（皆已於 Supabase 執行）；管理員通知兩張表詳見 `008_admin_notifications.sql`（已於 Supabase 執行）；公布欄詳見 `009_bulletin_posts.sql`（已於 Supabase 執行）；瀏覽紀錄詳見 `010_page_views.sql`（已於 Supabase 執行）；好友名單詳見 `011_line_friends.sql`（含四表舊資料回補，**尚未於 Supabase 執行，需手動執行後功能才有資料**）
+> 報平安 schema 詳見 `supabase/migrations/004_safety_schema.sql`、通知紀錄表詳見 `005_safety_notifications.sql`、暫停欄位詳見 `006_safety_snooze.sql`、申請審核欄位詳見 `007_safety_approval.sql`（皆已於 Supabase 執行）；管理員通知兩張表詳見 `008_admin_notifications.sql`（已於 Supabase 執行）；公布欄詳見 `009_bulletin_posts.sql`（已於 Supabase 執行）；瀏覽紀錄詳見 `010_page_views.sql`（已於 Supabase 執行）；好友名單詳見 `011_line_friends.sql`（含四表舊資料回補）、頭像欄位詳見 `012_line_friends_picture.sql`（**011/012 尚未於 Supabase 執行，需手動執行後功能才有資料**）
 
 ### 狀態值
 `已收到` / `處理中` / `已回覆` / `已結案`
@@ -599,6 +599,12 @@
   - admin.html：第 6 個分頁「好友名單」＋表格（姓名 truncate/電話 tabular-nums/加入時間/來源 badge/狀態 badge；已退出列 opacity-60）＋搜尋 400ms debounce；`switchModule` 惰性載入（401→handleRelogin／403→denied 沿用既有模式）
   - **LINE Developers 需確認設定**：Messaging API channel →「Messaging API 設定」→ Webhook URL 填 `https://zhengsha.vercel.app/webhook`＋開啟「Use webhook」；Vercel 環境變數需有 `LINE_CHANNEL_SECRET`（驗簽）與 `LINE_CHANNEL_ACCESS_TOKEN`（getProfile 抓名稱）
   - **本期未做**：封鎖（block）事件、好友數統計、匯出
+- **管理端名稱前 LINE 頭像（2026-10-11；follow 存 picture_url＋五個管理模組顯示頭像；里民端零改動）**
+  - **migration `012_line_friends_picture.sql`（⚠️ 尚未於 Supabase 執行）**：`line_friends` 加 `picture_url` text 欄位（冪等 ADD COLUMN IF NOT EXISTS）
+  - webhook follow：`recordFriendFollow` getProfile 一併取 `pictureUrl` 存入（失敗只 warn；不送則保留舊值）
+  - 後端：共用 helper `buildFriendAvatarMap(userIds)` 撈 `line_friends.picture_url`（查詢失敗回空 Map 不影響主流程）；五個管理 API 附 `avatar` 欄位——feedback 列表/詳情、safety 列表/詳情、events 詳情 `rsvps`、page-views `sessions`、friends 列表（`avatar`=picture_url）
+  - 前端兩端共用 `renderAvatarHtml(avatarUrl, rawName, sizeClass)`：有頭像用 `<img>`（referrerpolicy="no-referrer"），沒有用名字第一個字灰圓底（無名稱顯示 `?`）；顯示位置——有事找里長列表/詳情、報平安名單/詳情、行程報名名單、瀏覽紀錄列表/詳情、好友名單
+  - **頭像來源限制**：僅 follow 事件寫入 line_friends 的人有頭像；舊資料/未加好友者顯示名字第一個字
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

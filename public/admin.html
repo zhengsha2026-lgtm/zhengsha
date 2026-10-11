@@ -204,7 +204,10 @@
               <div class="mt-5 space-y-4 text-base">
                 <div class="flex items-center justify-between">
                   <span class="text-slate-400">姓名</span>
-                  <span id="detailUserName" class="font-semibold text-slate-800"></span>
+                  <span class="inline-flex items-center gap-2">
+                    <span id="detailUserAvatar" class="inline-flex"></span>
+                    <span id="detailUserName" class="font-semibold text-slate-800"></span>
+                  </span>
                 </div>
                 <div class="flex items-center justify-between">
                   <span class="text-slate-400">電話</span>
@@ -729,7 +732,7 @@ function cacheElements() {
     'pageInfo', 'prevPageButton', 'nextPageButton',
     'detailView', 'backButton',
     'detailId', 'detailStatusBadge', 'detailContent', 'detailPhotos', 'detailTimeline',
-    'detailUserName', 'detailPhone', 'detailCategory', 'detailCreatedAt',
+    'detailUserName', 'detailUserAvatar', 'detailPhone', 'detailCategory', 'detailCreatedAt',
     'statusSelect', 'replyTextarea', 'replyCharCount', 'saveButton',
     'deleteButton',
     'moduleFeedback', 'moduleSafety', 'moduleEvents', 'moduleBulletin',
@@ -785,6 +788,16 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// 管理端名稱前小圓頭像：有 LINE 頭像（line_friends.picture_url）用圖，沒有就用名字第一個字灰圓底
+function renderAvatarHtml(avatarUrl, rawName, sizeClass) {
+  const size = sizeClass || 'h-7 w-7';
+  if (avatarUrl) {
+    return `<img src="${escapeHtml(avatarUrl)}" alt="" class="${size} shrink-0 rounded-full object-cover ring-1 ring-slate-200" referrerpolicy="no-referrer" loading="lazy">`;
+  }
+  const firstChar = String(rawName || '').trim().charAt(0) || '?';
+  return `<span class="inline-flex ${size} shrink-0 items-center justify-center rounded-full bg-slate-200/90 text-xs font-bold text-slate-500">${escapeHtml(firstChar)}</span>`;
 }
 
 // ============================================================================
@@ -1245,7 +1258,12 @@ function renderList() {
     <tr class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40" data-open-detail="${item.id}">
       <td class="px-6 py-4 font-mono text-sm text-slate-400">#${item.id}</td>
       <td class="px-6 py-4">${statusBadgeHtml(item.status)}</td>
-      <td class="max-w-[12rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(item.user_name || '')}">${escapeHtml(item.user_name || '匿名')}</td>
+      <td class="max-w-[12rem] px-6 py-4">
+        <div class="flex items-center gap-2">
+          ${renderAvatarHtml(item.avatar, item.user_name || '匿名', 'h-7 w-7')}
+          <span class="min-w-0 truncate text-base font-semibold text-slate-800" title="${escapeHtml(item.user_name || '')}">${escapeHtml(item.user_name || '匿名')}</span>
+        </div>
+      </td>
       <td class="max-w-[26rem] truncate px-6 py-4 text-base text-slate-600">${escapeHtml((item.content || '').slice(0, 60))}</td>
       <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(item.category || '')}</td>
       <td class="px-6 py-4 text-sm text-slate-500">${item.photo_count > 0 ? `${item.photo_count} 張` : '—'}</td>
@@ -1324,6 +1342,7 @@ function renderDetail() {
 
   elements.detailContent.textContent = d.content || '（無內容）';
 
+  elements.detailUserAvatar.innerHTML = renderAvatarHtml(d.avatar, d.user_name || '匿名', 'h-7 w-7');
   elements.detailUserName.textContent = d.user_name || '匿名';
   elements.detailPhone.textContent = d.phone || '—';
   elements.detailCategory.textContent = d.category || '—';
@@ -1630,7 +1649,12 @@ function renderSafetyList() {
     const birthSuffix = isPending && item.birth_year ? ` <span class="text-xs text-slate-400">（${escapeHtml(String(item.birth_year))} 年生）</span>` : '';
     return `
       <tr class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40" data-open-safety="${item.id}">
-        <td class="max-w-[12rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(item.display_name || '')}">${escapeHtml(item.display_name || '未填稱呼')}${birthSuffix}</td>
+        <td class="max-w-[12rem] px-6 py-4">
+          <div class="flex items-center gap-2">
+            ${renderAvatarHtml(item.avatar, item.display_name || '未填稱呼', 'h-7 w-7')}
+            <span class="min-w-0 truncate text-base font-semibold text-slate-800" title="${escapeHtml(item.display_name || '')}">${escapeHtml(item.display_name || '未填稱呼')}${birthSuffix}</span>
+          </div>
+        </td>
         <td class="px-6 py-4"><div class="flex flex-wrap items-center gap-1.5">${safetyBadgeHtml(item)}${safetySnoozeChipHtml(item)}</div></td>
         <td class="px-6 py-4 text-base">${missingHtml}</td>
         <td class="whitespace-nowrap px-6 py-4 text-base text-slate-600">${item.phone ? escapeHtml(item.phone) : '<span class="text-slate-400">未填寫</span>'}</td>
@@ -1720,7 +1744,10 @@ function renderSafetyDetail() {
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">會員</p>
-        <h2 class="mt-1.5 text-2xl font-bold text-slate-900">${escapeHtml(d.display_name || '未填稱呼')}</h2>
+        <div class="mt-1.5 flex items-center gap-3">
+          ${renderAvatarHtml(d.avatar, d.display_name || '未填稱呼', 'h-10 w-10')}
+          <h2 class="text-2xl font-bold text-slate-900">${escapeHtml(d.display_name || '未填稱呼')}</h2>
+        </div>
       </div>
       <div class="flex shrink-0 flex-col items-end gap-1.5">
         ${safetyBadgeHtml(d)}
@@ -2267,7 +2294,12 @@ function renderPageViews() {
     return `
     <tr data-pageviews-session="${index}" class="cursor-pointer border-b border-slate-50 transition hover:bg-violet-50/40">
       <td class="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-slate-500">${formatPageViewTime(session.ended_at)}</td>
-      <td class="max-w-[14rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(session.name || '未留姓名')}">${escapeHtml(session.name || '未留姓名')}</td>
+      <td class="max-w-[12rem] px-6 py-4">
+          <div class="flex items-center gap-2">
+            ${renderAvatarHtml(session.avatar, session.name || '未留姓名', 'h-7 w-7')}
+            <span class="min-w-0 truncate text-base font-semibold text-slate-800" title="${escapeHtml(session.name || '')}">${escapeHtml(session.name || '未留姓名')}</span>
+          </div>
+        </td>
       <td class="px-6 py-4 text-base text-slate-700">${session.views_count} 頁</td>
       <td class="px-6 py-4 text-base text-slate-700">${escapeHtml(lastLabel)}</td>
     </tr>`;
@@ -2287,7 +2319,10 @@ function openPageViewsDetail(index) {
   const views = Array.isArray(session.views) ? session.views : [];
   elements.pageViewsDetailContainer.innerHTML = `
     <div>
-      <p class="text-lg font-bold text-slate-900">${escapeHtml(session.name || '未留姓名')}</p>
+      <div class="flex items-center gap-2.5">
+        ${renderAvatarHtml(session.avatar, session.name || '未留姓名', 'h-9 w-9')}
+        <p class="text-lg font-bold text-slate-900">${escapeHtml(session.name || '未留姓名')}</p>
+      </div>
       <p class="mt-1 text-base font-semibold tabular-nums text-slate-600">${escapeHtml(session.phone || '未留電話')}</p>
       <p class="mt-1 text-sm text-slate-500">
         ${formatPageViewTime(session.started_at)} ～ ${formatPageViewTime(session.ended_at)}｜共 ${session.views_count} 頁
@@ -2376,7 +2411,12 @@ function renderFriendsTable() {
       : '<span class="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">使用中</span>';
     return `
     <tr class="border-b border-slate-50 ${hasLeft ? 'opacity-60' : ''}">
-      <td class="max-w-[12rem] truncate px-6 py-4 text-base font-semibold text-slate-800" title="${escapeHtml(item.display_name || '未留姓名')}">${escapeHtml(item.display_name || '未留姓名')}</td>
+      <td class="max-w-[12rem] px-6 py-4">
+        <div class="flex items-center gap-2">
+          ${renderAvatarHtml(item.avatar || item.picture_url, item.display_name || '未留姓名', 'h-7 w-7')}
+          <span class="min-w-0 truncate text-base font-semibold text-slate-800" title="${escapeHtml(item.display_name || '未留姓名')}">${escapeHtml(item.display_name || '未留姓名')}</span>
+        </div>
+      </td>
       <td class="whitespace-nowrap px-6 py-4 text-base tabular-nums text-slate-700">${escapeHtml(item.phone || '未留電話')}</td>
       <td class="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-slate-500">${formatFriendTime(item.joined_at)}</td>
       <td class="px-6 py-4">${sourceBadge}</td>
@@ -2615,7 +2655,10 @@ function renderEventDetail() {
         ${rsvps.map((r) => `
           <li class="flex items-center justify-between gap-2 rounded-xl bg-slate-50/70 px-4 py-3 ring-1 ring-slate-200/70">
             <div class="min-w-0">
-              <p class="truncate text-base font-semibold text-slate-800">${escapeHtml(r.display_name || '未留姓名')}</p>
+              <div class="flex items-center gap-2">
+                ${renderAvatarHtml(r.avatar, r.display_name || '未留姓名', 'h-7 w-7')}
+                <p class="min-w-0 truncate text-base font-semibold text-slate-800">${escapeHtml(r.display_name || '未留姓名')}</p>
+              </div>
               <p class="mt-0.5 text-xs text-slate-400">報名於 ${formatEventDateTimeDisplay(r.created_at)}</p>
             </div>
             ${r.phone ? `
