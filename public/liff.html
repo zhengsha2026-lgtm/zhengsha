@@ -1814,6 +1814,24 @@
                       <i data-lucide="chevron-right" class="h-3 w-3"></i>
                     </span>
                   </button>
+
+                  <button
+                    type="button"
+                    data-admin-module="rich"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/50 p-5 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] active:scale-[0.995]"
+                  >
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                      <i data-lucide="zap" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-base font-semibold text-violet-950">動態回覆</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-500">
+                      維護圖文選單按鈕點擊後的聊天室回覆內容
+                    </p>
+                    <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
+                      <span>進入</span>
+                      <i data-lucide="chevron-right" class="h-3 w-3"></i>
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -2487,6 +2505,138 @@
                   <p id="adminFriendsEmptyText" class="mt-4 text-base font-semibold text-violet-950">目前沒有好友</p>
                 </div>
               </div>
+
+              <!-- 動態回覆（管理端）：圖文選單 postback 回覆內容維護 -->
+              <div id="adminRichListView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminRichListBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回管理首頁</span>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="adminRichCreateButton"
+                      class="inline-flex h-9 items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-500 active:scale-95"
+                    >
+                      <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+                      <span>新增</span>
+                    </button>
+                    <p class="text-sm font-semibold text-violet-950">動態回覆</p>
+                  </div>
+                </div>
+
+                <div id="adminRichListLoading" class="space-y-3">
+                  <div class="h-[92px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[92px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[92px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminRichListError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入動態回覆失敗</p>
+                  <p id="adminRichListErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    id="adminRichListRetryButton"
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminRichListContainer" class="space-y-2"></div>
+
+                <div id="adminRichListEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                    <i data-lucide="zap" class="h-6 w-6"></i>
+                  </div>
+                  <p class="mt-4 text-base font-semibold text-violet-950">目前沒有動態回覆內容</p>
+                  <p class="mt-2 text-xs leading-6 text-slate-500">點右上「新增」建立第一筆；里民點圖文選單按鈕時就會收到內容。</p>
+                </div>
+              </div>
+
+              <!-- 動態回覆編輯（管理端） -->
+              <div id="adminRichEditView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminRichEditBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回列表</span>
+                  </button>
+                  <p id="adminRichEditTitle" class="text-sm font-semibold text-violet-950">新增動態回覆</p>
+                </div>
+
+                <form id="adminRichForm" class="space-y-4">
+                  <div class="rounded-[1.5rem] border border-violet-100 bg-white p-5 shadow-input space-y-4">
+                    <div>
+                      <label for="adminRichType" class="text-sm font-semibold text-violet-950">類型代碼 <span class="text-rose-500">（必填）</span></label>
+                      <input
+                        id="adminRichType"
+                        type="text"
+                        list="adminRichTypeOptions"
+                        maxlength="50"
+                        placeholder="例如 garbage"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                      <datalist id="adminRichTypeOptions">
+                        <option value="garbage">垃圾車</option>
+                        <option value="outage">停水停電</option>
+                      </datalist>
+                      <p class="mt-2 text-xs leading-5 text-slate-400">對應圖文選單按鈕 Postback Data 的 type（例如 <code>type=garbage</code> 填 <code>garbage</code>）。</p>
+                    </div>
+                    <div>
+                      <label for="adminRichTitle" class="text-sm font-semibold text-violet-950">標題 <span class="text-slate-400">（選填）</span></label>
+                      <input
+                        id="adminRichTitle"
+                        type="text"
+                        maxlength="100"
+                        placeholder="回覆訊息的第一行"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                    </div>
+                    <div>
+                      <label for="adminRichContent" class="text-sm font-semibold text-violet-950">回覆內容 <span class="text-rose-500">（必填）</span></label>
+                      <textarea
+                        id="adminRichContent"
+                        rows="8"
+                        maxlength="2000"
+                        placeholder="里民點圖文選單按鈕後，聊天室收到的文字內容"
+                        class="mt-2 w-full rounded-2xl border-0 bg-white px-4 py-3 text-base leading-8 text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      ></textarea>
+                    </div>
+                    <label class="flex items-center justify-between gap-3 rounded-2xl bg-violet-50/50 px-4 py-3 text-sm font-medium text-slate-700">
+                      <span>啟用（停用中的內容不會回覆）</span>
+                      <input id="adminRichActive" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+                    </label>
+                  </div>
+
+                  <div class="space-y-2.5">
+                    <button
+                      type="submit"
+                      id="adminRichSubmitButton"
+                      class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-violet-600 text-base font-semibold text-white shadow-input transition hover:bg-violet-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <i data-lucide="check" class="h-4 w-4"></i>
+                      <span id="adminRichSubmitButtonText">儲存內容</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="adminRichDeleteButton"
+                      class="hidden h-12 w-full rounded-full bg-rose-50 text-base font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span id="adminRichDeleteButtonText">刪除內容</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </section>
         </section>
@@ -2813,6 +2963,18 @@
             items: [],
             q: '',
           },
+          rich: {
+            view: 'list', // list / edit
+            items: [],
+            loading: false,
+            error: null,
+            refreshedAt: null,
+            edit: {
+              id: null, // null = 新增
+              saving: false,
+              deleting: false,
+            },
+          },
         },
         wish: {
           view: 'form',
@@ -3102,6 +3264,27 @@
         adminFriendsListContainer: document.getElementById('adminFriendsListContainer'),
         adminFriendsEmpty: document.getElementById('adminFriendsEmpty'),
         adminFriendsEmptyText: document.getElementById('adminFriendsEmptyText'),
+        adminRichListView: document.getElementById('adminRichListView'),
+        adminRichEditView: document.getElementById('adminRichEditView'),
+        adminRichListBackButton: document.getElementById('adminRichListBackButton'),
+        adminRichCreateButton: document.getElementById('adminRichCreateButton'),
+        adminRichListLoading: document.getElementById('adminRichListLoading'),
+        adminRichListError: document.getElementById('adminRichListError'),
+        adminRichListErrorText: document.getElementById('adminRichListErrorText'),
+        adminRichListContainer: document.getElementById('adminRichListContainer'),
+        adminRichListEmpty: document.getElementById('adminRichListEmpty'),
+        adminRichListRetryButton: document.getElementById('adminRichListRetryButton'),
+        adminRichEditBackButton: document.getElementById('adminRichEditBackButton'),
+        adminRichEditTitle: document.getElementById('adminRichEditTitle'),
+        adminRichForm: document.getElementById('adminRichForm'),
+        adminRichType: document.getElementById('adminRichType'),
+        adminRichTitle: document.getElementById('adminRichTitle'),
+        adminRichContent: document.getElementById('adminRichContent'),
+        adminRichActive: document.getElementById('adminRichActive'),
+        adminRichSubmitButton: document.getElementById('adminRichSubmitButton'),
+        adminRichSubmitButtonText: document.getElementById('adminRichSubmitButtonText'),
+        adminRichDeleteButton: document.getElementById('adminRichDeleteButton'),
+        adminRichDeleteButtonText: document.getElementById('adminRichDeleteButtonText'),
         adminChipsRow: document.getElementById('adminChipsRow'),
         adminSearchInput: document.getElementById('adminSearchInput'),
         adminListLoading: document.getElementById('adminListLoading'),
@@ -3293,7 +3476,7 @@
           if (!params) return;
           if (!module) {
             const m = params.get('module');
-            if (m === 'feedback' || m === 'safety' || m === 'events' || m === 'bulletin') module = m;
+            if (m === 'feedback' || m === 'safety' || m === 'events' || m === 'bulletin' || m === 'rich') module = m;
           }
           if (!id) {
             const raw = Number(params.get('id'));
@@ -3374,6 +3557,8 @@
                   openAdminEventEdit(deep.id);
                 } else if (deep.module === 'bulletin') {
                   openAdminBulletinEdit(deep.id);
+                } else if (deep.module === 'rich') {
+                  openAdminRichEdit(deep.id);
                 }
               }
             }
@@ -3888,6 +4073,8 @@
               switchAdminPageViewsView({ autoload: true });
             } else if (module === 'friends') {
               switchAdminFriendsView({ autoload: true });
+            } else if (module === 'rich') {
+              switchAdminRichView('list', { autoload: true });
             }
           });
         }
@@ -4138,6 +4325,38 @@
         }
         if (elements.adminBulletinDeleteButton) {
           elements.adminBulletinDeleteButton.addEventListener('click', deleteAdminBulletin);
+        }
+        // 動態回覆事件（管理端）
+        if (elements.adminRichListBackButton) {
+          elements.adminRichListBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
+        if (elements.adminRichCreateButton) {
+          elements.adminRichCreateButton.addEventListener('click', () => openAdminRichEdit(null));
+        }
+        if (elements.adminRichListRetryButton) {
+          elements.adminRichListRetryButton.addEventListener('click', () => loadAdminRich({ force: true }));
+        }
+        if (elements.adminRichListContainer) {
+          elements.adminRichListContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-rich-action]');
+            if (!btn) return;
+            const id = Number(btn.dataset.richId);
+            if (!id) return;
+            if (btn.dataset.richAction === 'toggle') {
+              toggleAdminRichActive(id);
+            } else if (btn.dataset.richAction === 'edit') {
+              openAdminRichEdit(id);
+            }
+          });
+        }
+        if (elements.adminRichEditBackButton) {
+          elements.adminRichEditBackButton.addEventListener('click', () => switchAdminRichView('list'));
+        }
+        if (elements.adminRichForm) {
+          elements.adminRichForm.addEventListener('submit', saveAdminRich);
+        }
+        if (elements.adminRichDeleteButton) {
+          elements.adminRichDeleteButton.addEventListener('click', deleteAdminRich);
         }
         // 瀏覽紀錄事件（管理端，僅查看）
         if (elements.adminPageViewsBackButton) {
@@ -6901,6 +7120,8 @@
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
+        if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
+        if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
 
         if (
           targetView === 'list' &&
@@ -6933,6 +7154,8 @@
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
+        if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
+        if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
 
         if (elements.adminPlatformListView) {
           elements.adminPlatformListView.classList.toggle('hidden', targetView !== 'list');
@@ -6967,6 +7190,8 @@
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
+        if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
+        if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
 
         if (elements.adminEventListView) {
           elements.adminEventListView.classList.toggle('hidden', targetView !== 'list');
@@ -7001,6 +7226,8 @@
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
+        if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
+        if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
 
         if (elements.adminSafetyListView) {
           elements.adminSafetyListView.classList.toggle('hidden', targetView !== 'list');
@@ -7035,6 +7262,8 @@
         if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
+        if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
+        if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
 
         if (elements.adminBulletinListView) {
           elements.adminBulletinListView.classList.toggle('hidden', targetView !== 'list');
@@ -7067,6 +7296,8 @@
         if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
+        if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
+        if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
 
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.remove('hidden');
 
@@ -7338,6 +7569,8 @@
         if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
+        if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
+        if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
 
         if (elements.adminFriendsView) elements.adminFriendsView.classList.remove('hidden');
 
@@ -7731,6 +7964,320 @@
           state.admin.bulletin.edit.deleting = false;
           if (elements.adminBulletinDeleteButton) elements.adminBulletinDeleteButton.disabled = false;
           if (elements.adminBulletinDeleteButtonText) elements.adminBulletinDeleteButtonText.textContent = '刪除公告';
+        }
+      }
+
+      // ==========================================================================
+      // 動態回覆 — 管理端（rich_menu_contents：圖文選單 postback 回覆內容維護）
+      //   列表 → 新增／編輯（切換 view）；同一 type 回覆「啟用中且最新更新」一筆
+      // ==========================================================================
+
+      const RICH_TYPE_LABELS = { garbage: '垃圾車', outage: '停水停電' };
+
+      function getRichTypeLabel(type) {
+        return RICH_TYPE_LABELS[type] || type;
+      }
+
+      function switchAdminRichView(view, options = {}) {
+        const targetView = view === 'edit' ? 'edit' : 'list';
+        state.admin.rich.view = targetView;
+
+        // 先隱藏其他模組相關 view
+        if (elements.adminHomeView) elements.adminHomeView.classList.add('hidden');
+        if (elements.adminListView) elements.adminListView.classList.add('hidden');
+        if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
+        if (elements.adminPlatformListView) elements.adminPlatformListView.classList.add('hidden');
+        if (elements.adminPlatformEditView) elements.adminPlatformEditView.classList.add('hidden');
+        if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
+        if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
+        if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
+        if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
+        if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
+        if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
+        if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
+        if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
+
+        if (targetView === 'edit') {
+          if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
+          if (elements.adminRichEditView) elements.adminRichEditView.classList.remove('hidden');
+        } else {
+          if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
+          if (elements.adminRichListView) elements.adminRichListView.classList.remove('hidden');
+          if (
+            options.autoload === true ||
+            (!state.admin.rich.refreshedAt && !state.admin.rich.loading)
+          ) {
+            loadAdminRich({ force: options.autoload === true ? true : !state.admin.rich.refreshedAt });
+          }
+        }
+
+        const scrollContainer = document.scrollingElement || document.documentElement || document.body;
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+        renderIcons();
+      }
+
+      function setAdminRichListLoading(visible) {
+        if (elements.adminRichListLoading) {
+          elements.adminRichListLoading.classList.toggle('hidden', !visible);
+        }
+      }
+
+      function setAdminRichListError(message) {
+        if (!elements.adminRichListError) return;
+        if (message) {
+          if (elements.adminRichListErrorText) elements.adminRichListErrorText.textContent = message;
+          elements.adminRichListError.classList.remove('hidden');
+        } else {
+          elements.adminRichListError.classList.add('hidden');
+        }
+      }
+
+      async function loadAdminRich(options = {}) {
+        if (state.admin.rich.loading && options.force !== true) return;
+        state.admin.rich.loading = true;
+        state.admin.rich.error = null;
+        setAdminRichListLoading(true);
+        setAdminRichListError(null);
+        if (elements.adminRichListContainer) elements.adminRichListContainer.classList.add('hidden');
+        if (elements.adminRichListEmpty) elements.adminRichListEmpty.classList.add('hidden');
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            throw new Error('請透過 LINE 重新開啟管理功能。');
+          }
+          const res = await fetch('/api/admin/rich-contents', {
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            throw new Error((result && result.message) || `載入失敗（HTTP ${res.status}）`);
+          }
+          state.admin.rich.items = Array.isArray(result.items) ? result.items : [];
+          state.admin.rich.refreshedAt = Date.now();
+          renderAdminRichList();
+        } catch (err) {
+          console.error('loadAdminRich failed:', err);
+          state.admin.rich.error = err.message || '載入失敗';
+          state.admin.rich.items = [];
+          renderAdminRichList();
+          setAdminRichListError(state.admin.rich.error);
+        } finally {
+          state.admin.rich.loading = false;
+          setAdminRichListLoading(false);
+        }
+      }
+
+      function renderAdminRichList() {
+        if (!elements.adminRichListContainer) return;
+        const items = state.admin.rich.items || [];
+
+        if (elements.adminRichListEmpty) {
+          elements.adminRichListEmpty.classList.toggle('hidden', items.length > 0 || state.admin.rich.loading);
+        }
+        elements.adminRichListContainer.classList.toggle('hidden', items.length === 0);
+        elements.adminRichListContainer.innerHTML = items.map((item) => {
+          const active = item.is_active === true;
+          const summary = String(item.content || '').replace(/\s+/g, ' ').trim();
+          return `
+            <div class="rounded-[1.25rem] border border-violet-100 bg-white p-4 shadow-input ${active ? '' : 'opacity-60'}">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-100">${escapeHtml(getRichTypeLabel(item.type))}</span>
+                    <span class="text-[11px] tabular-nums text-slate-400">${escapeHtml(item.type)}</span>
+                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${active
+                      ? 'bg-emerald-50 text-emerald-600 ring-emerald-100'
+                      : 'bg-slate-100 text-slate-500 ring-slate-200'}">
+                      <i data-lucide="${active ? 'check' : 'pause'}" class="h-3 w-3"></i>${active ? '啟用中' : '已停用'}
+                    </span>
+                  </div>
+                  <p class="mt-2 truncate text-base font-semibold text-violet-950">${escapeHtml(item.title || '（無標題）')}</p>
+                  <p class="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">${escapeHtml(summary || '（無內容）')}</p>
+                  <p class="mt-2 text-[11px] tabular-nums text-slate-400">更新於 ${formatFriendTime(item.updated_at)}</p>
+                </div>
+              </div>
+              <div class="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  data-rich-action="toggle"
+                  data-rich-id="${item.id}"
+                  class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-semibold ring-1 transition active:scale-95 ${active
+                    ? 'bg-white text-slate-600 ring-slate-200'
+                    : 'bg-white text-emerald-600 ring-emerald-200'}"
+                >
+                  <i data-lucide="${active ? 'pause' : 'play'}" class="h-3.5 w-3.5"></i>
+                  <span>${active ? '停用' : '啟用'}</span>
+                </button>
+                <button
+                  type="button"
+                  data-rich-action="edit"
+                  data-rich-id="${item.id}"
+                  class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-white text-xs font-semibold text-slate-600 ring-1 ring-slate-200 transition active:scale-95"
+                >
+                  <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
+                  <span>編輯</span>
+                </button>
+              </div>
+            </div>`;
+        }).join('');
+
+        renderIcons();
+      }
+
+      function fillAdminRichForm(item) {
+        if (elements.adminRichType) elements.adminRichType.value = item ? String(item.type || '') : '';
+        if (elements.adminRichTitle) elements.adminRichTitle.value = item ? String(item.title || '') : '';
+        if (elements.adminRichContent) elements.adminRichContent.value = item ? String(item.content || '') : '';
+        if (elements.adminRichActive) elements.adminRichActive.checked = item ? item.is_active === true : true;
+      }
+
+      async function openAdminRichEdit(id) {
+        // 通知深連結可能在列表未載入時進來：先確保列表已載（有快取不打 API）
+        if (id != null && !state.admin.rich.refreshedAt && !state.admin.rich.loading) {
+          await loadAdminRich();
+        }
+
+        const item = id != null
+          ? (state.admin.rich.items || []).find((r) => Number(r.id) === Number(id))
+          : null;
+        if (id != null && !item) {
+          showToast('找不到這筆動態回覆，可能已被刪除。');
+          switchAdminRichView('list', { autoload: true });
+          return;
+        }
+        state.admin.rich.edit.id = item ? item.id : null;
+        fillAdminRichForm(item);
+        if (elements.adminRichEditTitle) {
+          elements.adminRichEditTitle.textContent = item ? '編輯動態回覆' : '新增動態回覆';
+        }
+        if (elements.adminRichDeleteButton) {
+          elements.adminRichDeleteButton.classList.toggle('hidden', !item);
+        }
+        switchAdminRichView('edit');
+        if (elements.adminRichType) elements.adminRichType.focus();
+      }
+
+      async function toggleAdminRichActive(id) {
+        const item = (state.admin.rich.items || []).find((r) => Number(r.id) === Number(id));
+        if (!item) return;
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/rich-contents/${item.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...buildAuthHeaders(tokenBundle),
+            },
+            body: JSON.stringify({ is_active: item.is_active !== true }),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '操作失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '已更新。');
+          await loadAdminRich({ force: true });
+        } catch (err) {
+          console.error('toggleAdminRichActive failed:', err);
+          showToast('操作失敗，請稍後再試。');
+        }
+      }
+
+      async function saveAdminRich(event) {
+        event.preventDefault();
+        if (state.admin.rich.edit.saving) return;
+
+        const type = String((elements.adminRichType && elements.adminRichType.value) || '').trim().toLowerCase();
+        const title = String((elements.adminRichTitle && elements.adminRichTitle.value) || '').trim();
+        const content = String((elements.adminRichContent && elements.adminRichContent.value) || '').trim();
+        if (!type) { showToast('請填寫類型代碼。'); return; }
+        if (!content) { showToast('請填寫回覆內容。'); return; }
+
+        state.admin.rich.edit.saving = true;
+        if (elements.adminRichSubmitButton) elements.adminRichSubmitButton.disabled = true;
+        if (elements.adminRichSubmitButtonText) elements.adminRichSubmitButtonText.textContent = '儲存中…';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const isEdit = state.admin.rich.edit.id != null;
+          const res = await fetch(isEdit
+            ? `/api/admin/rich-contents/${state.admin.rich.edit.id}`
+            : '/api/admin/rich-contents', {
+            method: isEdit ? 'PATCH' : 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...buildAuthHeaders(tokenBundle),
+            },
+            body: JSON.stringify({
+              type,
+              title,
+              content,
+              is_active: elements.adminRichActive ? elements.adminRichActive.checked : true,
+            }),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '儲存失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '動態回覆已儲存。');
+          state.admin.rich.edit.id = null;
+          await loadAdminRich({ force: true });
+          switchAdminRichView('list');
+        } catch (err) {
+          console.error('saveAdminRich failed:', err);
+          showToast('儲存失敗，請稍後再試。');
+        } finally {
+          state.admin.rich.edit.saving = false;
+          if (elements.adminRichSubmitButton) elements.adminRichSubmitButton.disabled = false;
+          if (elements.adminRichSubmitButtonText) elements.adminRichSubmitButtonText.textContent = '儲存內容';
+        }
+      }
+
+      async function deleteAdminRich() {
+        const id = state.admin.rich.edit.id;
+        if (id == null || state.admin.rich.edit.deleting) return;
+        if (!window.confirm('確定刪除這筆動態回覆？刪除後該類型若無其他啟用內容，將回覆「目前尚無最新公告」。')) return;
+
+        state.admin.rich.edit.deleting = true;
+        if (elements.adminRichDeleteButton) elements.adminRichDeleteButton.disabled = true;
+        if (elements.adminRichDeleteButtonText) elements.adminRichDeleteButtonText.textContent = '刪除中…';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/rich-contents/${id}`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '刪除失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '動態回覆已刪除。');
+          state.admin.rich.edit.id = null;
+          await loadAdminRich({ force: true });
+          switchAdminRichView('list');
+        } catch (err) {
+          console.error('deleteAdminRich failed:', err);
+          showToast('刪除失敗，請稍後再試。');
+        } finally {
+          state.admin.rich.edit.deleting = false;
+          if (elements.adminRichDeleteButton) elements.adminRichDeleteButton.disabled = false;
+          if (elements.adminRichDeleteButtonText) elements.adminRichDeleteButtonText.textContent = '刪除內容';
         }
       }
 

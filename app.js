@@ -3762,6 +3762,295 @@ app.delete('/api/admin/bulletin/:id', async (req, res) => {
 });
 
 // ============================================================================
+// 圖文選單動態回覆（rich_menu_contents）：管理端 CRUD
+//   type 正規化為小寫（圖文選單 Postback Data 的 type 兩邊要對得上）
+//   內容上限 2000 字（LINE 文字訊息上限）
+// ============================================================================
+
+const RICH_CONTENT_TYPE_MAX = 50;
+const RICH_CONTENT_TITLE_MAX = 100;
+const RICH_CONTENT_CONTENT_MAX = 2000;
+
+// 正規化 type：去空白、轉小寫
+function normalizeRichContentType(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+// POST 用：整包驗證
+function normalizeRichContentPayload(body) {
+  const type = normalizeRichContentType(body.type);
+  const content = String(body.content || '').trim();
+  if (!type) {
+    return { success: false, message: '請填寫類型代碼（例如 garbage）。' };
+  }
+  if (type.length > RICH_CONTENT_TYPE_MAX) {
+    return { success: false, message: `類型代碼限 ${RICH_CONTENT_TYPE_MAX} 字以內。` };
+  }
+  if (!content) {
+    return { success: false, message: '請填寫回覆內容。' };
+  }
+  if (content.length > RICH_CONTENT_CONTENT_MAX) {
+    return { success: false, message: `回覆內容限 ${RICH_CONTENT_CONTENT_MAX} 字以內。` };
+  }
+  const title = String(body.title || '').trim() || null;
+  if (title && title.length > RICH_CONTENT_TITLE_MAX) {
+    return { success: false, message: `標題限 ${RICH_CONTENT_TITLE_MAX} 字以內。` };
+  }
+  return {
+    success: true,
+    data: {
+      type,
+      title,
+      content,
+      is_active: body.is_active === false ? false : true,
+    },
+  };
+}
+
+// PATCH 用：部分更新（有帶的欄位才驗證；更新一律 bump updated_at）
+function buildRichContentUpdatePayload(body) {
+  const payload = {};
+  if (body.type !== undefined) {
+    const type = normalizeRichContentType(body.type);
+    if (!type) {
+      throw Object.assign(new Error('類型代碼不可空白。'), { status: 400 });
+    }
+    if (type.length > RICH_CONTENT_TYPE_MAX) {
+      throw Object.assign(new Error(`類型代碼限 ${RICH_CONTENT_TYPE_MAX} 字以內。`), { status: 400 });
+    }
+    payload.type = type;
+  }
+  if (body.title !== undefined) {
+    const title = String(body.title || '').trim() || null;
+    if (title && title.length > RICH_CONTENT_TITLE_MAX) {
+      throw Object.assign(new Error(`標題限 ${RICH_CONTENT_TITLE_MAX} 字以內。`), { status: 400 });
+    }
+    payload.title = title;
+  }
+  if (body.content !== undefined) {
+    const content = String(body.content || '').trim();
+    if (!content) {
+      throw Object.assign(new Error('回覆內容不可空白。'), { status: 400 });
+    }
+    if (content.length > RICH_CONTENT_CONTENT_MAX) {
+      throw Object.assign(new Error(`回覆內容限 ${RICH_CONTENT_CONTENT_MAX} 字以內。`), { status: 400 });
+    }
+    payload.content = content;
+  }
+  if (body.is_active !== undefined) {
+    payload.is_active = body.is_active === true;
+  }
+  return payload;
+}
+
+// 管理端：動態回覆全列表（含停用；同 type 最新在前）
+app.get('/api/admin/rich-contents', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: rows, error } = await supabaseAdmin
+      .from('rich_menu_contents')
+      .select('id, type, title, content, is_active, updated_at, created_at')
+      .order('type', { ascending: true })
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('admin rich contents list failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '動態回覆載入失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({ success: true, items: rows || [] });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin rich contents list failed:');
+  }
+});
+
+// 管理端：新增動態回覆
+app.post('/api/admin/rich-contents', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const normalized = normalizeRichContentPayload(req.body || {});
+    if (!normalized.success) {
+      return res.status(400).json({
+        success: false,
+        message: normalized.message,
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from('rich_menu_contents')
+      .insert(normalized.data)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('admin rich contents create failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '動態回覆建立失敗，請稍後再試。',
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: '動態回覆已建立。',
+      item: row,
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin rich contents create failed:');
+  }
+});
+
+// 管理端：編輯動態回覆（更新一律 bump updated_at，作為取最新的依據）
+app.patch('/api/admin/rich-contents/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const richId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(richId) || richId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '動態回覆編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from('rich_menu_contents')
+      .select('id')
+      .eq('id', richId)
+      .maybeSingle();
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆動態回覆。',
+      });
+    }
+
+    let payload;
+    try {
+      payload = buildRichContentUpdatePayload(req.body || {});
+    } catch (err) {
+      return res.status(err.status || 400).json({
+        success: false,
+        message: err.message || '資料格式不正確。',
+      });
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '沒有要更新的欄位。',
+      });
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from('rich_menu_contents')
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', richId)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('admin rich contents update failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '動態回覆更新失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: '動態回覆已更新。',
+      item: row,
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin rich contents update failed:');
+  }
+});
+
+// 管理端：刪除動態回覆
+app.delete('/api/admin/rich-contents/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+
+    const richId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(richId) || richId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: '動態回覆編號不正確。',
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Supabase Service Role 尚未設定。',
+      });
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from('rich_menu_contents')
+      .select('id')
+      .eq('id', richId)
+      .maybeSingle();
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: '找不到這筆動態回覆。',
+      });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('rich_menu_contents')
+      .delete()
+      .eq('id', richId);
+
+    if (error) {
+      console.error('admin rich contents delete failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: '動態回覆刪除失敗，請稍後再試。',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: '動態回覆已刪除。',
+      data: { id: richId },
+    });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin rich contents delete failed:');
+  }
+});
+
+// ============================================================================
 // 瀏覽紀錄（page_views）：誰、何時、進了哪個分頁
 // 規則：
 //   1. 必須帶 LINE ID Token，後端以 verify 的 sub 為準（沒登入不寫入）
@@ -6218,6 +6507,46 @@ async function capturePageViewVisitor(lineUserId, tokenPayload) {
   }
 }
 
+// ============================================================================
+// 圖文選單動態回覆（rich_menu_contents）
+//   postback.data 例如 type=garbage 或 action=latest&type=garbage
+//   → 查該 type「is_active = true 且 updated_at 最新」一筆，用 reply token 回文字
+//   查無資料回「目前尚無最新公告」；失敗只 log，不讓 webhook 500（LINE 會重送）
+// ============================================================================
+
+async function replyRichMenuPostback(event) {
+  const data = event.postback && event.postback.data ? String(event.postback.data) : '';
+  const type = normalizeRichContentType(new URLSearchParams(data).get('type'));
+  if (!type) return null; // 不是本功能的 postback（其他選單動作），靜默略過
+
+  let replyText = '目前尚無最新公告';
+  if (supabaseAdmin) {
+    const { data: row, error } = await supabaseAdmin
+      .from('rich_menu_contents')
+      .select('title, content')
+      .eq('type', type)
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error('rich menu content query failed:', error);
+    } else if (row) {
+      const content = String(row.content || '').trim();
+      const title = String(row.title || '').trim();
+      replyText = title ? `${title}\n${content}` : content;
+    }
+  }
+
+  // LINE 文字訊息上限 2000 字（標題＋內容組合後超過就截斷）
+  if (replyText.length > 2000) replyText = replyText.slice(0, 2000);
+
+  return lineClient.replyMessage({
+    replyToken: event.replyToken,
+    messages: [{ type: 'text', text: replyText }],
+  });
+}
+
 async function handleEvent(event) {
   // 好友名單：follow / unfollow 先落庫（不回訊息；失敗只 log）
   if (event.type === 'follow') {
@@ -6232,6 +6561,16 @@ async function handleEvent(event) {
   if (!lineClient) {
     console.warn('LINE credentials are not configured yet. Webhook event skipped.');
     return null;
+  }
+
+  // 圖文選單動態回覆：postback（失敗只 log，不影響其他事件）
+  if (event.type === 'postback') {
+    try {
+      return await replyRichMenuPostback(event);
+    } catch (error) {
+      console.error('rich menu postback failed:', error);
+      return null;
+    }
   }
 
   if (event.type !== 'message' || event.message.type !== 'text') {

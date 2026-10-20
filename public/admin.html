@@ -109,6 +109,9 @@
           <button type="button" data-module-tab="friends" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
             <i data-lucide="users" class="h-4 w-4"></i><span>好友名單</span>
           </button>
+          <button type="button" data-module-tab="rich" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="zap" class="h-4 w-4"></i><span>動態回覆</span>
+          </button>
         </nav>
       </div>
     </header>
@@ -539,6 +542,40 @@
           </div>
         </section>
       </div>
+
+      <!-- ===== 模組：動態回覆（圖文選單 postback 內容維護） ===== -->
+      <div id="moduleRich" class="hidden">
+        <section id="richListView">
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <p class="max-w-2xl text-sm leading-6 text-slate-500">圖文選單按鈕點擊後的聊天室回覆內容；里民點按鈕時，回覆該類型「啟用中且最新更新」的一筆。</p>
+            <div class="flex items-center gap-2.5">
+              <button id="richCreateButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-violet-600 px-5 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95">
+                <i data-lucide="plus" class="h-4 w-4"></i><span>新增內容</span>
+              </button>
+              <button id="richRefreshButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 active:scale-95">
+                <i data-lucide="refresh-cw" class="h-4 w-4"></i><span>更新</span>
+              </button>
+            </div>
+          </div>
+          <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-100 bg-slate-50/60 text-slate-500">
+                  <th class="px-6 py-4 font-semibold">類型</th>
+                  <th class="px-6 py-4 font-semibold">標題</th>
+                  <th class="px-6 py-4 font-semibold">內容摘要</th>
+                  <th class="px-6 py-4 font-semibold">狀態</th>
+                  <th class="px-6 py-4 font-semibold">更新時間</th>
+                  <th class="px-6 py-4 text-right font-semibold">操作</th>
+                </tr>
+              </thead>
+              <tbody id="richTableBody"></tbody>
+            </table>
+            <div id="richListEmpty" class="hidden px-6 py-20 text-center text-base text-slate-400">目前沒有動態回覆內容</div>
+            <div id="richListLoading" class="hidden px-6 py-20 text-center text-base text-slate-400">載入中…</div>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 
@@ -611,6 +648,64 @@
             </button>
             <button type="submit" id="bulletinSubmitButton" class="inline-flex h-11 items-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
               <i data-lucide="check" class="h-4 w-4"></i><span id="bulletinSubmitButtonText">儲存公告</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== 動態回覆新增／編輯 modal ===== -->
+  <div id="richModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/40 px-6 py-10">
+    <div class="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+      <div class="mb-6 flex items-center justify-between">
+        <h2 id="richModalTitle" class="text-xl font-bold text-slate-900">新增動態回覆</h2>
+        <button id="richModalCloseButton" type="button" class="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700" aria-label="關閉">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+
+      <form id="richForm" class="space-y-5">
+        <div>
+          <label for="richTypeInput" class="block text-sm font-semibold text-slate-700">類型代碼 <span class="text-violet-600">（必填）</span></label>
+          <input id="richTypeInput" type="text" list="richTypeDatalist" maxlength="50" placeholder="例如 garbage"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          <datalist id="richTypeDatalist">
+            <option value="garbage">垃圾車</option>
+            <option value="outage">停水停電</option>
+          </datalist>
+          <p class="mt-2 text-xs leading-5 text-slate-400">對應圖文選單按鈕 Postback Data 的 type（例如 <code>type=garbage</code> 填 <code>garbage</code>）；同一類型多筆時，回覆啟用中且最新更新的一筆。</p>
+        </div>
+
+        <div>
+          <label for="richTitleInput" class="block text-sm font-semibold text-slate-700">標題 <span class="text-slate-400">（選填）</span></label>
+          <input id="richTitleInput" type="text" maxlength="100" placeholder="回覆訊息的第一行"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+        </div>
+
+        <div>
+          <label for="richContentInput" class="block text-sm font-semibold text-slate-700">回覆內容 <span class="text-violet-600">（必填）</span></label>
+          <textarea id="richContentInput" rows="8" maxlength="2000" placeholder="里民點圖文選單按鈕後，聊天室收到的文字內容"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base leading-8 text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"></textarea>
+        </div>
+
+        <div class="rounded-xl border border-violet-100/60 bg-violet-50/30 p-5">
+          <label class="flex items-center justify-between gap-3 text-base font-medium text-slate-700">
+            <span>啟用（停用中的內容不會回覆）</span>
+            <input id="richActiveInput" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+          </label>
+        </div>
+
+        <div class="flex items-center justify-between gap-4 pt-2">
+          <button type="button" id="richDeleteButton" class="hidden inline-flex h-11 items-center gap-2 rounded-full bg-rose-50 px-5 text-sm font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+            <i data-lucide="trash-2" class="h-4 w-4"></i><span id="richDeleteButtonText">刪除內容</span>
+          </button>
+          <div class="ml-auto flex items-center gap-3">
+            <button type="button" id="richCancelButton" class="inline-flex h-11 items-center rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+              取消
+            </button>
+            <button type="submit" id="richSubmitButton" class="inline-flex h-11 items-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+              <i data-lucide="check" class="h-4 w-4"></i><span id="richSubmitButtonText">儲存內容</span>
             </button>
           </div>
         </div>
@@ -717,6 +812,16 @@ const state = {
     items: [],
     q: '',
   },
+  // 動態回覆（圖文選單 postback 內容維護）
+  rich: {
+    loaded: false,
+    loading: false,
+    items: [],
+    editId: null, // null = 新增
+    saving: false,
+    deleting: false,
+    modalOpen: false,
+  },
 };
 
 const elements = {};
@@ -746,6 +851,9 @@ function cacheElements() {
     'modulePageViews', 'pageViewsTodayGrid', 'pageViewsPeriodTabs', 'pageViewsTableBody', 'pageViewsListEmpty', 'pageViewsListLoading', 'pageViewsRefreshButton',
     'pageViewsDetailModal', 'pageViewsDetailCloseButton', 'pageViewsDetailContainer',
     'moduleFriends', 'friendsTableBody', 'friendsListEmpty', 'friendsListLoading', 'friendsRefreshButton', 'friendsSearchInput',
+    'moduleRich', 'richTableBody', 'richListEmpty', 'richListLoading', 'richCreateButton', 'richRefreshButton',
+    'richModal', 'richModalTitle', 'richModalCloseButton', 'richForm', 'richTypeInput', 'richTitleInput', 'richContentInput', 'richActiveInput',
+    'richSubmitButton', 'richSubmitButtonText', 'richCancelButton', 'richDeleteButton', 'richDeleteButtonText',
     'safetyListView', 'safetyTableBody', 'safetyListEmpty', 'safetyListLoading', 'safetyRefreshButton',
     'safetyDetailView', 'safetyBackButton', 'safetyMemberInfo', 'safetyCareTimeline', 'safetyCheckinList',
     'safetyCareCard', 'safetyCareMethodSelect', 'safetyCareNote', 'safetyCareNoteCount', 'safetyCareSaveButton',
@@ -842,7 +950,7 @@ function readAdminDeepLinkParams() {
     if (!params) return;
     if (!module) {
       const m = params.get('module');
-      if (m === 'feedback' || m === 'safety' || m === 'events' || m === 'bulletin') module = m;
+      if (m === 'feedback' || m === 'safety' || m === 'events' || m === 'bulletin' || m === 'rich') module = m;
     }
     if (!id) {
       const raw = Number(params.get('id'));
@@ -1508,7 +1616,7 @@ const SAFETY_CARE_METHOD_STYLES = {
 };
 
 function switchModule(module) {
-  const target = module === 'safety' ? 'safety' : module === 'events' ? 'events' : module === 'bulletin' ? 'bulletin' : module === 'pageviews' ? 'pageviews' : module === 'friends' ? 'friends' : 'feedback';
+  const target = module === 'safety' ? 'safety' : module === 'events' ? 'events' : module === 'bulletin' ? 'bulletin' : module === 'pageviews' ? 'pageviews' : module === 'friends' ? 'friends' : module === 'rich' ? 'rich' : 'feedback';
   state.module = target;
   updateModuleTabs();
   elements.moduleFeedback.classList.toggle('hidden', target !== 'feedback');
@@ -1517,8 +1625,9 @@ function switchModule(module) {
   elements.moduleBulletin.classList.toggle('hidden', target !== 'bulletin');
   elements.modulePageViews.classList.toggle('hidden', target !== 'pageviews');
   elements.moduleFriends.classList.toggle('hidden', target !== 'friends');
+  elements.moduleRich.classList.toggle('hidden', target !== 'rich');
   window.scrollTo({ top: 0 });
-  // 進哪個模組才載哪個（報平安／行程／公布欄／瀏覽紀錄／好友名單第一次切換才打 API）
+  // 進哪個模組才載哪個（報平安／行程／公布欄／瀏覽紀錄／好友名單／動態回覆第一次切換才打 API）
   if (target === 'safety' && !state.safety.loaded) {
     loadSafetyList();
   }
@@ -1533,6 +1642,9 @@ function switchModule(module) {
   }
   if (target === 'friends' && !state.friends.loaded) {
     loadFriendsList();
+  }
+  if (target === 'rich' && !state.rich.loaded) {
+    loadRichList();
   }
 }
 
@@ -2102,6 +2214,7 @@ function switchEventView(view) {
 // ============================================================================
 
 const BULLETIN_CATEGORIES = ['緊急', '垃圾回收', '里務', '補助申請', '其他'];
+const RICH_TYPE_LABELS = { garbage: '垃圾車', outage: '停水停電' };
 
 function bulletinCategoryBadgeHtml(category) {
   switch (category) {
@@ -2431,6 +2544,216 @@ function renderFriendsTable() {
   }
   elements.friendsListEmpty.classList.toggle('hidden', items.length > 0 || state.friends.loading);
   renderIcons();
+}
+
+// ============================================================================
+// 動態回覆模組（rich_menu_contents）：圖文選單 postback 回覆內容維護
+// - 列表依 type 分組、最新在前；同一 type 回覆「啟用中且最新更新」一筆
+// - 編輯／啟用切換都會 bump updated_at（後端行為），列表重抓後排序自然反映
+// ============================================================================
+
+function richTypeBadgeHtml(type) {
+  const label = RICH_TYPE_LABELS[type] || type;
+  return `
+    <div class="flex flex-col gap-1">
+      <span class="inline-flex w-fit items-center rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 ring-1 ring-violet-200">${escapeHtml(label)}</span>
+      <span class="text-xs tabular-nums text-slate-400">${escapeHtml(type)}</span>
+    </div>`;
+}
+
+async function loadRichList() {
+  if (state.rich.loading) return;
+  state.rich.loading = true;
+  elements.richListLoading.classList.remove('hidden');
+  elements.richListEmpty.classList.add('hidden');
+
+  try {
+    const res = await authedFetch('/api/admin/rich-contents');
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    state.rich.items = Array.isArray(json.items) ? json.items : [];
+    state.rich.loaded = true;
+    renderRichTable();
+  } catch (err) {
+    console.error('loadRichList failed:', err);
+    state.rich.items = [];
+    renderRichTable();
+    showToast(err.message || '動態回覆載入失敗');
+  } finally {
+    state.rich.loading = false;
+    elements.richListLoading.classList.add('hidden');
+  }
+}
+
+function renderRichTable() {
+  const items = state.rich.items;
+
+  elements.richTableBody.innerHTML = items.map((item) => {
+    const active = item.is_active === true;
+    const statusBadge = active
+      ? '<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200"><i data-lucide="check" class="h-3 w-3"></i>啟用中</span>'
+      : '<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200"><i data-lucide="pause" class="h-3 w-3"></i>已停用</span>';
+    const summary = String(item.content || '').replace(/\s+/g, ' ').trim();
+    return `
+    <tr class="border-b border-slate-50 ${active ? '' : 'opacity-60'}">
+      <td class="px-6 py-4">${richTypeBadgeHtml(item.type)}</td>
+      <td class="max-w-[10rem] px-6 py-4">
+        <span class="block truncate text-base font-semibold text-slate-800" title="${escapeHtml(item.title || '')}">${escapeHtml(item.title || '—')}</span>
+      </td>
+      <td class="max-w-[26rem] px-6 py-4">
+        <span class="block truncate text-base text-slate-600" title="${escapeHtml(item.content || '')}">${escapeHtml(summary || '—')}</span>
+      </td>
+      <td class="px-6 py-4">${statusBadge}</td>
+      <td class="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-slate-500">${formatFriendTime(item.updated_at)}</td>
+      <td class="px-6 py-4">
+        <div class="flex items-center justify-end gap-2">
+          <button type="button" data-rich-toggle="${item.id}" class="inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold ring-1 transition active:scale-95 ${active
+            ? 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
+            : 'bg-white text-emerald-600 ring-emerald-200 hover:bg-emerald-50'}">
+            <i data-lucide="${active ? 'pause' : 'play'}" class="h-3.5 w-3.5"></i><span>${active ? '停用' : '啟用'}</span>
+          </button>
+          <button type="button" data-rich-edit="${item.id}" class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 active:scale-95">
+            <i data-lucide="pencil" class="h-3.5 w-3.5"></i><span>編輯</span>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  elements.richListEmpty.classList.toggle('hidden', items.length > 0 || state.rich.loading);
+  renderIcons();
+}
+
+function fillRichForm(item) {
+  elements.richTypeInput.value = item ? String(item.type || '') : '';
+  elements.richTitleInput.value = item ? String(item.title || '') : '';
+  elements.richContentInput.value = item ? String(item.content || '') : '';
+  elements.richActiveInput.checked = item ? item.is_active === true : true;
+}
+
+async function openRichEditor(id) {
+  const item = id ? state.rich.items.find((r) => Number(r.id) === Number(id)) : null;
+  if (id && !item) {
+    showToast('找不到這筆動態回覆。');
+    return;
+  }
+  state.rich.editId = item ? item.id : null;
+  fillRichForm(item);
+  elements.richModalTitle.textContent = item ? '編輯動態回覆' : '新增動態回覆';
+  elements.richDeleteButton.classList.toggle('hidden', !item);
+  elements.richModal.classList.remove('hidden');
+  elements.richModal.classList.add('flex');
+  state.rich.modalOpen = true;
+  renderIcons();
+  elements.richTypeInput.focus();
+}
+
+function closeRichEditor() {
+  if (!state.rich.modalOpen) return;
+  state.rich.modalOpen = false;
+  elements.richModal.classList.add('hidden');
+  elements.richModal.classList.remove('flex');
+}
+
+function setRichBusy(busy) {
+  state.rich.saving = busy;
+  elements.richSubmitButton.disabled = busy;
+  elements.richSubmitButtonText.textContent = busy ? '儲存中…' : '儲存內容';
+}
+
+async function saveRich(event) {
+  event.preventDefault();
+  if (state.rich.saving) return;
+
+  const type = String(elements.richTypeInput.value || '').trim().toLowerCase();
+  const title = String(elements.richTitleInput.value || '').trim();
+  const content = String(elements.richContentInput.value || '').trim();
+  if (!type) { showToast('請填寫類型代碼。'); return; }
+  if (!content) { showToast('請填寫回覆內容。'); return; }
+
+  const payload = { type, title, content, is_active: elements.richActiveInput.checked };
+  setRichBusy(true);
+  try {
+    const isEdit = state.rich.editId != null;
+    const res = await authedFetch(isEdit
+      ? `/api/admin/rich-contents/${encodeURIComponent(state.rich.editId)}`
+      : '/api/admin/rich-contents', {
+      method: isEdit ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `儲存失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '動態回覆已儲存。');
+    closeRichEditor();
+    await loadRichList();
+  } catch (err) {
+    console.error('saveRich failed:', err);
+    showToast(err.message || '儲存失敗，請稍後再試');
+  } finally {
+    setRichBusy(false);
+  }
+}
+
+function setRichDeleting(busy) {
+  state.rich.deleting = busy;
+  elements.richDeleteButton.disabled = busy;
+  elements.richDeleteButtonText.textContent = busy ? '刪除中…' : '刪除內容';
+}
+
+async function deleteRich() {
+  if (state.rich.editId == null || state.rich.deleting) return;
+  if (!window.confirm('確定要刪除這筆動態回覆嗎？刪除後該類型若無其他啟用內容，將回覆「目前尚無最新公告」。')) return;
+
+  setRichDeleting(true);
+  try {
+    const res = await authedFetch(`/api/admin/rich-contents/${encodeURIComponent(state.rich.editId)}`, { method: 'DELETE' });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `刪除失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '動態回覆已刪除。');
+    closeRichEditor();
+    await loadRichList();
+  } catch (err) {
+    console.error('deleteRich failed:', err);
+    showToast(err.message || '刪除失敗，請稍後再試');
+  } finally {
+    setRichDeleting(false);
+  }
+}
+
+async function toggleRichActive(id) {
+  const item = state.rich.items.find((r) => Number(r.id) === Number(id));
+  if (!item) return;
+  try {
+    const res = await authedFetch(`/api/admin/rich-contents/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: item.is_active !== true }),
+    });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `操作失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '已更新。');
+    await loadRichList();
+  } catch (err) {
+    console.error('toggleRichActive failed:', err);
+    showToast(err.message || '操作失敗');
+  }
 }
 
 async function toggleBulletinFlag(id, field) {
@@ -2878,6 +3201,33 @@ function bindEvents() {
       loadFriendsList();
     }, 400);
   });
+
+  // 動態回覆：更新／新增／列表操作（啟用切換、編輯）／modal
+  elements.richRefreshButton.addEventListener('click', () => loadRichList());
+  elements.richCreateButton.addEventListener('click', () => openRichEditor(null));
+  elements.richTableBody.addEventListener('click', (e) => {
+    const toggleBtn = e.target.closest('[data-rich-toggle]');
+    if (toggleBtn) {
+      toggleRichActive(Number(toggleBtn.dataset.richToggle));
+      return;
+    }
+    const editBtn = e.target.closest('[data-rich-edit]');
+    if (editBtn) {
+      openRichEditor(Number(editBtn.dataset.richEdit));
+    }
+  });
+  elements.richForm.addEventListener('submit', saveRich);
+  elements.richCancelButton.addEventListener('click', closeRichEditor);
+  elements.richModalCloseButton.addEventListener('click', closeRichEditor);
+  elements.richDeleteButton.addEventListener('click', deleteRich);
+  elements.richModal.addEventListener('click', (e) => {
+    if (e.target === elements.richModal) closeRichEditor();
+  });
+  // Esc 關閉 modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state.rich.modalOpen) closeRichEditor();
+  });
+
   elements.bulletinForm.addEventListener('submit', saveBulletin);
   elements.bulletinCancelButton.addEventListener('click', closeBulletinEditor);
   elements.bulletinModalCloseButton.addEventListener('click', closeBulletinEditor);
