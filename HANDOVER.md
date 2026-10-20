@@ -611,12 +611,19 @@
   - 一次性回補：10/11 首位此情形訪客（U2f2e52f3…）已用 getProfile 資料手動補入 line_friends（joined_at=最早瀏覽時間），該筆瀏覽紀錄現可顯示「Lee Li❤曉莉」
 - **圖文選單動態回覆（2026-10-20：rich_menu_contents 表＋webhook 關鍵字＋管理端「動態回覆」模組；里民端零改動）**
   - **migration `013_rich_menu_contents.sql`（✅ 已於 Supabase 執行）**：建 `rich_menu_contents` 表（id bigserial PK/type text〔存小寫〕/title text 可空/content text/is_active bool 預設 true/updated_at timestamptz 取最新用/created_at）＋索引 `(type, is_active, updated_at DESC)`；同一 type 可多筆，查詢取 `is_active=true` 且 `updated_at` 最新一筆
-  - webhook（app.js `handleEvent` message 分支，關鍵字比對前已 trim）：文字訊息完全等於 `垃圾車` → `type='garbage'`、`停水停電` → `type='outage'`（映射表 `RICH_MENU_KEYWORD_TYPES`，之後加新關鍵字加這裡）；命中 → `buildRichMenuReplyText` 查最新啟用一筆 → 有資料回「標題\n內容」（無標題只回內容；組合後 >2000 字截斷），查無回「目前尚無最新公告」；整段 `return await`＋try/catch，失敗只 log 不 500（不影響 ping/表單/許願池等其他關鍵字與 fallback）；舊 postback 路徑（`replyRichMenuPostback`：解析 `postback.data` 的 type）保留相容但不會被觸發
+  - webhook（app.js `handleEvent` message 分支，關鍵字比對前已 trim）：文字訊息完全等於 `停水停電` → `type='outage'`（映射表 `RICH_MENU_KEYWORD_TYPES`，之後加新關鍵字加這裡；`垃圾車` 已於 2026-10-20 移出此映射、改走下方「垃圾車查詢」路段流程）；命中 → `buildRichMenuReplyText` 查最新啟用一筆 → 有資料回「標題\n內容」（無標題只回內容；組合後 >2000 字截斷），查無回「目前尚無最新公告」；整段 `return await`＋try/catch，失敗只 log 不 500（不影響 ping/表單/許願池等其他關鍵字與 fallback）；舊 postback 路徑（`replyRichMenuPostback`：解析 `postback.data` 的 type）保留相容但不會被觸發
   - 管理 API（requireAdmin，type 一律 normalize 成小寫）：`GET /api/admin/rich-contents`（全列表含停用，type 升序→updated_at 降序）、`POST`（驗證：type ≤50 字必填、content ≤2000 字必填、title ≤100 字選填；is_active 預設 true）、`PATCH /:id`（部分更新；任何更新一律 bump updated_at——作為「取最新」依據，編輯舊內容會讓它變成回覆的那筆）、`DELETE /:id`（404 檢查沿用 bulletin 模式）
   - admin.html：第 7 個分頁「動態回覆」（zap 圖示）＋表格（類型 badge+代碼/標題/內容摘要 truncate max-w-[26rem]/啟用 badge/更新時間/操作=啟用停用+編輯）＋modal 表單（type 用 input+datalist 下拉建議 garbage/outage 可自由輸入；content textarea maxlength 2000；is_active checkbox；編輯模式顯示刪除鈕 window.confirm）；深連結 `?module=rich` 已加入白名單；`switchModule` 惰性載入
   - liff.html 手機盾牌：管理首頁第 8 張模組卡＋`adminRichListView`（卡片列表：類型/代碼/啟用 badge/標題/摘要 line-clamp-2/更新時間/啟用+編輯按鈕）＋`adminRichEditView`（同 admin.html 欄位）；七個既有 switch 函式同步隱藏 rich views；深連結 `?tab=admin&module=rich&id=…` 進編輯（openAdminRichEdit 先確保列表已載）
   - **LINE Official Account Manager（✅ 已由使用者設定）**：圖文選單按鈕動作用「文字」——垃圾車按鈕內容填 `垃圾車`、停水停電按鈕內容填 `停水停電`（使用者點按鈕 → 聊天室送出該文字 → webhook 依關鍵字回覆最新內容）
   - **本期未做**：Flex Message、開 LIFF、主動推播（僅點選單時回覆）
+- **垃圾車查詢第一期（2026-10-20：手動選路段；`垃圾車` 關鍵字從 rich_menu_contents 映射移除、改走本流程）**
+  - **migration `014_garbage.sql`（⚠️ 尚未於 Supabase 執行，需手動執行後功能才有資料；冪等可重跑）**：三張表——`garbage_routes`（id/name/sort_order/is_active/updated_at）、`garbage_schedules`（route_id FK CASCADE、day_of_week 0=週日…6=週六、time_text、location_text、note、is_active；`UNIQUE(route_id, day_of_week)` 一路段每天一筆）、`garbage_special_dates`（route_id FK CASCADE、special_date 台北日期、time_text/location_text/note 皆可空〔如「春節暫停」只填 note〕、is_active；`UNIQUE(route_id, special_date)`）＋三個索引
+  - webhook（app.js message 分支，在 rich 關鍵字之前）：文字完全等於 `垃圾車` → 查啟用路段（sort_order 排序）→ Quick Reply「請選擇路段」（每路段一顆按鈕，text=`垃圾車|{路段ID}`；LINE 上限 13 顆，超過退回純文字列表）；無路段回「目前尚無路段資料」。文字符合 `垃圾車|{數字}` → 查該路段今天（台北時區 `getTaipeiToday`）的特殊日期（優先）→ 沒有則查 `day_of_week` 固定時間表 → 回「{路段名稱}\n時間：{time_text}\n地點：{location_text}\n{note 有才顯示}」；無資料回「今天該路段無垃圾車」；查無路段回「查無此路段，請重新選擇」；整段 try/catch 失敗只 log 不 500
+  - 管理 API（requireAdmin）：路段 `GET/POST /api/admin/garbage/routes`、`PATCH/DELETE /:id`（cascade 刪時間表＋特殊日期）、`POST /:id/move`（body direction up/down，交換 sort_order）；時間表 `GET/PUT /api/admin/garbage/routes/:id/schedules`（PUT 批次 upsert 整週七天 `onConflict 'route_id,day_of_week'`，沒送到的天數刪除）；特殊日期 `GET/POST /api/admin/garbage/special-dates?routeId=`、`PATCH/DELETE /:id`（23505 unique 衝突回 409）
+  - admin.html：第 8 個分頁「垃圾車」（truck 圖示）——路段表格（上移/下移排序、名稱、啟用 badge、操作=啟用停用＋本週時間＋特殊日期＋編輯）＋三個 modal（路段編輯含刪除、時間表一次編輯七天卡片、特殊日期列表＋表單同一 modal）；深連結 `?module=garbage`；惰性載入
+  - liff.html 手機盾牌：管理首頁第 9 張模組卡「垃圾車時間」＋五個視圖（list 路段列表/routeEdit/schedule 七天卡片/specialList/specialEdit），`switchAdminGarbageView` 切換；深連結 `?tab=admin&module=garbage&id=…` 進路段編輯
+  - **未做**：定位、圖文選單設定（垃圾車按鈕已送文字 `垃圾車`，新邏輯直接攔）、`停水停電` 關鍵字維持 rich 流程不動
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

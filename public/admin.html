@@ -112,6 +112,9 @@
           <button type="button" data-module-tab="rich" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
             <i data-lucide="zap" class="h-4 w-4"></i><span>動態回覆</span>
           </button>
+          <button type="button" data-module-tab="garbage" class="module-tab inline-flex h-10 flex-auto items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-semibold text-slate-500 transition hover:text-slate-700">
+            <i data-lucide="truck" class="h-4 w-4"></i><span>垃圾車</span>
+          </button>
         </nav>
       </div>
     </header>
@@ -576,6 +579,39 @@
           </div>
         </section>
       </div>
+
+      <!-- ===== 模組：垃圾車 ===== -->
+      <div id="moduleGarbage" class="hidden">
+        <section id="garbageListView">
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <p class="max-w-2xl text-sm leading-6 text-slate-500">里民傳「垃圾車」或點圖文選單後，先選路段再收到該路段今天的時間地點；特殊日期（例如春節暫停）優先於固定時間表。</p>
+            <div class="flex items-center gap-2.5">
+              <button id="garbageCreateButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-violet-600 px-5 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95">
+                <i data-lucide="plus" class="h-4 w-4"></i><span>新增路段</span>
+              </button>
+              <button id="garbageRefreshButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 active:scale-95">
+                <i data-lucide="refresh-cw" class="h-4 w-4"></i><span>更新</span>
+              </button>
+            </div>
+          </div>
+          <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-100 bg-slate-50/60 text-slate-500">
+                  <th class="px-6 py-4 font-semibold">排序</th>
+                  <th class="px-6 py-4 font-semibold">路段名稱</th>
+                  <th class="px-6 py-4 font-semibold">狀態</th>
+                  <th class="px-6 py-4 font-semibold">更新時間</th>
+                  <th class="px-6 py-4 text-right font-semibold">操作</th>
+                </tr>
+              </thead>
+              <tbody id="garbageTableBody"></tbody>
+            </table>
+            <div id="garbageListEmpty" class="hidden px-6 py-20 text-center text-base text-slate-400">目前沒有路段資料</div>
+            <div id="garbageListLoading" class="hidden px-6 py-20 text-center text-base text-slate-400">載入中…</div>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 
@@ -713,6 +749,145 @@
     </div>
   </div>
 
+  <!-- ===== 垃圾車：路段新增／編輯 modal ===== -->
+  <div id="garbageRouteModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/40 px-6 py-10">
+    <div class="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+      <div class="mb-6 flex items-center justify-between">
+        <h2 id="garbageRouteModalTitle" class="text-xl font-bold text-slate-900">新增路段</h2>
+        <button id="garbageRouteModalCloseButton" type="button" class="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700" aria-label="關閉">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+
+      <form id="garbageRouteForm" class="space-y-5">
+        <div>
+          <label for="garbageRouteNameInput" class="block text-sm font-semibold text-slate-700">路段名稱 <span class="text-violet-600">（必填）</span></label>
+          <input id="garbageRouteNameInput" type="text" maxlength="50" placeholder="例如：正砂路"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          <p class="mt-2 text-xs leading-5 text-slate-400">里民傳「垃圾車」後會出現路段按鈕；名稱即按鈕文字（上限 20 字顯示）。</p>
+        </div>
+
+        <label class="flex items-center justify-between gap-3 rounded-xl border border-violet-100/60 bg-violet-50/30 px-5 py-4 text-base font-medium text-slate-700">
+          <span>啟用（停用中的路段不出現在選單）</span>
+          <input id="garbageRouteActiveInput" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+        </label>
+
+        <div class="flex items-center justify-between gap-4 pt-2">
+          <button type="button" id="garbageRouteDeleteButton" class="hidden inline-flex h-11 items-center gap-2 rounded-full bg-rose-50 px-5 text-sm font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+            <i data-lucide="trash-2" class="h-4 w-4"></i><span id="garbageRouteDeleteButtonText">刪除路段</span>
+          </button>
+          <div class="ml-auto flex items-center gap-3">
+            <button type="button" id="garbageRouteCancelButton" class="inline-flex h-11 items-center rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+              取消
+            </button>
+            <button type="submit" id="garbageRouteSubmitButton" class="inline-flex h-11 items-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+              <i data-lucide="check" class="h-4 w-4"></i><span id="garbageRouteSubmitButtonText">儲存路段</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== 垃圾車：固定時間表 modal（一週七天批次） ===== -->
+  <div id="garbageScheduleModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/40 px-6 py-10">
+    <div class="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+      <div class="mb-2 flex items-center justify-between">
+        <h2 id="garbageScheduleModalTitle" class="text-xl font-bold text-slate-900">固定時間表</h2>
+        <button id="garbageScheduleModalCloseButton" type="button" class="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700" aria-label="關閉">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+      <p class="mb-6 text-sm leading-6 text-slate-500">一週七天的固定時間；勾選「啟用」的天才會回覆。特殊日期（例如春節暫停）設定後會優先於這裡。</p>
+
+      <form id="garbageScheduleForm" class="space-y-4">
+        <div id="garbageScheduleRows" class="space-y-3"></div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button type="button" id="garbageScheduleCancelButton" class="inline-flex h-11 items-center rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+            取消
+          </button>
+          <button type="submit" id="garbageScheduleSubmitButton" class="inline-flex h-11 items-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+            <i data-lucide="check" class="h-4 w-4"></i><span id="garbageScheduleSubmitButtonText">儲存整週時間表</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== 垃圾車：特殊日期 modal ===== -->
+  <div id="garbageSpecialModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/40 px-6 py-10">
+    <div class="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+      <div class="mb-2 flex items-center justify-between">
+        <h2 id="garbageSpecialModalTitle" class="text-xl font-bold text-slate-900">特殊日期</h2>
+        <button id="garbageSpecialModalCloseButton" type="button" class="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700" aria-label="關閉">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+      <p class="mb-6 text-sm leading-6 text-slate-500">特定日期的例外安排（過年、連假等），當天優先於固定時間表；時間地點可留空，只填備註（例如「春節暫停」）。</p>
+
+      <div class="overflow-hidden rounded-2xl border border-slate-200/70">
+        <table class="w-full text-left text-sm">
+          <thead>
+            <tr class="border-b border-slate-100 bg-slate-50/60 text-slate-500">
+              <th class="px-4 py-3 font-semibold">日期</th>
+              <th class="px-4 py-3 font-semibold">時間</th>
+              <th class="px-4 py-3 font-semibold">地點</th>
+              <th class="px-4 py-3 font-semibold">備註</th>
+              <th class="px-4 py-3 font-semibold">狀態</th>
+              <th class="px-4 py-3 text-right font-semibold">操作</th>
+            </tr>
+          </thead>
+          <tbody id="garbageSpecialTableBody"></tbody>
+        </table>
+        <div id="garbageSpecialListEmpty" class="hidden px-6 py-10 text-center text-base text-slate-400">尚無特殊日期</div>
+      </div>
+
+      <form id="garbageSpecialForm" class="mt-6 space-y-5 rounded-2xl border border-violet-100/60 bg-violet-50/30 p-6">
+        <p id="garbageSpecialFormTitle" class="text-sm font-bold text-slate-700">新增特殊日期</p>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label for="garbageSpecialDateInput" class="block text-sm font-semibold text-slate-700">日期 <span class="text-violet-600">（必填）</span></label>
+            <input id="garbageSpecialDateInput" type="date"
+              class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+          <div>
+            <label for="garbageSpecialTimeInput" class="block text-sm font-semibold text-slate-700">時間 <span class="text-slate-400">（選填）</span></label>
+            <input id="garbageSpecialTimeInput" type="text" maxlength="100" placeholder="例如：18:30–19:00"
+              class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+        </div>
+        <div>
+          <label for="garbageSpecialLocationInput" class="block text-sm font-semibold text-slate-700">地點 <span class="text-slate-400">（選填）</span></label>
+          <input id="garbageSpecialLocationInput" type="text" maxlength="100" placeholder="例如：正砂路與中正路口"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+        </div>
+        <div>
+          <label for="garbageSpecialNoteInput" class="block text-sm font-semibold text-slate-700">備註 <span class="text-slate-400">（選填）</span></label>
+          <input id="garbageSpecialNoteInput" type="text" maxlength="200" placeholder="例如：春節暫停"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          <p class="mt-2 text-xs leading-5 text-slate-400">時間、地點、備註至少填一項。</p>
+        </div>
+        <label class="flex items-center justify-between gap-3 text-base font-medium text-slate-700">
+          <span>啟用（停用中的特殊日期不生效）</span>
+          <input id="garbageSpecialActiveInput" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+        </label>
+
+        <div class="flex items-center justify-between gap-4 pt-1">
+          <button type="button" id="garbageSpecialDeleteButton" class="hidden inline-flex h-11 items-center gap-2 rounded-full bg-rose-50 px-5 text-sm font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+            <i data-lucide="trash-2" class="h-4 w-4"></i><span id="garbageSpecialDeleteButtonText">刪除</span>
+          </button>
+          <button type="button" id="garbageSpecialResetButton" class="hidden ml-auto mr-3 inline-flex h-11 items-center rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+            改為新增
+          </button>
+          <button type="submit" id="garbageSpecialSubmitButton" class="inline-flex h-11 items-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+            <i data-lucide="check" class="h-4 w-4"></i><span id="garbageSpecialSubmitButtonText">新增日期</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ===== 瀏覽紀錄詳情 modal（點列看這一輪瀏覽的頁面） ===== -->
   <div id="pageViewsDetailModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/40 px-6 py-10">
     <div class="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
@@ -822,6 +997,32 @@ const state = {
     deleting: false,
     modalOpen: false,
   },
+  garbage: {
+    loaded: false,
+    loading: false,
+    items: [], // 路段列表
+    editId: null, // 路段 modal：null = 新增
+    saving: false,
+    deleting: false,
+    moving: false,
+    modalOpen: false,
+    schedule: { // 固定時間表 modal
+      routeId: null,
+      routeName: '',
+      saving: false,
+      modalOpen: false,
+    },
+    special: { // 特殊日期 modal
+      routeId: null,
+      routeName: '',
+      loading: false,
+      items: [],
+      editId: null, // null = 新增
+      saving: false,
+      deleting: false,
+      modalOpen: false,
+    },
+  },
 };
 
 const elements = {};
@@ -854,6 +1055,15 @@ function cacheElements() {
     'moduleRich', 'richTableBody', 'richListEmpty', 'richListLoading', 'richCreateButton', 'richRefreshButton',
     'richModal', 'richModalTitle', 'richModalCloseButton', 'richForm', 'richTypeInput', 'richTitleInput', 'richContentInput', 'richActiveInput',
     'richSubmitButton', 'richSubmitButtonText', 'richCancelButton', 'richDeleteButton', 'richDeleteButtonText',
+    'moduleGarbage', 'garbageTableBody', 'garbageListEmpty', 'garbageListLoading', 'garbageCreateButton', 'garbageRefreshButton',
+    'garbageRouteModal', 'garbageRouteModalTitle', 'garbageRouteModalCloseButton', 'garbageRouteForm', 'garbageRouteNameInput', 'garbageRouteActiveInput',
+    'garbageRouteSubmitButton', 'garbageRouteSubmitButtonText', 'garbageRouteCancelButton', 'garbageRouteDeleteButton', 'garbageRouteDeleteButtonText',
+    'garbageScheduleModal', 'garbageScheduleModalTitle', 'garbageScheduleModalCloseButton', 'garbageScheduleForm', 'garbageScheduleRows',
+    'garbageScheduleSubmitButton', 'garbageScheduleSubmitButtonText', 'garbageScheduleCancelButton',
+    'garbageSpecialModal', 'garbageSpecialModalTitle', 'garbageSpecialModalCloseButton', 'garbageSpecialTableBody', 'garbageSpecialListEmpty',
+    'garbageSpecialForm', 'garbageSpecialFormTitle', 'garbageSpecialDateInput', 'garbageSpecialTimeInput', 'garbageSpecialLocationInput',
+    'garbageSpecialNoteInput', 'garbageSpecialActiveInput', 'garbageSpecialSubmitButton', 'garbageSpecialSubmitButtonText',
+    'garbageSpecialCancelButton', 'garbageSpecialDeleteButton', 'garbageSpecialDeleteButtonText', 'garbageSpecialResetButton',
     'safetyListView', 'safetyTableBody', 'safetyListEmpty', 'safetyListLoading', 'safetyRefreshButton',
     'safetyDetailView', 'safetyBackButton', 'safetyMemberInfo', 'safetyCareTimeline', 'safetyCheckinList',
     'safetyCareCard', 'safetyCareMethodSelect', 'safetyCareNote', 'safetyCareNoteCount', 'safetyCareSaveButton',
@@ -950,7 +1160,7 @@ function readAdminDeepLinkParams() {
     if (!params) return;
     if (!module) {
       const m = params.get('module');
-      if (m === 'feedback' || m === 'safety' || m === 'events' || m === 'bulletin' || m === 'rich') module = m;
+      if (m === 'feedback' || m === 'safety' || m === 'events' || m === 'bulletin' || m === 'rich' || m === 'garbage') module = m;
     }
     if (!id) {
       const raw = Number(params.get('id'));
@@ -1616,7 +1826,7 @@ const SAFETY_CARE_METHOD_STYLES = {
 };
 
 function switchModule(module) {
-  const target = module === 'safety' ? 'safety' : module === 'events' ? 'events' : module === 'bulletin' ? 'bulletin' : module === 'pageviews' ? 'pageviews' : module === 'friends' ? 'friends' : module === 'rich' ? 'rich' : 'feedback';
+  const target = module === 'safety' ? 'safety' : module === 'events' ? 'events' : module === 'bulletin' ? 'bulletin' : module === 'pageviews' ? 'pageviews' : module === 'friends' ? 'friends' : module === 'rich' ? 'rich' : module === 'garbage' ? 'garbage' : 'feedback';
   state.module = target;
   updateModuleTabs();
   elements.moduleFeedback.classList.toggle('hidden', target !== 'feedback');
@@ -1626,8 +1836,9 @@ function switchModule(module) {
   elements.modulePageViews.classList.toggle('hidden', target !== 'pageviews');
   elements.moduleFriends.classList.toggle('hidden', target !== 'friends');
   elements.moduleRich.classList.toggle('hidden', target !== 'rich');
+  elements.moduleGarbage.classList.toggle('hidden', target !== 'garbage');
   window.scrollTo({ top: 0 });
-  // 進哪個模組才載哪個（報平安／行程／公布欄／瀏覽紀錄／好友名單／動態回覆第一次切換才打 API）
+  // 進哪個模組才載哪個（報平安／行程／公布欄／瀏覽紀錄／好友名單／動態回覆／垃圾車第一次切換才打 API）
   if (target === 'safety' && !state.safety.loaded) {
     loadSafetyList();
   }
@@ -1645,6 +1856,9 @@ function switchModule(module) {
   }
   if (target === 'rich' && !state.rich.loaded) {
     loadRichList();
+  }
+  if (target === 'garbage' && !state.garbage.loaded) {
+    loadGarbageRoutes();
   }
 }
 
@@ -2756,6 +2970,540 @@ async function toggleRichActive(id) {
   }
 }
 
+// ============================================================================
+// 垃圾車時間管理：路段列表／新增編輯刪除／排序／固定時間表／特殊日期
+// ============================================================================
+
+const GARBAGE_DAY_LABELS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+
+function garbageEscapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function loadGarbageRoutes() {
+  if (state.garbage.loading) return;
+  state.garbage.loading = true;
+  state.garbage.loaded = true;
+  elements.garbageListLoading.classList.remove('hidden');
+  elements.garbageListEmpty.classList.add('hidden');
+  try {
+    const res = await authedFetch('/api/admin/garbage/routes');
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    state.garbage.items = json.items || [];
+    renderGarbageTable();
+  } catch (err) {
+    console.error('loadGarbageRoutes failed:', err);
+    showToast(err.message || '路段載入失敗');
+    state.garbage.loaded = false;
+  } finally {
+    state.garbage.loading = false;
+    elements.garbageListLoading.classList.add('hidden');
+  }
+}
+
+function renderGarbageTable() {
+  const items = state.garbage.items;
+  elements.garbageTableBody.innerHTML = items
+    .map((item) => `
+      <tr class="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/40 ${item.is_active ? '' : 'opacity-60'}">
+        <td class="px-6 py-4">
+          <div class="flex items-center gap-1.5">
+            <button type="button" data-garbage-move="up" data-garbage-id="${item.id}" title="上移" class="rounded-full bg-slate-100 p-1.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40">
+              <i data-lucide="chevron-up" class="h-3.5 w-3.5"></i>
+            </button>
+            <button type="button" data-garbage-move="down" data-garbage-id="${item.id}" title="下移" class="rounded-full bg-slate-100 p-1.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40">
+              <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
+            </button>
+            <span class="ml-1 text-xs font-semibold text-slate-400">${item.sort_order + 1}</span>
+          </div>
+        </td>
+        <td class="px-6 py-4">
+          <p class="max-w-[12rem] truncate font-semibold text-slate-800" title="${garbageEscapeHtml(item.name)}">${garbageEscapeHtml(item.name)}</p>
+        </td>
+        <td class="px-6 py-4">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${item.is_active ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-slate-500 ring-slate-200'}">
+            ${item.is_active ? '啟用' : '停用'}
+          </span>
+        </td>
+        <td class="px-6 py-4 text-sm text-slate-500">${formatFriendTime(item.updated_at)}</td>
+        <td class="px-6 py-4">
+          <div class="flex items-center justify-end gap-2">
+            <button type="button" data-garbage-toggle="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-violet-600 transition hover:bg-violet-50">${item.is_active ? '停用' : '啟用'}</button>
+            <button type="button" data-garbage-schedule="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">本週時間</button>
+            <button type="button" data-garbage-special="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">特殊日期</button>
+            <button type="button" data-garbage-edit="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">編輯</button>
+          </div>
+        </td>
+      </tr>
+    `)
+    .join('');
+  elements.garbageListEmpty.classList.toggle('hidden', items.length > 0);
+  if (window.lucide) window.lucide.createIcons();
+}
+
+// ===== 路段 modal =====
+
+function fillGarbageRouteForm(item) {
+  elements.garbageRouteNameInput.value = item ? String(item.name || '') : '';
+  elements.garbageRouteActiveInput.checked = item ? item.is_active === true : true;
+}
+
+function openGarbageRouteEditor(id) {
+  const item = id != null ? state.garbage.items.find((r) => Number(r.id) === Number(id)) : null;
+  if (id != null && !item) return;
+  state.garbage.editId = item ? item.id : null;
+  fillGarbageRouteForm(item);
+  elements.garbageRouteModalTitle.textContent = item ? '編輯路段' : '新增路段';
+  elements.garbageRouteSubmitButtonText.textContent = item ? '更新路段' : '儲存路段';
+  elements.garbageRouteDeleteButton.classList.toggle('hidden', !item);
+  elements.garbageRouteModal.classList.remove('hidden');
+  elements.garbageRouteModal.classList.add('flex');
+  state.garbage.modalOpen = true;
+  elements.garbageRouteNameInput.focus();
+}
+
+function closeGarbageRouteEditor() {
+  state.garbage.modalOpen = false;
+  elements.garbageRouteModal.classList.add('hidden');
+  elements.garbageRouteModal.classList.remove('flex');
+}
+
+function setGarbageRouteBusy(busy) {
+  state.garbage.saving = busy;
+  elements.garbageRouteSubmitButton.disabled = busy;
+  elements.garbageRouteSubmitButtonText.textContent = busy ? '儲存中…' : state.garbage.editId != null ? '更新路段' : '儲存路段';
+  elements.garbageRouteDeleteButton.disabled = busy;
+  elements.garbageRouteCancelButton.disabled = busy;
+}
+
+async function saveGarbageRoute(e) {
+  e.preventDefault();
+  if (state.garbage.saving) return;
+  const name = elements.garbageRouteNameInput.value.trim();
+  if (!name) {
+    showToast('請輸入路段名稱。');
+    return;
+  }
+  setGarbageRouteBusy(true);
+  try {
+    const payload = { name, is_active: elements.garbageRouteActiveInput.checked };
+    const editing = state.garbage.editId != null;
+    const res = await authedFetch(
+      editing ? `/api/admin/garbage/routes/${encodeURIComponent(state.garbage.editId)}` : '/api/admin/garbage/routes',
+      {
+        method: editing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `儲存失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '路段已儲存。');
+    closeGarbageRouteEditor();
+    await loadGarbageRoutes();
+  } catch (err) {
+    console.error('saveGarbageRoute failed:', err);
+    showToast(err.message || '路段儲存失敗');
+  } finally {
+    setGarbageRouteBusy(false);
+  }
+}
+
+function setGarbageRouteDeleting(busy) {
+  state.garbage.deleting = busy;
+  elements.garbageRouteDeleteButton.disabled = busy;
+  elements.garbageRouteDeleteButtonText.textContent = busy ? '刪除中…' : '刪除路段';
+  elements.garbageRouteSubmitButton.disabled = busy;
+  elements.garbageRouteCancelButton.disabled = busy;
+}
+
+async function deleteGarbageRoute() {
+  if (state.garbage.editId == null || state.garbage.deleting) return;
+  const item = state.garbage.items.find((r) => Number(r.id) === Number(state.garbage.editId));
+  if (!window.confirm(`確定刪除路段「${item ? item.name : ''}」？\n路段的固定時間表與特殊日期會一併刪除。`)) return;
+  setGarbageRouteDeleting(true);
+  try {
+    const res = await authedFetch(`/api/admin/garbage/routes/${encodeURIComponent(state.garbage.editId)}`, { method: 'DELETE' });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `刪除失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '路段已刪除。');
+    closeGarbageRouteEditor();
+    await loadGarbageRoutes();
+  } catch (err) {
+    console.error('deleteGarbageRoute failed:', err);
+    showToast(err.message || '路段刪除失敗');
+  } finally {
+    setGarbageRouteDeleting(false);
+  }
+}
+
+async function moveGarbageRoute(id, direction) {
+  if (state.garbage.moving) return;
+  state.garbage.moving = true;
+  try {
+    const res = await authedFetch(`/api/admin/garbage/routes/${encodeURIComponent(id)}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ direction }),
+    });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `排序失敗（HTTP ${res.status}）`);
+    }
+    state.garbage.items = json.items || [];
+    renderGarbageTable();
+  } catch (err) {
+    console.error('moveGarbageRoute failed:', err);
+    showToast(err.message || '路段排序失敗');
+  } finally {
+    state.garbage.moving = false;
+  }
+}
+
+async function toggleGarbageRouteActive(id) {
+  const item = state.garbage.items.find((r) => Number(r.id) === Number(id));
+  if (!item) return;
+  try {
+    const res = await authedFetch(`/api/admin/garbage/routes/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: item.is_active !== true }),
+    });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `操作失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '已更新。');
+    await loadGarbageRoutes();
+  } catch (err) {
+    console.error('toggleGarbageRouteActive failed:', err);
+    showToast(err.message || '操作失敗');
+  }
+}
+
+// ===== 固定時間表 modal（一週七天批次） =====
+
+function renderGarbageScheduleRows(rows) {
+  const byDay = {};
+  (rows || []).forEach((r) => { byDay[Number(r.day_of_week)] = r; });
+  elements.garbageScheduleRows.innerHTML = GARBAGE_DAY_LABELS.map((label, day) => {
+    const row = byDay[day] || {};
+    const active = row.is_active !== false && (row.time_text || row.location_text);
+    return `
+      <div class="rounded-xl border border-slate-100 p-4" data-garbage-day="${day}">
+        <div class="mb-3 flex items-center justify-between">
+          <p class="text-sm font-bold text-slate-700">${label}</p>
+          <label class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <span>啟用</span>
+            <input type="checkbox" data-garbage-field="active" ${active ? 'checked' : ''} class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />
+          </label>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400">時間（啟用時必填）</label>
+            <input type="text" maxlength="100" placeholder="例如：18:30–19:00" data-garbage-field="time" value="${garbageEscapeHtml(row.time_text || '')}"
+              class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400">地點（啟用時必填）</label>
+            <input type="text" maxlength="100" placeholder="例如：正砂路與中正路口" data-garbage-field="location" value="${garbageEscapeHtml(row.location_text || '')}"
+              class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+        </div>
+        <div class="mt-3">
+          <label class="block text-xs font-semibold text-slate-400">備註（選填）</label>
+          <input type="text" maxlength="200" placeholder="例如：繞行順序依現場調整" data-garbage-field="note" value="${garbageEscapeHtml(row.note || '')}"
+            class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function openGarbageScheduleEditor(id) {
+  const item = state.garbage.items.find((r) => Number(r.id) === Number(id));
+  if (!item) return;
+  state.garbage.schedule.routeId = item.id;
+  state.garbage.schedule.routeName = item.name;
+  elements.garbageScheduleModalTitle.textContent = `固定時間表 — ${item.name}`;
+  elements.garbageScheduleRows.innerHTML = '<p class="py-6 text-center text-sm text-slate-400">載入中…</p>';
+  elements.garbageScheduleModal.classList.remove('hidden');
+  elements.garbageScheduleModal.classList.add('flex');
+  state.garbage.schedule.modalOpen = true;
+  try {
+    const res = await authedFetch(`/api/admin/garbage/routes/${encodeURIComponent(item.id)}/schedules`);
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    renderGarbageScheduleRows(json.items || []);
+  } catch (err) {
+    console.error('openGarbageScheduleEditor failed:', err);
+    showToast(err.message || '時間表載入失敗');
+    closeGarbageScheduleEditor();
+  }
+}
+
+function closeGarbageScheduleEditor() {
+  state.garbage.schedule.modalOpen = false;
+  elements.garbageScheduleModal.classList.add('hidden');
+  elements.garbageScheduleModal.classList.remove('flex');
+}
+
+function setGarbageScheduleBusy(busy) {
+  state.garbage.schedule.saving = busy;
+  elements.garbageScheduleSubmitButton.disabled = busy;
+  elements.garbageScheduleSubmitButtonText.textContent = busy ? '儲存中…' : '儲存整週時間表';
+  elements.garbageScheduleCancelButton.disabled = busy;
+}
+
+async function saveGarbageSchedule(e) {
+  e.preventDefault();
+  if (state.garbage.schedule.saving || state.garbage.schedule.routeId == null) return;
+  const days = [];
+  let invalid = '';
+  elements.garbageScheduleRows.querySelectorAll('[data-garbage-day]').forEach((card) => {
+    const dayOfWeek = Number(card.dataset.garbageDay);
+    const active = card.querySelector('[data-garbage-field="active"]').checked;
+    const timeText = card.querySelector('[data-garbage-field="time"]').value.trim();
+    const locationText = card.querySelector('[data-garbage-field="location"]').value.trim();
+    const note = card.querySelector('[data-garbage-field="note"]').value.trim();
+    if (active && (!timeText || !locationText)) {
+      invalid = `${GARBAGE_DAY_LABELS[dayOfWeek]}啟用時，時間與地點都要填。`;
+    }
+    days.push({ day_of_week: dayOfWeek, time_text: timeText, location_text: locationText, note, is_active: active });
+  });
+  if (invalid) {
+    showToast(invalid);
+    return;
+  }
+
+  setGarbageScheduleBusy(true);
+  try {
+    const res = await authedFetch(`/api/admin/garbage/routes/${encodeURIComponent(state.garbage.schedule.routeId)}/schedules`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days }),
+    });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `儲存失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '時間表已儲存。');
+    closeGarbageScheduleEditor();
+    await loadGarbageRoutes();
+  } catch (err) {
+    console.error('saveGarbageSchedule failed:', err);
+    showToast(err.message || '時間表儲存失敗');
+  } finally {
+    setGarbageScheduleBusy(false);
+  }
+}
+
+// ===== 特殊日期 modal =====
+
+function renderGarbageSpecialTable() {
+  const items = state.garbage.special.items;
+  elements.garbageSpecialTableBody.innerHTML = items
+    .map((item) => `
+      <tr class="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/40 ${item.is_active ? '' : 'opacity-60'}">
+        <td class="px-4 py-3 font-semibold text-slate-800">${garbageEscapeHtml(item.special_date)}</td>
+        <td class="px-4 py-3 text-slate-600">${garbageEscapeHtml(item.time_text || '—')}</td>
+        <td class="px-4 py-3 max-w-[12rem] truncate text-slate-600" title="${garbageEscapeHtml(item.location_text || '')}">${garbageEscapeHtml(item.location_text || '—')}</td>
+        <td class="px-4 py-3 max-w-[12rem] truncate text-slate-600" title="${garbageEscapeHtml(item.note || '')}">${garbageEscapeHtml(item.note || '—')}</td>
+        <td class="px-4 py-3">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${item.is_active ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-slate-500 ring-slate-200'}">
+            ${item.is_active ? '啟用' : '停用'}
+          </span>
+        </td>
+        <td class="px-4 py-3">
+          <div class="flex items-center justify-end gap-2">
+            <button type="button" data-garbage-special-edit="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">編輯</button>
+            <button type="button" data-garbage-special-delete="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-rose-500 transition hover:bg-rose-50">刪除</button>
+          </div>
+        </td>
+      </tr>
+    `)
+    .join('');
+  elements.garbageSpecialListEmpty.classList.toggle('hidden', items.length > 0);
+}
+
+function fillGarbageSpecialForm(item) {
+  elements.garbageSpecialDateInput.value = item ? String(item.special_date || '') : '';
+  elements.garbageSpecialTimeInput.value = item ? String(item.time_text || '') : '';
+  elements.garbageSpecialLocationInput.value = item ? String(item.location_text || '') : '';
+  elements.garbageSpecialNoteInput.value = item ? String(item.note || '') : '';
+  elements.garbageSpecialActiveInput.checked = item ? item.is_active !== false : true;
+  elements.garbageSpecialFormTitle.textContent = item ? `編輯特殊日期（${item.special_date}）` : '新增特殊日期';
+  elements.garbageSpecialSubmitButtonText.textContent = item ? '更新日期' : '新增日期';
+  elements.garbageSpecialDeleteButton.classList.toggle('hidden', !item);
+  elements.garbageSpecialResetButton.classList.toggle('hidden', !item);
+}
+
+async function loadGarbageSpecialList() {
+  if (state.garbage.special.routeId == null) return;
+  state.garbage.special.loading = true;
+  try {
+    const res = await authedFetch(`/api/admin/garbage/special-dates?routeId=${encodeURIComponent(state.garbage.special.routeId)}`);
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
+    }
+    state.garbage.special.items = json.items || [];
+    renderGarbageSpecialTable();
+  } catch (err) {
+    console.error('loadGarbageSpecialList failed:', err);
+    showToast(err.message || '特殊日期載入失敗');
+  } finally {
+    state.garbage.special.loading = false;
+  }
+}
+
+async function openGarbageSpecialEditor(id) {
+  const item = state.garbage.items.find((r) => Number(r.id) === Number(id));
+  if (!item) return;
+  state.garbage.special.routeId = item.id;
+  state.garbage.special.routeName = item.name;
+  state.garbage.special.items = [];
+  state.garbage.special.editId = null;
+  elements.garbageSpecialModalTitle.textContent = `特殊日期 — ${item.name}`;
+  elements.garbageSpecialTableBody.innerHTML = '';
+  elements.garbageSpecialListEmpty.classList.add('hidden');
+  fillGarbageSpecialForm(null);
+  elements.garbageSpecialModal.classList.remove('hidden');
+  elements.garbageSpecialModal.classList.add('flex');
+  state.garbage.special.modalOpen = true;
+  await loadGarbageSpecialList();
+}
+
+function closeGarbageSpecialEditor() {
+  state.garbage.special.modalOpen = false;
+  elements.garbageSpecialModal.classList.add('hidden');
+  elements.garbageSpecialModal.classList.remove('flex');
+}
+
+function setGarbageSpecialBusy(busy) {
+  state.garbage.special.saving = busy;
+  elements.garbageSpecialSubmitButton.disabled = busy;
+  elements.garbageSpecialSubmitButtonText.textContent = busy ? '儲存中…' : state.garbage.special.editId != null ? '更新日期' : '新增日期';
+  elements.garbageSpecialDeleteButton.disabled = busy;
+  elements.garbageSpecialResetButton.disabled = busy;
+  elements.garbageSpecialCancelButton.disabled = busy;
+}
+
+async function saveGarbageSpecial(e) {
+  e.preventDefault();
+  if (state.garbage.special.saving || state.garbage.special.routeId == null) return;
+  const dateStr = elements.garbageSpecialDateInput.value.trim();
+  if (!dateStr) {
+    showToast('請選擇日期。');
+    return;
+  }
+  const timeText = elements.garbageSpecialTimeInput.value.trim();
+  const locationText = elements.garbageSpecialLocationInput.value.trim();
+  const note = elements.garbageSpecialNoteInput.value.trim();
+  if (!timeText && !locationText && !note) {
+    showToast('時間、地點、備註至少填一項。');
+    return;
+  }
+
+  setGarbageSpecialBusy(true);
+  try {
+    const editing = state.garbage.special.editId != null;
+    const payload = {
+      special_date: dateStr,
+      time_text: timeText,
+      location_text: locationText,
+      note,
+      is_active: elements.garbageSpecialActiveInput.checked,
+    };
+    const res = await authedFetch(
+      editing ? `/api/admin/garbage/special-dates/${encodeURIComponent(state.garbage.special.editId)}` : '/api/admin/garbage/special-dates',
+      {
+        method: editing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `儲存失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '特殊日期已儲存。');
+    fillGarbageSpecialForm(null);
+    state.garbage.special.editId = null;
+    await loadGarbageSpecialList();
+  } catch (err) {
+    console.error('saveGarbageSpecial failed:', err);
+    showToast(err.message || '特殊日期儲存失敗');
+  } finally {
+    setGarbageSpecialBusy(false);
+  }
+}
+
+function setGarbageSpecialDeleting(busy) {
+  state.garbage.special.deleting = busy;
+  elements.garbageSpecialDeleteButton.disabled = busy;
+  elements.garbageSpecialDeleteButtonText.textContent = busy ? '刪除中…' : '刪除';
+  elements.garbageSpecialSubmitButton.disabled = busy;
+  elements.garbageSpecialResetButton.disabled = busy;
+  elements.garbageSpecialCancelButton.disabled = busy;
+}
+
+async function deleteGarbageSpecial() {
+  if (state.garbage.special.editId == null || state.garbage.special.deleting) return;
+  if (!window.confirm('確定刪除這筆特殊日期？')) return;
+  setGarbageSpecialDeleting(true);
+  try {
+    const res = await authedFetch(`/api/admin/garbage/special-dates/${encodeURIComponent(state.garbage.special.editId)}`, { method: 'DELETE' });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `刪除失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '特殊日期已刪除。');
+    fillGarbageSpecialForm(null);
+    state.garbage.special.editId = null;
+    await loadGarbageSpecialList();
+  } catch (err) {
+    console.error('deleteGarbageSpecial failed:', err);
+    showToast(err.message || '特殊日期刪除失敗');
+  } finally {
+    setGarbageSpecialDeleting(false);
+  }
+}
+
 async function toggleBulletinFlag(id, field) {
   if (field !== 'is_published' && field !== 'is_pinned') return;
   const item = state.bulletin.items.find((b) => Number(b.id) === Number(id));
@@ -3226,6 +3974,90 @@ function bindEvents() {
   // Esc 關閉 modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && state.rich.modalOpen) closeRichEditor();
+  });
+
+  // 垃圾車：路段列表操作（排序／啟用切換／時間表／特殊日期／編輯）＋三個 modal
+  elements.garbageRefreshButton.addEventListener('click', () => loadGarbageRoutes());
+  elements.garbageCreateButton.addEventListener('click', () => openGarbageRouteEditor(null));
+  elements.garbageTableBody.addEventListener('click', (e) => {
+    const moveBtn = e.target.closest('[data-garbage-move]');
+    if (moveBtn) {
+      moveGarbageRoute(Number(moveBtn.dataset.garbageId), moveBtn.dataset.garbageMove);
+      return;
+    }
+    const toggleBtn = e.target.closest('[data-garbage-toggle]');
+    if (toggleBtn) {
+      toggleGarbageRouteActive(Number(toggleBtn.dataset.garbageToggle));
+      return;
+    }
+    const scheduleBtn = e.target.closest('[data-garbage-schedule]');
+    if (scheduleBtn) {
+      openGarbageScheduleEditor(Number(scheduleBtn.dataset.garbageSchedule));
+      return;
+    }
+    const specialBtn = e.target.closest('[data-garbage-special]');
+    if (specialBtn) {
+      openGarbageSpecialEditor(Number(specialBtn.dataset.garbageSpecial));
+      return;
+    }
+    const editBtn = e.target.closest('[data-garbage-edit]');
+    if (editBtn) {
+      openGarbageRouteEditor(Number(editBtn.dataset.garbageEdit));
+    }
+  });
+  // 路段 modal
+  elements.garbageRouteForm.addEventListener('submit', saveGarbageRoute);
+  elements.garbageRouteCancelButton.addEventListener('click', closeGarbageRouteEditor);
+  elements.garbageRouteModalCloseButton.addEventListener('click', closeGarbageRouteEditor);
+  elements.garbageRouteDeleteButton.addEventListener('click', deleteGarbageRoute);
+  elements.garbageRouteModal.addEventListener('click', (e) => {
+    if (e.target === elements.garbageRouteModal) closeGarbageRouteEditor();
+  });
+  // 時間表 modal
+  elements.garbageScheduleForm.addEventListener('submit', saveGarbageSchedule);
+  elements.garbageScheduleCancelButton.addEventListener('click', closeGarbageScheduleEditor);
+  elements.garbageScheduleModalCloseButton.addEventListener('click', closeGarbageScheduleEditor);
+  elements.garbageScheduleModal.addEventListener('click', (e) => {
+    if (e.target === elements.garbageScheduleModal) closeGarbageScheduleEditor();
+  });
+  // 特殊日期 modal
+  elements.garbageSpecialForm.addEventListener('submit', saveGarbageSpecial);
+  elements.garbageSpecialCancelButton.addEventListener('click', closeGarbageSpecialEditor);
+  elements.garbageSpecialModalCloseButton.addEventListener('click', closeGarbageSpecialEditor);
+  elements.garbageSpecialDeleteButton.addEventListener('click', deleteGarbageSpecial);
+  elements.garbageSpecialResetButton.addEventListener('click', () => {
+    fillGarbageSpecialForm(null);
+    state.garbage.special.editId = null;
+  });
+  elements.garbageSpecialTableBody.addEventListener('click', (e) => {
+    const editBtn = e.target.closest('[data-garbage-special-edit]');
+    if (editBtn) {
+      const item = state.garbage.special.items.find((s) => Number(s.id) === Number(editBtn.dataset.garbageSpecialEdit));
+      if (item) {
+        state.garbage.special.editId = item.id;
+        fillGarbageSpecialForm(item);
+      }
+      return;
+    }
+    const deleteBtn = e.target.closest('[data-garbage-special-delete]');
+    if (deleteBtn) {
+      const item = state.garbage.special.items.find((s) => Number(s.id) === Number(deleteBtn.dataset.garbageSpecialDelete));
+      if (item) {
+        state.garbage.special.editId = item.id;
+        fillGarbageSpecialForm(item);
+        deleteGarbageSpecial();
+      }
+    }
+  });
+  elements.garbageSpecialModal.addEventListener('click', (e) => {
+    if (e.target === elements.garbageSpecialModal) closeGarbageSpecialEditor();
+  });
+  // Esc 關閉垃圾車 modal（依開啟狀態擇一）
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (state.garbage.modalOpen) closeGarbageRouteEditor();
+    else if (state.garbage.schedule.modalOpen) closeGarbageScheduleEditor();
+    else if (state.garbage.special.modalOpen) closeGarbageSpecialEditor();
   });
 
   elements.bulletinForm.addEventListener('submit', saveBulletin);

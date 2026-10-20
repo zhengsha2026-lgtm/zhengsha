@@ -1832,6 +1832,24 @@
                       <i data-lucide="chevron-right" class="h-3 w-3"></i>
                     </span>
                   </button>
+
+                  <button
+                    type="button"
+                    data-admin-module="garbage"
+                    class="group relative overflow-hidden rounded-[1.5rem] border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/50 p-5 text-left shadow-[0_12px_34px_-34px_rgba(139,92,246,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_46px_-30px_rgba(139,92,246,0.45)] active:scale-[0.995]"
+                  >
+                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                      <i data-lucide="truck" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-base font-semibold text-violet-950">垃圾車時間</p>
+                    <p class="mt-2 text-xs leading-6 text-slate-500">
+                      維護路段、一週固定時間與特殊日期；里民傳「垃圾車」即可查詢
+                    </p>
+                    <span class="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600">
+                      <span>進入</span>
+                      <i data-lucide="chevron-right" class="h-3 w-3"></i>
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -2637,6 +2655,283 @@
                   </div>
                 </form>
               </div>
+
+              <!-- 垃圾車時間（管理端）：路段列表 -->
+              <div id="adminGarbageListView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminGarbageListBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回管理首頁</span>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="adminGarbageCreateButton"
+                      class="inline-flex h-9 items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-500 active:scale-95"
+                    >
+                      <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+                      <span>新增路段</span>
+                    </button>
+                    <p class="text-sm font-semibold text-violet-950">垃圾車時間</p>
+                  </div>
+                </div>
+
+                <div id="adminGarbageListLoading" class="space-y-3">
+                  <div class="h-[112px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[112px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                  <div class="h-[112px] animate-pulse rounded-[1.25rem] bg-slate-200/50"></div>
+                </div>
+
+                <div id="adminGarbageListError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入路段失敗</p>
+                  <p id="adminGarbageListErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    id="adminGarbageListRetryButton"
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminGarbageListContainer" class="space-y-2"></div>
+
+                <div id="adminGarbageListEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                    <i data-lucide="truck" class="h-6 w-6"></i>
+                  </div>
+                  <p class="mt-4 text-base font-semibold text-violet-950">目前沒有路段資料</p>
+                  <p class="mt-2 text-xs leading-6 text-slate-500">點右上「新增路段」建立第一筆；里民傳「垃圾車」就會出現路段按鈕。</p>
+                </div>
+              </div>
+
+              <!-- 垃圾車時間（管理端）：路段編輯 -->
+              <div id="adminGarbageRouteEditView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminGarbageRouteEditBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回列表</span>
+                  </button>
+                  <p id="adminGarbageRouteEditTitle" class="text-sm font-semibold text-violet-950">新增路段</p>
+                </div>
+
+                <form id="adminGarbageRouteForm" class="space-y-4">
+                  <div class="rounded-[1.5rem] border border-violet-100 bg-white p-5 shadow-input space-y-4">
+                    <div>
+                      <label for="adminGarbageRouteName" class="text-sm font-semibold text-violet-950">路段名稱 <span class="text-rose-500">（必填）</span></label>
+                      <input
+                        id="adminGarbageRouteName"
+                        type="text"
+                        maxlength="50"
+                        placeholder="例如：正砂路"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                      <p class="mt-2 text-xs leading-5 text-slate-400">里民傳「垃圾車」後會出現路段按鈕；名稱即按鈕文字（上限 20 字顯示）。</p>
+                    </div>
+                    <label class="flex items-center justify-between gap-3 rounded-2xl bg-violet-50/50 px-4 py-3 text-sm font-medium text-slate-700">
+                      <span>啟用（停用中的路段不出現在選單）</span>
+                      <input id="adminGarbageRouteActive" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+                    </label>
+                  </div>
+
+                  <div class="space-y-2.5">
+                    <button
+                      type="submit"
+                      id="adminGarbageRouteSubmitButton"
+                      class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-violet-600 text-base font-semibold text-white shadow-input transition hover:bg-violet-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <i data-lucide="check" class="h-4 w-4"></i>
+                      <span id="adminGarbageRouteSubmitButtonText">儲存路段</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="adminGarbageRouteDeleteButton"
+                      class="hidden h-12 w-full rounded-full bg-rose-50 text-base font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span id="adminGarbageRouteDeleteButtonText">刪除路段（含時間表與特殊日期）</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- 垃圾車時間（管理端）：固定時間表（一週七天） -->
+              <div id="adminGarbageScheduleView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminGarbageScheduleBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回列表</span>
+                  </button>
+                  <p id="adminGarbageScheduleTitle" class="text-sm font-semibold text-violet-950">固定時間表</p>
+                </div>
+
+                <p class="rounded-[1.25rem] bg-violet-50/60 px-4 py-3 text-xs leading-6 text-slate-500">一週七天的固定時間；勾選「啟用」的天才會回覆。特殊日期（例如春節暫停）設定後會優先於這裡。</p>
+
+                <div id="adminGarbageScheduleLoading" class="space-y-3">
+                  <div class="h-[152px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[152px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                </div>
+
+                <form id="adminGarbageScheduleForm" class="space-y-3">
+                  <div id="adminGarbageScheduleCards" class="space-y-3"></div>
+                  <button
+                    type="submit"
+                    id="adminGarbageScheduleSubmitButton"
+                    class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-violet-600 text-base font-semibold text-white shadow-input transition hover:bg-violet-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <i data-lucide="check" class="h-4 w-4"></i>
+                    <span id="adminGarbageScheduleSubmitButtonText">儲存整週時間表</span>
+                  </button>
+                </form>
+              </div>
+
+              <!-- 垃圾車時間（管理端）：特殊日期列表 -->
+              <div id="adminGarbageSpecialListView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminGarbageSpecialListBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回列表</span>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="adminGarbageSpecialCreateButton"
+                      class="inline-flex h-9 items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white transition hover:bg-violet-500 active:scale-95"
+                    >
+                      <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+                      <span>新增日期</span>
+                    </button>
+                    <p id="adminGarbageSpecialListTitle" class="text-sm font-semibold text-violet-950">特殊日期</p>
+                  </div>
+                </div>
+
+                <div id="adminGarbageSpecialListLoading" class="space-y-3">
+                  <div class="h-[92px] animate-pulse rounded-[1.25rem] bg-slate-200/70"></div>
+                  <div class="h-[92px] animate-pulse rounded-[1.25rem] bg-slate-200/60"></div>
+                </div>
+
+                <div id="adminGarbageSpecialListError" class="hidden rounded-[1.5rem] border border-rose-200 bg-rose-50/80 px-5 py-6 text-sm leading-7">
+                  <p class="font-semibold text-rose-700">載入特殊日期失敗</p>
+                  <p id="adminGarbageSpecialListErrorText" class="mt-1 text-rose-700/90">請稍後再試。</p>
+                  <button
+                    type="button"
+                    id="adminGarbageSpecialListRetryButton"
+                    class="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-500"
+                  >
+                    <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                    <span>再試一次</span>
+                  </button>
+                </div>
+
+                <div id="adminGarbageSpecialListContainer" class="space-y-2"></div>
+
+                <div id="adminGarbageSpecialListEmpty" class="hidden rounded-[1.5rem] border border-dashed border-violet-200 bg-white/70 px-5 py-12 text-center">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-50 text-violet-500 ring-1 ring-violet-100">
+                    <i data-lucide="calendar-x" class="h-6 w-6"></i>
+                  </div>
+                  <p class="mt-4 text-base font-semibold text-violet-950">尚無特殊日期</p>
+                  <p class="mt-2 text-xs leading-6 text-slate-500">點右上「新增日期」設定過年、連假等例外安排。</p>
+                </div>
+              </div>
+
+              <!-- 垃圾車時間（管理端）：特殊日期編輯 -->
+              <div id="adminGarbageSpecialEditView" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    id="adminGarbageSpecialEditBackButton"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-input ring-1 ring-slate-200 transition hover:text-violet-700 active:scale-95"
+                  >
+                    <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                    <span>返回特殊日期</span>
+                  </button>
+                  <p id="adminGarbageSpecialEditTitle" class="text-sm font-semibold text-violet-950">新增特殊日期</p>
+                </div>
+
+                <p class="rounded-[1.25rem] bg-violet-50/60 px-4 py-3 text-xs leading-6 text-slate-500">特定日期的例外安排（過年、連假等），當天優先於固定時間表；時間地點可留空，只填備註（例如「春節暫停」）。</p>
+
+                <form id="adminGarbageSpecialForm" class="space-y-4">
+                  <div class="rounded-[1.5rem] border border-violet-100 bg-white p-5 shadow-input space-y-4">
+                    <div>
+                      <label for="adminGarbageSpecialDate" class="text-sm font-semibold text-violet-950">日期 <span class="text-rose-500">（必填）</span></label>
+                      <input
+                        id="adminGarbageSpecialDate"
+                        type="date"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                    </div>
+                    <div>
+                      <label for="adminGarbageSpecialTime" class="text-sm font-semibold text-violet-950">時間 <span class="text-slate-400">（選填）</span></label>
+                      <input
+                        id="adminGarbageSpecialTime"
+                        type="text"
+                        maxlength="100"
+                        placeholder="例如：18:30–19:00"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                    </div>
+                    <div>
+                      <label for="adminGarbageSpecialLocation" class="text-sm font-semibold text-violet-950">地點 <span class="text-slate-400">（選填）</span></label>
+                      <input
+                        id="adminGarbageSpecialLocation"
+                        type="text"
+                        maxlength="100"
+                        placeholder="例如：正砂路與中正路口"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                    </div>
+                    <div>
+                      <label for="adminGarbageSpecialNote" class="text-sm font-semibold text-violet-950">備註 <span class="text-slate-400">（選填）</span></label>
+                      <input
+                        id="adminGarbageSpecialNote"
+                        type="text"
+                        maxlength="200"
+                        placeholder="例如：春節暫停"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                      <p class="mt-2 text-xs leading-5 text-slate-400">時間、地點、備註至少填一項。</p>
+                    </div>
+                    <label class="flex items-center justify-between gap-3 rounded-2xl bg-violet-50/50 px-4 py-3 text-sm font-medium text-slate-700">
+                      <span>啟用（停用中的特殊日期不生效）</span>
+                      <input id="adminGarbageSpecialActive" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+                    </label>
+                  </div>
+
+                  <div class="space-y-2.5">
+                    <button
+                      type="submit"
+                      id="adminGarbageSpecialSubmitButton"
+                      class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-violet-600 text-base font-semibold text-white shadow-input transition hover:bg-violet-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <i data-lucide="check" class="h-4 w-4"></i>
+                      <span id="adminGarbageSpecialSubmitButtonText">新增日期</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="adminGarbageSpecialDeleteButton"
+                      class="hidden h-12 w-full rounded-full bg-rose-50 text-base font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span id="adminGarbageSpecialDeleteButtonText">刪除這筆特殊日期</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </section>
         </section>
@@ -2975,6 +3270,38 @@
               deleting: false,
             },
           },
+          garbage: {
+            view: 'list', // list / routeEdit / schedule / specialList / specialEdit
+            items: [],
+            loading: false,
+            error: null,
+            refreshedAt: null,
+            moving: false,
+            routeEdit: {
+              id: null, // null = 新增
+              saving: false,
+              deleting: false,
+            },
+            schedule: {
+              routeId: null,
+              routeName: '',
+              loading: false,
+              saving: false,
+            },
+            special: {
+              routeId: null,
+              routeName: '',
+              items: [],
+              loading: false,
+              error: null,
+              refreshedAt: null,
+              edit: {
+                id: null, // null = 新增
+                saving: false,
+                deleting: false,
+              },
+            },
+          },
         },
         wish: {
           view: 'form',
@@ -3285,6 +3612,56 @@
         adminRichSubmitButtonText: document.getElementById('adminRichSubmitButtonText'),
         adminRichDeleteButton: document.getElementById('adminRichDeleteButton'),
         adminRichDeleteButtonText: document.getElementById('adminRichDeleteButtonText'),
+        adminGarbageListView: document.getElementById('adminGarbageListView'),
+        adminGarbageRouteEditView: document.getElementById('adminGarbageRouteEditView'),
+        adminGarbageScheduleView: document.getElementById('adminGarbageScheduleView'),
+        adminGarbageSpecialListView: document.getElementById('adminGarbageSpecialListView'),
+        adminGarbageSpecialEditView: document.getElementById('adminGarbageSpecialEditView'),
+        adminGarbageListBackButton: document.getElementById('adminGarbageListBackButton'),
+        adminGarbageCreateButton: document.getElementById('adminGarbageCreateButton'),
+        adminGarbageListLoading: document.getElementById('adminGarbageListLoading'),
+        adminGarbageListError: document.getElementById('adminGarbageListError'),
+        adminGarbageListErrorText: document.getElementById('adminGarbageListErrorText'),
+        adminGarbageListRetryButton: document.getElementById('adminGarbageListRetryButton'),
+        adminGarbageListContainer: document.getElementById('adminGarbageListContainer'),
+        adminGarbageListEmpty: document.getElementById('adminGarbageListEmpty'),
+        adminGarbageRouteEditBackButton: document.getElementById('adminGarbageRouteEditBackButton'),
+        adminGarbageRouteEditTitle: document.getElementById('adminGarbageRouteEditTitle'),
+        adminGarbageRouteForm: document.getElementById('adminGarbageRouteForm'),
+        adminGarbageRouteName: document.getElementById('adminGarbageRouteName'),
+        adminGarbageRouteActive: document.getElementById('adminGarbageRouteActive'),
+        adminGarbageRouteSubmitButton: document.getElementById('adminGarbageRouteSubmitButton'),
+        adminGarbageRouteSubmitButtonText: document.getElementById('adminGarbageRouteSubmitButtonText'),
+        adminGarbageRouteDeleteButton: document.getElementById('adminGarbageRouteDeleteButton'),
+        adminGarbageRouteDeleteButtonText: document.getElementById('adminGarbageRouteDeleteButtonText'),
+        adminGarbageScheduleBackButton: document.getElementById('adminGarbageScheduleBackButton'),
+        adminGarbageScheduleTitle: document.getElementById('adminGarbageScheduleTitle'),
+        adminGarbageScheduleLoading: document.getElementById('adminGarbageScheduleLoading'),
+        adminGarbageScheduleForm: document.getElementById('adminGarbageScheduleForm'),
+        adminGarbageScheduleCards: document.getElementById('adminGarbageScheduleCards'),
+        adminGarbageScheduleSubmitButton: document.getElementById('adminGarbageScheduleSubmitButton'),
+        adminGarbageScheduleSubmitButtonText: document.getElementById('adminGarbageScheduleSubmitButtonText'),
+        adminGarbageSpecialListBackButton: document.getElementById('adminGarbageSpecialListBackButton'),
+        adminGarbageSpecialListTitle: document.getElementById('adminGarbageSpecialListTitle'),
+        adminGarbageSpecialCreateButton: document.getElementById('adminGarbageSpecialCreateButton'),
+        adminGarbageSpecialListLoading: document.getElementById('adminGarbageSpecialListLoading'),
+        adminGarbageSpecialListError: document.getElementById('adminGarbageSpecialListError'),
+        adminGarbageSpecialListErrorText: document.getElementById('adminGarbageSpecialListErrorText'),
+        adminGarbageSpecialListRetryButton: document.getElementById('adminGarbageSpecialListRetryButton'),
+        adminGarbageSpecialListContainer: document.getElementById('adminGarbageSpecialListContainer'),
+        adminGarbageSpecialListEmpty: document.getElementById('adminGarbageSpecialListEmpty'),
+        adminGarbageSpecialEditBackButton: document.getElementById('adminGarbageSpecialEditBackButton'),
+        adminGarbageSpecialEditTitle: document.getElementById('adminGarbageSpecialEditTitle'),
+        adminGarbageSpecialForm: document.getElementById('adminGarbageSpecialForm'),
+        adminGarbageSpecialDate: document.getElementById('adminGarbageSpecialDate'),
+        adminGarbageSpecialTime: document.getElementById('adminGarbageSpecialTime'),
+        adminGarbageSpecialLocation: document.getElementById('adminGarbageSpecialLocation'),
+        adminGarbageSpecialNote: document.getElementById('adminGarbageSpecialNote'),
+        adminGarbageSpecialActive: document.getElementById('adminGarbageSpecialActive'),
+        adminGarbageSpecialSubmitButton: document.getElementById('adminGarbageSpecialSubmitButton'),
+        adminGarbageSpecialSubmitButtonText: document.getElementById('adminGarbageSpecialSubmitButtonText'),
+        adminGarbageSpecialDeleteButton: document.getElementById('adminGarbageSpecialDeleteButton'),
+        adminGarbageSpecialDeleteButtonText: document.getElementById('adminGarbageSpecialDeleteButtonText'),
         adminChipsRow: document.getElementById('adminChipsRow'),
         adminSearchInput: document.getElementById('adminSearchInput'),
         adminListLoading: document.getElementById('adminListLoading'),
@@ -3476,7 +3853,7 @@
           if (!params) return;
           if (!module) {
             const m = params.get('module');
-            if (m === 'feedback' || m === 'safety' || m === 'events' || m === 'bulletin' || m === 'rich') module = m;
+            if (m === 'feedback' || m === 'safety' || m === 'events' || m === 'bulletin' || m === 'rich' || m === 'garbage') module = m;
           }
           if (!id) {
             const raw = Number(params.get('id'));
@@ -3559,6 +3936,8 @@
                   openAdminBulletinEdit(deep.id);
                 } else if (deep.module === 'rich') {
                   openAdminRichEdit(deep.id);
+                } else if (deep.module === 'garbage') {
+                  openAdminGarbageRouteEdit(deep.id);
                 }
               }
             }
@@ -4075,6 +4454,8 @@
               switchAdminFriendsView({ autoload: true });
             } else if (module === 'rich') {
               switchAdminRichView('list', { autoload: true });
+            } else if (module === 'garbage') {
+              switchAdminGarbageView('list', { autoload: true });
             }
           });
         }
@@ -4357,6 +4738,84 @@
         }
         if (elements.adminRichDeleteButton) {
           elements.adminRichDeleteButton.addEventListener('click', deleteAdminRich);
+        }
+        // 垃圾車時間（管理端）
+        if (elements.adminGarbageListBackButton) {
+          elements.adminGarbageListBackButton.addEventListener('click', () => switchAdminView('home'));
+        }
+        if (elements.adminGarbageCreateButton) {
+          elements.adminGarbageCreateButton.addEventListener('click', () => openAdminGarbageRouteEdit(null));
+        }
+        if (elements.adminGarbageListRetryButton) {
+          elements.adminGarbageListRetryButton.addEventListener('click', () => loadAdminGarbage({ force: true }));
+        }
+        if (elements.adminGarbageListContainer) {
+          elements.adminGarbageListContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-garbage-action]');
+            if (!btn) return;
+            const id = Number(btn.dataset.garbageId);
+            if (!id) return;
+            if (btn.dataset.garbageAction === 'toggle') {
+              toggleAdminGarbageRouteActive(id);
+            } else if (btn.dataset.garbageAction === 'schedule') {
+              openAdminGarbageSchedule(id);
+            } else if (btn.dataset.garbageAction === 'special') {
+              openAdminGarbageSpecialList(id);
+            } else if (btn.dataset.garbageAction === 'edit') {
+              openAdminGarbageRouteEdit(id);
+            }
+          });
+          // 上移／下移（同一容器委派）
+          elements.adminGarbageListContainer.addEventListener('click', (event) => {
+            const moveBtn = event.target.closest('[data-garbage-move]');
+            if (!moveBtn) return;
+            const id = Number(moveBtn.dataset.garbageId);
+            if (!id) return;
+            moveAdminGarbageRoute(id, moveBtn.dataset.garbageMove);
+          });
+        }
+        if (elements.adminGarbageRouteEditBackButton) {
+          elements.adminGarbageRouteEditBackButton.addEventListener('click', () => switchAdminGarbageView('list'));
+        }
+        if (elements.adminGarbageRouteForm) {
+          elements.adminGarbageRouteForm.addEventListener('submit', saveAdminGarbageRoute);
+        }
+        if (elements.adminGarbageRouteDeleteButton) {
+          elements.adminGarbageRouteDeleteButton.addEventListener('click', deleteAdminGarbageRoute);
+        }
+        if (elements.adminGarbageScheduleBackButton) {
+          elements.adminGarbageScheduleBackButton.addEventListener('click', () => switchAdminGarbageView('list'));
+        }
+        if (elements.adminGarbageScheduleForm) {
+          elements.adminGarbageScheduleForm.addEventListener('submit', saveAdminGarbageSchedule);
+        }
+        if (elements.adminGarbageSpecialListBackButton) {
+          elements.adminGarbageSpecialListBackButton.addEventListener('click', () => switchAdminGarbageView('list'));
+        }
+        if (elements.adminGarbageSpecialCreateButton) {
+          elements.adminGarbageSpecialCreateButton.addEventListener('click', () => openAdminGarbageSpecialEdit(null));
+        }
+        if (elements.adminGarbageSpecialListRetryButton) {
+          elements.adminGarbageSpecialListRetryButton.addEventListener('click', () => loadAdminGarbageSpecial());
+        }
+        if (elements.adminGarbageSpecialListContainer) {
+          elements.adminGarbageSpecialListContainer.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-garbage-special-action]');
+            if (!btn) return;
+            const id = Number(btn.dataset.garbageSpecialId);
+            if (!id) return;
+            if (btn.dataset.garbageSpecialAction === 'edit') {
+              openAdminGarbageSpecialEdit(id);
+            } else if (btn.dataset.garbageSpecialAction === 'delete') {
+              deleteAdminGarbageSpecial(id);
+            }
+          });
+        }
+        if (elements.adminGarbageSpecialEditBackButton) {
+          elements.adminGarbageSpecialEditBackButton.addEventListener('click', () => switchAdminGarbageView('specialList'));
+        }
+        if (elements.adminGarbageSpecialForm) {
+          elements.adminGarbageSpecialForm.addEventListener('submit', saveAdminGarbageSpecial);
         }
         // 瀏覽紀錄事件（管理端，僅查看）
         if (elements.adminPageViewsBackButton) {
@@ -7122,6 +7581,11 @@
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
         if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
         if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
+        if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+        if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.add('hidden');
+        if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.add('hidden');
+        if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+        if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.add('hidden');
 
         if (
           targetView === 'list' &&
@@ -7156,6 +7620,11 @@
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
         if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
         if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
+        if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+        if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.add('hidden');
+        if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.add('hidden');
+        if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+        if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.add('hidden');
 
         if (elements.adminPlatformListView) {
           elements.adminPlatformListView.classList.toggle('hidden', targetView !== 'list');
@@ -7192,6 +7661,11 @@
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
         if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
         if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
+        if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+        if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.add('hidden');
+        if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.add('hidden');
+        if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+        if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.add('hidden');
 
         if (elements.adminEventListView) {
           elements.adminEventListView.classList.toggle('hidden', targetView !== 'list');
@@ -7228,6 +7702,11 @@
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
         if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
         if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
+        if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+        if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.add('hidden');
+        if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.add('hidden');
+        if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+        if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.add('hidden');
 
         if (elements.adminSafetyListView) {
           elements.adminSafetyListView.classList.toggle('hidden', targetView !== 'list');
@@ -7264,6 +7743,11 @@
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
         if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
         if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
+        if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+        if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.add('hidden');
+        if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.add('hidden');
+        if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+        if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.add('hidden');
 
         if (elements.adminBulletinListView) {
           elements.adminBulletinListView.classList.toggle('hidden', targetView !== 'list');
@@ -7298,6 +7782,11 @@
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
         if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
         if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
+        if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+        if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.add('hidden');
+        if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.add('hidden');
+        if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+        if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.add('hidden');
 
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.remove('hidden');
 
@@ -7571,6 +8060,11 @@
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
         if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
         if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
+        if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+        if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.add('hidden');
+        if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.add('hidden');
+        if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+        if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.add('hidden');
 
         if (elements.adminFriendsView) elements.adminFriendsView.classList.remove('hidden');
 
@@ -7996,6 +8490,11 @@
         if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
         if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
         if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
+        if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+        if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.add('hidden');
+        if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.add('hidden');
+        if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+        if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.add('hidden');
 
         if (targetView === 'edit') {
           if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
@@ -8278,6 +8777,729 @@
           state.admin.rich.edit.deleting = false;
           if (elements.adminRichDeleteButton) elements.adminRichDeleteButton.disabled = false;
           if (elements.adminRichDeleteButtonText) elements.adminRichDeleteButtonText.textContent = '刪除內容';
+        }
+      }
+
+      // ==========================================================================
+      // 垃圾車時間（管理端）：路段／固定時間表／特殊日期
+      // ==========================================================================
+
+      const GARBAGE_DAY_LABELS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+
+      function garbageEscapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function switchAdminGarbageView(view, options = {}) {
+        const targetView = view === 'routeEdit' || view === 'schedule' || view === 'specialList' || view === 'specialEdit' ? view : 'list';
+        state.admin.garbage.view = targetView;
+
+        // 先隱藏其他模組相關 view
+        if (elements.adminHomeView) elements.adminHomeView.classList.add('hidden');
+        if (elements.adminListView) elements.adminListView.classList.add('hidden');
+        if (elements.adminDetailView) elements.adminDetailView.classList.add('hidden');
+        if (elements.adminPlatformListView) elements.adminPlatformListView.classList.add('hidden');
+        if (elements.adminPlatformEditView) elements.adminPlatformEditView.classList.add('hidden');
+        if (elements.adminEventListView) elements.adminEventListView.classList.add('hidden');
+        if (elements.adminEventEditView) elements.adminEventEditView.classList.add('hidden');
+        if (elements.adminSafetyListView) elements.adminSafetyListView.classList.add('hidden');
+        if (elements.adminSafetyDetailView) elements.adminSafetyDetailView.classList.add('hidden');
+        if (elements.adminBulletinListView) elements.adminBulletinListView.classList.add('hidden');
+        if (elements.adminBulletinEditView) elements.adminBulletinEditView.classList.add('hidden');
+        if (elements.adminPageViewsView) elements.adminPageViewsView.classList.add('hidden');
+        if (elements.adminFriendsView) elements.adminFriendsView.classList.add('hidden');
+        if (elements.adminRichListView) elements.adminRichListView.classList.add('hidden');
+        if (elements.adminRichEditView) elements.adminRichEditView.classList.add('hidden');
+
+        if (targetView === 'routeEdit') {
+          if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+          if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.remove('hidden');
+        } else if (targetView === 'schedule') {
+          if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+          if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.remove('hidden');
+        } else if (targetView === 'specialList') {
+          if (elements.adminGarbageListView) elements.adminGarbageListView.classList.add('hidden');
+          if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.remove('hidden');
+        } else if (targetView === 'specialEdit') {
+          if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+          if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.remove('hidden');
+        } else {
+          if (elements.adminGarbageRouteEditView) elements.adminGarbageRouteEditView.classList.add('hidden');
+          if (elements.adminGarbageScheduleView) elements.adminGarbageScheduleView.classList.add('hidden');
+          if (elements.adminGarbageSpecialListView) elements.adminGarbageSpecialListView.classList.add('hidden');
+          if (elements.adminGarbageSpecialEditView) elements.adminGarbageSpecialEditView.classList.add('hidden');
+          if (elements.adminGarbageListView) elements.adminGarbageListView.classList.remove('hidden');
+          if (
+            options.autoload === true ||
+            (!state.admin.garbage.refreshedAt && !state.admin.garbage.loading)
+          ) {
+            loadAdminGarbage({ force: options.autoload === true ? true : !state.admin.garbage.refreshedAt });
+          }
+        }
+
+        const scrollContainer = document.scrollingElement || document.documentElement || document.body;
+        if (scrollContainer) scrollContainer.scrollTop = 0;
+        renderIcons();
+      }
+
+      function setAdminGarbageListLoading(visible) {
+        if (elements.adminGarbageListLoading) {
+          elements.adminGarbageListLoading.classList.toggle('hidden', !visible);
+        }
+        if (visible) {
+          if (elements.adminGarbageListContainer) elements.adminGarbageListContainer.classList.add('hidden');
+          if (elements.adminGarbageListEmpty) elements.adminGarbageListEmpty.classList.add('hidden');
+          if (elements.adminGarbageListError) elements.adminGarbageListError.classList.add('hidden');
+        }
+      }
+
+      function setAdminGarbageListError(message) {
+        if (elements.adminGarbageListErrorText) elements.adminGarbageListErrorText.textContent = message || '請稍後再試。';
+        if (elements.adminGarbageListError) elements.adminGarbageListError.classList.remove('hidden');
+        if (elements.adminGarbageListLoading) elements.adminGarbageListLoading.classList.add('hidden');
+        if (elements.adminGarbageListContainer) elements.adminGarbageListContainer.classList.add('hidden');
+        if (elements.adminGarbageListEmpty) elements.adminGarbageListEmpty.classList.add('hidden');
+      }
+
+      async function loadAdminGarbage(options = {}) {
+        if (state.admin.garbage.loading) return;
+        state.admin.garbage.loading = true;
+        setAdminGarbageListLoading(true);
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            setAdminGarbageListError('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch('/api/admin/garbage/routes', {
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          if (!res.ok) {
+            setAdminGarbageListError(`載入失敗（HTTP ${res.status}）`);
+            return;
+          }
+          const result = await res.json().catch(() => null);
+          if (!result || !result.success) {
+            setAdminGarbageListError((result && result.message) || '載入失敗，請稍後再試。');
+            return;
+          }
+          state.admin.garbage.items = result.items || [];
+          state.admin.garbage.refreshedAt = Date.now();
+          state.admin.garbage.error = null;
+          renderAdminGarbageList();
+        } catch (err) {
+          console.error('loadAdminGarbage failed:', err);
+          setAdminGarbageListError('載入失敗，請稍後再試。');
+        } finally {
+          state.admin.garbage.loading = false;
+          if (elements.adminGarbageListLoading) elements.adminGarbageListLoading.classList.add('hidden');
+        }
+      }
+
+      function renderAdminGarbageList() {
+        const container = elements.adminGarbageListContainer;
+        if (!container) return;
+        const items = state.admin.garbage.items || [];
+        container.innerHTML = items
+          .map((item) => {
+            const activeBadge = item.is_active
+              ? '<span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">啟用</span>'
+              : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">停用</span>';
+            return `
+              <div class="rounded-[1.25rem] border border-violet-100 bg-white p-4 shadow-input ${item.is_active ? '' : 'opacity-60'}">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <p class="truncate text-base font-semibold text-violet-950">${garbageEscapeHtml(item.name)}</p>
+                      ${activeBadge}
+                    </div>
+                    <p class="mt-1.5 text-xs text-slate-400">排序第 ${Number(item.sort_order) + 1} 位 · 更新於 ${formatFriendTime(item.updated_at)}</p>
+                  </div>
+                  <div class="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      data-garbage-move="up"
+                      data-garbage-id="${item.id}"
+                      title="上移"
+                      class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+                    >
+                      <i data-lucide="chevron-up" class="h-4 w-4"></i>
+                    </button>
+                    <button
+                      type="button"
+                      data-garbage-move="down"
+                      data-garbage-id="${item.id}"
+                      title="下移"
+                      class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+                    >
+                      <i data-lucide="chevron-down" class="h-4 w-4"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+                  <button type="button" data-garbage-action="toggle" data-garbage-id="${item.id}" class="flex-1 rounded-full bg-violet-50 py-2.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-100">
+                    ${item.is_active ? '停用' : '啟用'}
+                  </button>
+                  <button type="button" data-garbage-action="schedule" data-garbage-id="${item.id}" class="flex-1 rounded-full bg-slate-100 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">
+                    本週時間
+                  </button>
+                  <button type="button" data-garbage-action="special" data-garbage-id="${item.id}" class="flex-1 rounded-full bg-slate-100 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">
+                    特殊日期
+                  </button>
+                  <button type="button" data-garbage-action="edit" data-garbage-id="${item.id}" class="flex-1 rounded-full bg-slate-100 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">
+                    編輯
+                  </button>
+                </div>
+              </div>
+            `;
+          })
+          .join('');
+        if (elements.adminGarbageListEmpty) {
+          elements.adminGarbageListEmpty.classList.toggle('hidden', items.length > 0);
+        }
+        container.classList.toggle('hidden', items.length === 0);
+        renderIcons();
+      }
+
+      function fillAdminGarbageRouteForm(item) {
+        if (elements.adminGarbageRouteName) elements.adminGarbageRouteName.value = item ? String(item.name || '') : '';
+        if (elements.adminGarbageRouteActive) elements.adminGarbageRouteActive.checked = item ? item.is_active !== false : true;
+      }
+
+      async function openAdminGarbageRouteEdit(id) {
+        if (id != null && !(state.admin.garbage.items || []).length) {
+          await loadAdminGarbage({ force: true });
+        }
+        const item = id != null ? (state.admin.garbage.items || []).find((r) => Number(r.id) === Number(id)) : null;
+        if (id != null && !item) {
+          showToast('找不到這個路段。');
+          switchAdminGarbageView('list');
+          return;
+        }
+        state.admin.garbage.routeEdit.id = item ? item.id : null;
+        fillAdminGarbageRouteForm(item);
+        if (elements.adminGarbageRouteEditTitle) {
+          elements.adminGarbageRouteEditTitle.textContent = item ? `編輯路段 — ${item.name}` : '新增路段';
+        }
+        if (elements.adminGarbageRouteSubmitButtonText) {
+          elements.adminGarbageRouteSubmitButtonText.textContent = item ? '更新路段' : '儲存路段';
+        }
+        if (elements.adminGarbageRouteDeleteButton) {
+          elements.adminGarbageRouteDeleteButton.classList.toggle('hidden', !item);
+        }
+        switchAdminGarbageView('routeEdit');
+        if (elements.adminGarbageRouteName) elements.adminGarbageRouteName.focus();
+      }
+
+      async function saveAdminGarbageRoute(e) {
+        e.preventDefault();
+        if (state.admin.garbage.routeEdit.saving) return;
+        const name = (elements.adminGarbageRouteName && elements.adminGarbageRouteName.value.trim()) || '';
+        if (!name) {
+          showToast('請輸入路段名稱。');
+          return;
+        }
+
+        state.admin.garbage.routeEdit.saving = true;
+        if (elements.adminGarbageRouteSubmitButton) elements.adminGarbageRouteSubmitButton.disabled = true;
+        if (elements.adminGarbageRouteSubmitButtonText) elements.adminGarbageRouteSubmitButtonText.textContent = '儲存中…';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const editing = state.admin.garbage.routeEdit.id != null;
+          const payload = {
+            name,
+            is_active: elements.adminGarbageRouteActive ? elements.adminGarbageRouteActive.checked : true,
+          };
+          const res = await fetch(
+            editing ? `/api/admin/garbage/routes/${state.admin.garbage.routeEdit.id}` : '/api/admin/garbage/routes',
+            {
+              method: editing ? 'PATCH' : 'POST',
+              headers: buildAuthHeaders(tokenBundle),
+              body: JSON.stringify(payload),
+            }
+          );
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '儲存失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '路段已儲存。');
+          state.admin.garbage.routeEdit.id = null;
+          await loadAdminGarbage({ force: true });
+          switchAdminGarbageView('list');
+        } catch (err) {
+          console.error('saveAdminGarbageRoute failed:', err);
+          showToast('儲存失敗，請稍後再試。');
+        } finally {
+          state.admin.garbage.routeEdit.saving = false;
+          if (elements.adminGarbageRouteSubmitButton) elements.adminGarbageRouteSubmitButton.disabled = false;
+          if (elements.adminGarbageRouteSubmitButtonText) elements.adminGarbageRouteSubmitButtonText.textContent = '儲存路段';
+        }
+      }
+
+      async function deleteAdminGarbageRoute() {
+        const id = state.admin.garbage.routeEdit.id;
+        if (id == null || state.admin.garbage.routeEdit.deleting) return;
+        const item = (state.admin.garbage.items || []).find((r) => Number(r.id) === Number(id));
+        if (!window.confirm(`確定刪除路段「${item ? item.name : ''}」？\n路段的固定時間表與特殊日期會一併刪除。`)) return;
+
+        state.admin.garbage.routeEdit.deleting = true;
+        if (elements.adminGarbageRouteDeleteButton) elements.adminGarbageRouteDeleteButton.disabled = true;
+        if (elements.adminGarbageRouteDeleteButtonText) elements.adminGarbageRouteDeleteButtonText.textContent = '刪除中…';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/garbage/routes/${id}`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '刪除失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '路段已刪除。');
+          state.admin.garbage.routeEdit.id = null;
+          await loadAdminGarbage({ force: true });
+          switchAdminGarbageView('list');
+        } catch (err) {
+          console.error('deleteAdminGarbageRoute failed:', err);
+          showToast('刪除失敗，請稍後再試。');
+        } finally {
+          state.admin.garbage.routeEdit.deleting = false;
+          if (elements.adminGarbageRouteDeleteButton) elements.adminGarbageRouteDeleteButton.disabled = false;
+          if (elements.adminGarbageRouteDeleteButtonText) elements.adminGarbageRouteDeleteButtonText.textContent = '刪除路段（含時間表與特殊日期）';
+        }
+      }
+
+      async function moveAdminGarbageRoute(id, direction) {
+        if (state.admin.garbage.moving) return;
+        state.admin.garbage.moving = true;
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/garbage/routes/${id}/move`, {
+            method: 'POST',
+            headers: buildAuthHeaders(tokenBundle),
+            body: JSON.stringify({ direction }),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '排序失敗，請稍後再試。');
+            return;
+          }
+          state.admin.garbage.items = result.items || [];
+          renderAdminGarbageList();
+        } catch (err) {
+          console.error('moveAdminGarbageRoute failed:', err);
+          showToast('排序失敗，請稍後再試。');
+        } finally {
+          state.admin.garbage.moving = false;
+        }
+      }
+
+      async function toggleAdminGarbageRouteActive(id) {
+        const item = (state.admin.garbage.items || []).find((r) => Number(r.id) === Number(id));
+        if (!item) return;
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/garbage/routes/${id}`, {
+            method: 'PATCH',
+            headers: buildAuthHeaders(tokenBundle),
+            body: JSON.stringify({ is_active: item.is_active !== true }),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '操作失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '已更新。');
+          await loadAdminGarbage({ force: true });
+        } catch (err) {
+          console.error('toggleAdminGarbageRouteActive failed:', err);
+          showToast('操作失敗，請稍後再試。');
+        }
+      }
+
+      // ===== 固定時間表（一週七天） =====
+
+      function renderAdminGarbageScheduleCards(rows) {
+        const cardsEl = elements.adminGarbageScheduleCards;
+        if (!cardsEl) return;
+        const byDay = {};
+        (rows || []).forEach((r) => { byDay[Number(r.day_of_week)] = r; });
+        cardsEl.innerHTML = GARBAGE_DAY_LABELS.map((label, day) => {
+          const row = byDay[day] || {};
+          const active = row.is_active !== false && (row.time_text || row.location_text);
+          return `
+            <div class="rounded-[1.25rem] border border-violet-100 bg-white p-4 shadow-input" data-garbage-day="${day}">
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-bold text-violet-950">${label}</p>
+                <label class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                  <span>啟用</span>
+                  <input type="checkbox" data-garbage-field="active" ${active ? 'checked' : ''} class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />
+                </label>
+              </div>
+              <div class="mt-3 space-y-2.5">
+                <div>
+                  <label class="text-[11px] font-semibold text-slate-400">時間（啟用時必填）</label>
+                  <input type="text" maxlength="100" placeholder="例如：18:30–19:00" data-garbage-field="time" value="${garbageEscapeHtml(row.time_text || '')}"
+                    class="mt-1 h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-slate-400">地點（啟用時必填）</label>
+                  <input type="text" maxlength="100" placeholder="例如：正砂路與中正路口" data-garbage-field="location" value="${garbageEscapeHtml(row.location_text || '')}"
+                    class="mt-1 h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-slate-400">備註（選填）</label>
+                  <input type="text" maxlength="200" placeholder="例如：繞行順序依現場調整" data-garbage-field="note" value="${garbageEscapeHtml(row.note || '')}"
+                    class="mt-1 h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        renderIcons();
+      }
+
+      async function openAdminGarbageSchedule(id) {
+        const item = (state.admin.garbage.items || []).find((r) => Number(r.id) === Number(id));
+        if (!item) return;
+        state.admin.garbage.schedule.routeId = item.id;
+        state.admin.garbage.schedule.routeName = item.name;
+        if (elements.adminGarbageScheduleTitle) {
+          elements.adminGarbageScheduleTitle.textContent = `固定時間表 — ${item.name}`;
+        }
+        if (elements.adminGarbageScheduleCards) elements.adminGarbageScheduleCards.innerHTML = '';
+        if (elements.adminGarbageScheduleLoading) elements.adminGarbageScheduleLoading.classList.remove('hidden');
+        switchAdminGarbageView('schedule');
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/garbage/routes/${item.id}/schedules`, {
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '時間表載入失敗，請稍後再試。');
+            switchAdminGarbageView('list');
+            return;
+          }
+          renderAdminGarbageScheduleCards(result.items || []);
+        } catch (err) {
+          console.error('openAdminGarbageSchedule failed:', err);
+          showToast('時間表載入失敗，請稍後再試。');
+          switchAdminGarbageView('list');
+        } finally {
+          if (elements.adminGarbageScheduleLoading) elements.adminGarbageScheduleLoading.classList.add('hidden');
+        }
+      }
+
+      async function saveAdminGarbageSchedule(e) {
+        e.preventDefault();
+        if (state.admin.garbage.schedule.saving || state.admin.garbage.schedule.routeId == null) return;
+        const cardsEl = elements.adminGarbageScheduleCards;
+        if (!cardsEl) return;
+
+        const days = [];
+        let invalid = '';
+        cardsEl.querySelectorAll('[data-garbage-day]').forEach((card) => {
+          const dayOfWeek = Number(card.dataset.garbageDay);
+          const active = card.querySelector('[data-garbage-field="active"]').checked;
+          const timeText = card.querySelector('[data-garbage-field="time"]').value.trim();
+          const locationText = card.querySelector('[data-garbage-field="location"]').value.trim();
+          const note = card.querySelector('[data-garbage-field="note"]').value.trim();
+          if (active && (!timeText || !locationText)) {
+            invalid = `${GARBAGE_DAY_LABELS[dayOfWeek]}啟用時，時間與地點都要填。`;
+          }
+          days.push({ day_of_week: dayOfWeek, time_text: timeText, location_text: locationText, note, is_active: active });
+        });
+        if (invalid) {
+          showToast(invalid);
+          return;
+        }
+
+        state.admin.garbage.schedule.saving = true;
+        if (elements.adminGarbageScheduleSubmitButton) elements.adminGarbageScheduleSubmitButton.disabled = true;
+        if (elements.adminGarbageScheduleSubmitButtonText) elements.adminGarbageScheduleSubmitButtonText.textContent = '儲存中…';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/garbage/routes/${state.admin.garbage.schedule.routeId}/schedules`, {
+            method: 'PUT',
+            headers: buildAuthHeaders(tokenBundle),
+            body: JSON.stringify({ days }),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '儲存失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '時間表已儲存。');
+          await loadAdminGarbage({ force: true });
+          switchAdminGarbageView('list');
+        } catch (err) {
+          console.error('saveAdminGarbageSchedule failed:', err);
+          showToast('儲存失敗，請稍後再試。');
+        } finally {
+          state.admin.garbage.schedule.saving = false;
+          if (elements.adminGarbageScheduleSubmitButton) elements.adminGarbageScheduleSubmitButton.disabled = false;
+          if (elements.adminGarbageScheduleSubmitButtonText) elements.adminGarbageScheduleSubmitButtonText.textContent = '儲存整週時間表';
+        }
+      }
+
+      // ===== 特殊日期 =====
+
+      function setAdminGarbageSpecialLoading(visible) {
+        if (elements.adminGarbageSpecialListLoading) {
+          elements.adminGarbageSpecialListLoading.classList.toggle('hidden', !visible);
+        }
+        if (visible) {
+          if (elements.adminGarbageSpecialListContainer) elements.adminGarbageSpecialListContainer.classList.add('hidden');
+          if (elements.adminGarbageSpecialListEmpty) elements.adminGarbageSpecialListEmpty.classList.add('hidden');
+          if (elements.adminGarbageSpecialListError) elements.adminGarbageSpecialListError.classList.add('hidden');
+        }
+      }
+
+      async function loadAdminGarbageSpecial() {
+        if (state.admin.garbage.special.routeId == null || state.admin.garbage.special.loading) return;
+        state.admin.garbage.special.loading = true;
+        setAdminGarbageSpecialLoading(true);
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/garbage/special-dates?routeId=${state.admin.garbage.special.routeId}`, {
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            if (elements.adminGarbageSpecialListErrorText) {
+              elements.adminGarbageSpecialListErrorText.textContent = (result && result.message) || `載入失敗（HTTP ${res.status}）`;
+            }
+            if (elements.adminGarbageSpecialListError) elements.adminGarbageSpecialListError.classList.remove('hidden');
+            return;
+          }
+          state.admin.garbage.special.items = result.items || [];
+          state.admin.garbage.special.refreshedAt = Date.now();
+          renderAdminGarbageSpecialList();
+        } catch (err) {
+          console.error('loadAdminGarbageSpecial failed:', err);
+          if (elements.adminGarbageSpecialListError) elements.adminGarbageSpecialListError.classList.remove('hidden');
+        } finally {
+          state.admin.garbage.special.loading = false;
+          if (elements.adminGarbageSpecialListLoading) elements.adminGarbageSpecialListLoading.classList.add('hidden');
+        }
+      }
+
+      function renderAdminGarbageSpecialList() {
+        const container = elements.adminGarbageSpecialListContainer;
+        if (!container) return;
+        const items = state.admin.garbage.special.items || [];
+        container.innerHTML = items
+          .map((item) => {
+            const activeBadge = item.is_active
+              ? '<span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">啟用</span>'
+              : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">停用</span>';
+            return `
+              <div class="rounded-[1.25rem] border border-violet-100 bg-white p-4 shadow-input ${item.is_active ? '' : 'opacity-60'}">
+                <div class="flex items-center justify-between gap-3">
+                  <p class="text-base font-semibold text-violet-950">${garbageEscapeHtml(item.special_date)}</p>
+                  ${activeBadge}
+                </div>
+                <div class="mt-2 space-y-1 text-xs leading-6 text-slate-600">
+                  <p>時間：${garbageEscapeHtml(item.time_text || '—')}</p>
+                  <p>地點：${garbageEscapeHtml(item.location_text || '—')}</p>
+                  <p>備註：${garbageEscapeHtml(item.note || '—')}</p>
+                </div>
+                <div class="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+                  <button type="button" data-garbage-special-action="edit" data-garbage-special-id="${item.id}" class="flex-1 rounded-full bg-slate-100 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">
+                    編輯
+                  </button>
+                  <button type="button" data-garbage-special-action="delete" data-garbage-special-id="${item.id}" class="flex-1 rounded-full bg-rose-50 py-2.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100">
+                    刪除
+                  </button>
+                </div>
+              </div>
+            `;
+          })
+          .join('');
+        if (elements.adminGarbageSpecialListEmpty) {
+          elements.adminGarbageSpecialListEmpty.classList.toggle('hidden', items.length > 0);
+        }
+        container.classList.toggle('hidden', items.length === 0);
+        renderIcons();
+      }
+
+      async function openAdminGarbageSpecialList(id) {
+        const item = (state.admin.garbage.items || []).find((r) => Number(r.id) === Number(id));
+        if (!item) return;
+        state.admin.garbage.special.routeId = item.id;
+        state.admin.garbage.special.routeName = item.name;
+        state.admin.garbage.special.items = [];
+        state.admin.garbage.special.edit.id = null;
+        if (elements.adminGarbageSpecialListTitle) {
+          elements.adminGarbageSpecialListTitle.textContent = `特殊日期 — ${item.name}`;
+        }
+        if (elements.adminGarbageSpecialListContainer) elements.adminGarbageSpecialListContainer.innerHTML = '';
+        if (elements.adminGarbageSpecialListContainer) elements.adminGarbageSpecialListContainer.classList.add('hidden');
+        if (elements.adminGarbageSpecialListEmpty) elements.adminGarbageSpecialListEmpty.classList.add('hidden');
+        if (elements.adminGarbageSpecialListError) elements.adminGarbageSpecialListError.classList.add('hidden');
+        switchAdminGarbageView('specialList');
+        await loadAdminGarbageSpecial();
+      }
+
+      function fillAdminGarbageSpecialForm(item) {
+        if (elements.adminGarbageSpecialDate) elements.adminGarbageSpecialDate.value = item ? String(item.special_date || '') : '';
+        if (elements.adminGarbageSpecialTime) elements.adminGarbageSpecialTime.value = item ? String(item.time_text || '') : '';
+        if (elements.adminGarbageSpecialLocation) elements.adminGarbageSpecialLocation.value = item ? String(item.location_text || '') : '';
+        if (elements.adminGarbageSpecialNote) elements.adminGarbageSpecialNote.value = item ? String(item.note || '') : '';
+        if (elements.adminGarbageSpecialActive) elements.adminGarbageSpecialActive.checked = item ? item.is_active !== false : true;
+        if (elements.adminGarbageSpecialEditTitle) {
+          elements.adminGarbageSpecialEditTitle.textContent = item ? `編輯特殊日期 — ${item.special_date}` : `新增特殊日期 — ${state.admin.garbage.special.routeName || ''}`;
+        }
+        if (elements.adminGarbageSpecialSubmitButtonText) {
+          elements.adminGarbageSpecialSubmitButtonText.textContent = item ? '更新日期' : '新增日期';
+        }
+        if (elements.adminGarbageSpecialDeleteButton) {
+          elements.adminGarbageSpecialDeleteButton.classList.toggle('hidden', !item);
+        }
+      }
+
+      function openAdminGarbageSpecialEdit(id) {
+        const item = id != null ? (state.admin.garbage.special.items || []).find((s) => Number(s.id) === Number(id)) : null;
+        if (id != null && !item) return;
+        state.admin.garbage.special.edit.id = item ? item.id : null;
+        fillAdminGarbageSpecialForm(item);
+        switchAdminGarbageView('specialEdit');
+      }
+
+      async function saveAdminGarbageSpecial(e) {
+        e.preventDefault();
+        if (state.admin.garbage.special.edit.saving || state.admin.garbage.special.routeId == null) return;
+        const dateStr = (elements.adminGarbageSpecialDate && elements.adminGarbageSpecialDate.value.trim()) || '';
+        if (!dateStr) {
+          showToast('請選擇日期。');
+          return;
+        }
+        const timeText = (elements.adminGarbageSpecialTime && elements.adminGarbageSpecialTime.value.trim()) || '';
+        const locationText = (elements.adminGarbageSpecialLocation && elements.adminGarbageSpecialLocation.value.trim()) || '';
+        const note = (elements.adminGarbageSpecialNote && elements.adminGarbageSpecialNote.value.trim()) || '';
+        if (!timeText && !locationText && !note) {
+          showToast('時間、地點、備註至少填一項。');
+          return;
+        }
+
+        state.admin.garbage.special.edit.saving = true;
+        if (elements.adminGarbageSpecialSubmitButton) elements.adminGarbageSpecialSubmitButton.disabled = true;
+        if (elements.adminGarbageSpecialSubmitButtonText) elements.adminGarbageSpecialSubmitButtonText.textContent = '儲存中…';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const editing = state.admin.garbage.special.edit.id != null;
+          const payload = {
+            special_date: dateStr,
+            time_text: timeText,
+            location_text: locationText,
+            note,
+            is_active: elements.adminGarbageSpecialActive ? elements.adminGarbageSpecialActive.checked : true,
+          };
+          const res = await fetch(
+            editing ? `/api/admin/garbage/special-dates/${state.admin.garbage.special.edit.id}` : '/api/admin/garbage/special-dates',
+            {
+              method: editing ? 'PATCH' : 'POST',
+              headers: buildAuthHeaders(tokenBundle),
+              body: JSON.stringify(payload),
+            }
+          );
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '儲存失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '特殊日期已儲存。');
+          state.admin.garbage.special.edit.id = null;
+          await loadAdminGarbageSpecial();
+          switchAdminGarbageView('specialList');
+        } catch (err) {
+          console.error('saveAdminGarbageSpecial failed:', err);
+          showToast('儲存失敗，請稍後再試。');
+        } finally {
+          state.admin.garbage.special.edit.saving = false;
+          if (elements.adminGarbageSpecialSubmitButton) elements.adminGarbageSpecialSubmitButton.disabled = false;
+          if (elements.adminGarbageSpecialSubmitButtonText) elements.adminGarbageSpecialSubmitButtonText.textContent = '新增日期';
+        }
+      }
+
+      async function deleteAdminGarbageSpecial(id) {
+        if (id == null || state.admin.garbage.special.edit.deleting) return;
+        if (!window.confirm('確定刪除這筆特殊日期？')) return;
+
+        state.admin.garbage.special.edit.deleting = true;
+        if (elements.adminGarbageSpecialDeleteButton) elements.adminGarbageSpecialDeleteButton.disabled = true;
+        if (elements.adminGarbageSpecialDeleteButtonText) elements.adminGarbageSpecialDeleteButtonText.textContent = '刪除中…';
+
+        try {
+          const tokenBundle = await getIdentityToken();
+          if (tokenBundle.kind !== 'liff') {
+            showToast('請透過 LINE 重新開啟管理功能。');
+            return;
+          }
+          const res = await fetch(`/api/admin/garbage/special-dates/${id}`, {
+            method: 'DELETE',
+            headers: buildAuthHeaders(tokenBundle),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result || !result.success) {
+            showToast((result && result.message) || '刪除失敗，請稍後再試。');
+            return;
+          }
+          showToast(result.message || '特殊日期已刪除。');
+          state.admin.garbage.special.edit.id = null;
+          await loadAdminGarbageSpecial();
+          switchAdminGarbageView('specialList');
+        } catch (err) {
+          console.error('deleteAdminGarbageSpecial failed:', err);
+          showToast('刪除失敗，請稍後再試。');
+        } finally {
+          state.admin.garbage.special.edit.deleting = false;
+          if (elements.adminGarbageSpecialDeleteButton) elements.adminGarbageSpecialDeleteButton.disabled = false;
+          if (elements.adminGarbageSpecialDeleteButtonText) elements.adminGarbageSpecialDeleteButtonText.textContent = '刪除這筆特殊日期';
         }
       }
 
