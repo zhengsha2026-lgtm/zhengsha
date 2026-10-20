@@ -6509,16 +6509,21 @@ async function capturePageViewVisitor(lineUserId, tokenPayload) {
 
 // ============================================================================
 // 圖文選單動態回覆（rich_menu_contents）
-//   postback.data 例如 type=garbage 或 action=latest&type=garbage
+//   圖文選單按鈕送出固定文字（關鍵字）→ RICH_MENU_KEYWORD_TYPES 映射到 type
 //   → 查該 type「is_active = true 且 updated_at 最新」一筆，用 reply token 回文字
 //   查無資料回「目前尚無最新公告」；失敗只 log，不讓 webhook 500（LINE 會重送）
+//   （另有 postback.data 例如 type=garbage 的舊路徑，保留相容但不會被觸發）
 // ============================================================================
 
-async function replyRichMenuPostback(event) {
-  const data = event.postback && event.postback.data ? String(event.postback.data) : '';
-  const type = normalizeRichContentType(new URLSearchParams(data).get('type'));
-  if (!type) return null; // 不是本功能的 postback（其他選單動作），靜默略過
+// 圖文選單按鈕送出的關鍵字 → rich_menu_contents.type（比對前已去前後空白）
+const RICH_MENU_KEYWORD_TYPES = {
+  垃圾車: 'garbage',
+  停水停電: 'outage',
+};
 
+// 查指定 type「is_active = true 且 updated_at 最新」一筆，組成回覆文字
+// 查無資料回「目前尚無最新公告」；查詢失敗只 log（同樣回 fallback 文字）
+async function buildRichMenuReplyText(type) {
   let replyText = '目前尚無最新公告';
   if (supabaseAdmin) {
     const { data: row, error } = await supabaseAdmin
@@ -6541,6 +6546,15 @@ async function replyRichMenuPostback(event) {
   // LINE 文字訊息上限 2000 字（標題＋內容組合後超過就截斷）
   if (replyText.length > 2000) replyText = replyText.slice(0, 2000);
 
+  return replyText;
+}
+
+async function replyRichMenuPostback(event) {
+  const data = event.postback && event.postback.data ? String(event.postback.data) : '';
+  const type = normalizeRichContentType(new URLSearchParams(data).get('type'));
+  if (!type) return null; // 不是本功能的 postback（其他選單動作），靜默略過
+
+  const replyText = await buildRichMenuReplyText(type);
   return lineClient.replyMessage({
     replyToken: event.replyToken,
     messages: [{ type: 'text', text: replyText }],
@@ -6578,6 +6592,22 @@ async function handleEvent(event) {
   }
 
   const incomingText = event.message.text.trim();
+
+  // 圖文選單動態回覆：關鍵字（選單按鈕送出固定文字；失敗只 log，不影響其他關鍵字）
+  const richMenuType = RICH_MENU_KEYWORD_TYPES[incomingText];
+  if (richMenuType) {
+    try {
+      const replyText = await buildRichMenuReplyText(richMenuType);
+      return await lineClient.replyMessage({
+        replyToken: event.replyToken,
+        messages: [{ type: 'text', text: replyText }],
+      });
+    } catch (error) {
+      console.error('rich menu keyword reply failed:', error);
+      return null;
+    }
+  }
+
   const specialCommandResponses = {
     ping: '系統正常運作中，歡迎隨時傳訊給我。',
     表單: buildFeedbackInvitation(),
