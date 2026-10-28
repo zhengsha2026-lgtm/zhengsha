@@ -2748,7 +2748,17 @@
                         />
                       </div>
                     </div>
-                    <p class="-mt-1 text-xs leading-5 text-slate-400">里民傳「垃圾車」後會出現路段按鈕；顯示為「代碼＋名稱」（上限 20 字）。</p>
+                    <div>
+                      <label for="adminGarbageRouteAlias" class="text-sm font-semibold text-violet-950">路線別名 <span class="font-normal text-slate-400">（選填，里民端按鈕顯示）</span></label>
+                      <input
+                        id="adminGarbageRouteAlias"
+                        type="text"
+                        maxlength="50"
+                        placeholder="例如：正榮街"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                    </div>
+                    <p class="text-xs leading-5 text-slate-400">里民傳「垃圾車」後的按鈕顯示別名（未填則用路段名稱）；代碼僅供管理端辨識。</p>
                     <div>
                       <p class="text-sm font-semibold text-violet-950">回收日 <span class="font-normal text-slate-400">（這幾天有資源回收車）</span></p>
                       <div id="adminGarbageRouteRecyclingGroup" class="mt-2 flex flex-wrap gap-2">
@@ -3797,6 +3807,7 @@
         adminGarbageRouteSubmitButton: document.getElementById('adminGarbageRouteSubmitButton'),
         adminGarbageRouteSubmitButtonText: document.getElementById('adminGarbageRouteSubmitButtonText'),
         adminGarbageRouteCode: document.getElementById('adminGarbageRouteCode'),
+        adminGarbageRouteAlias: document.getElementById('adminGarbageRouteAlias'),
         adminGarbageRouteRecyclingGroup: document.getElementById('adminGarbageRouteRecyclingGroup'),
         adminGarbageRouteOffGroup: document.getElementById('adminGarbageRouteOffGroup'),
         adminGarbageRouteDeleteButton: document.getElementById('adminGarbageRouteDeleteButton'),
@@ -9215,6 +9226,7 @@
       function fillAdminGarbageRouteForm(item) {
         if (elements.adminGarbageRouteName) elements.adminGarbageRouteName.value = item ? String(item.name || '') : '';
         if (elements.adminGarbageRouteCode) elements.adminGarbageRouteCode.value = item ? String(item.code || '') : '';
+        if (elements.adminGarbageRouteAlias) elements.adminGarbageRouteAlias.value = item ? String(item.alias || '') : '';
         if (elements.adminGarbageRouteActive) elements.adminGarbageRouteActive.checked = item ? item.is_active !== false : true;
         if (elements.adminGarbageRouteRecyclingGroup) garbageFillDayGroup(elements.adminGarbageRouteRecyclingGroup, item ? item.recycling_days : []);
         if (elements.adminGarbageRouteOffGroup) garbageFillDayGroup(elements.adminGarbageRouteOffGroup, item ? item.off_days : [0, 3]);
@@ -9268,6 +9280,7 @@
           const payload = {
             name,
             code: (elements.adminGarbageRouteCode && elements.adminGarbageRouteCode.value.trim()) || '',
+            alias: (elements.adminGarbageRouteAlias && elements.adminGarbageRouteAlias.value.trim()) || '',
             recycling_days: elements.adminGarbageRouteRecyclingGroup ? garbageReadDayGroup(elements.adminGarbageRouteRecyclingGroup) : [],
             off_days: elements.adminGarbageRouteOffGroup ? garbageReadDayGroup(elements.adminGarbageRouteOffGroup) : [0, 3],
             is_active: elements.adminGarbageRouteActive ? elements.adminGarbageRouteActive.checked : true,

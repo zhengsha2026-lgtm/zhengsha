@@ -772,7 +772,12 @@
               class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
           </div>
         </div>
-        <p class="-mt-2 text-xs leading-5 text-slate-400">里民傳「垃圾車」後會出現路段按鈕；顯示為「代碼＋名稱」（上限 20 字）。</p>
+        <div>
+          <label for="garbageRouteAliasInput" class="block text-sm font-semibold text-slate-700">路線別名 <span class="text-slate-400">（選填，里民端按鈕顯示）</span></label>
+          <input id="garbageRouteAliasInput" type="text" maxlength="50" placeholder="例如：正榮街"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+        </div>
+        <p class="text-xs leading-5 text-slate-400">里民傳「垃圾車」後的按鈕顯示別名（未填則用路段名稱）；代碼僅供管理端辨識。</p>
 
         <div>
           <p class="text-sm font-semibold text-slate-700">回收日 <span class="text-slate-400">（選填，這幾天有資源回收車跟垃圾車）</span></p>
@@ -1167,7 +1172,7 @@ function cacheElements() {
     'richModal', 'richModalTitle', 'richModalCloseButton', 'richForm', 'richTypeInput', 'richTitleInput', 'richContentInput', 'richActiveInput',
     'richSubmitButton', 'richSubmitButtonText', 'richCancelButton', 'richDeleteButton', 'richDeleteButtonText',
     'moduleGarbage', 'garbageTableBody', 'garbageListEmpty', 'garbageListLoading', 'garbageCreateButton', 'garbageRefreshButton',
-    'garbageRouteModal', 'garbageRouteModalTitle', 'garbageRouteModalCloseButton', 'garbageRouteForm', 'garbageRouteNameInput', 'garbageRouteActiveInput',
+    'garbageRouteModal', 'garbageRouteModalTitle', 'garbageRouteModalCloseButton', 'garbageRouteForm', 'garbageRouteNameInput', 'garbageRouteAliasInput', 'garbageRouteActiveInput',
     'garbageRouteSubmitButton', 'garbageRouteSubmitButtonText', 'garbageRouteCancelButton', 'garbageRouteDeleteButton', 'garbageRouteDeleteButtonText',
     'garbageRouteCodeInput', 'garbageRouteRecyclingGroup', 'garbageRouteOffGroup',
     'garbageStopsModal', 'garbageStopsModalTitle', 'garbageStopsModalCloseButton', 'garbageStopsTableBody', 'garbageStopsListEmpty', 'garbageStopsListLoading',
@@ -3201,6 +3206,7 @@ function renderGarbageTable() {
 function fillGarbageRouteForm(item) {
   elements.garbageRouteNameInput.value = item ? String(item.name || '') : '';
   elements.garbageRouteCodeInput.value = item ? String(item.code || '') : '';
+  elements.garbageRouteAliasInput.value = item ? String(item.alias || '') : '';
   garbageFillDayGroup(elements.garbageRouteRecyclingGroup, item ? item.recycling_days : []);
   garbageFillDayGroup(elements.garbageRouteOffGroup, item ? item.off_days : [0, 3]);
   elements.garbageRouteActiveInput.checked = item ? item.is_active === true : true;
@@ -3247,6 +3253,7 @@ async function saveGarbageRoute(e) {
     const payload = {
       name,
       code: elements.garbageRouteCodeInput.value.trim(),
+      alias: elements.garbageRouteAliasInput.value.trim(),
       recycling_days: garbageReadDayGroup(elements.garbageRouteRecyclingGroup),
       off_days: garbageReadDayGroup(elements.garbageRouteOffGroup),
       is_active: elements.garbageRouteActiveInput.checked,
