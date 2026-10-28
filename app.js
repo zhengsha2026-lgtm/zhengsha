@@ -4051,19 +4051,92 @@ app.delete('/api/admin/rich-contents/:id', async (req, res) => {
 });
 
 // ============================================================================
-// 垃圾車時間管理（garbage_routes / garbage_schedules / garbage_special_dates）
-//   路段 CRUD＋上移/下移排序、固定時間表批次（一週七天）、特殊日期 CRUD
+// 垃圾車時間管理（garbage_routes / garbage_stops / garbage_special_dates）
+//   路段 CRUD＋上移/下移排序（含路線代碼/回收日/休運日）、清運點 CRUD＋排序、特殊日期 CRUD
 // ============================================================================
 
 const GARBAGE_NAME_MAX_LENGTH = 50;
-const GARBAGE_TEXT_MAX_LENGTH = 100; // time_text / location_text
+const GARBAGE_TEXT_MAX_LENGTH = 100; // time_text / location_text / alias
 const GARBAGE_NOTE_MAX_LENGTH = 200;
+const GARBAGE_CODE_MAX_LENGTH = 20; // 路線代碼（'34-1'）
+const GARBAGE_STOP_NAME_MAX_LENGTH = 100;
 const GARBAGE_DAY_LABELS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+const GARBAGE_STOP_SELECT =
+  'id, route_id, stop_code, name, alias, longitude, latitude, arrival_time, is_zhengsha, sort_order, is_active, created_at, updated_at';
 
 function isValidGarbageDateStr(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const d = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
+// 正規化星期陣列（0-6、去重、排序）；回 null 表示格式不正確
+function normalizeGarbageDayArray(value) {
+  if (!Array.isArray(value)) return null;
+  const set = new Set();
+  for (const item of value) {
+    const day = Number(item);
+    if (!Number.isInteger(day) || day < 0 || day > 6) return null;
+    set.add(day);
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+// 清運點欄位驗證（新增/編輯共用；未傳的欄位不動）；回 { payload } 或 { error }
+function buildGarbageStopPayload(body) {
+  const payload = {};
+  if (body.name !== undefined) {
+    const name = String(body.name || '').trim();
+    if (!name) return { error: '請輸入清運點名稱。' };
+    if (name.length > GARBAGE_STOP_NAME_MAX_LENGTH) {
+      return { error: `清運點名稱請控制在 ${GARBAGE_STOP_NAME_MAX_LENGTH} 字以內。` };
+    }
+    payload.name = name;
+  }
+  if (body.alias !== undefined) {
+    const alias = String(body.alias || '').trim();
+    if (alias.length > GARBAGE_TEXT_MAX_LENGTH) {
+      return { error: `別名請控制在 ${GARBAGE_TEXT_MAX_LENGTH} 字以內。` };
+    }
+    payload.alias = alias || null;
+  }
+  if (body.stop_code !== undefined) {
+    if (body.stop_code === null || body.stop_code === '') {
+      payload.stop_code = null;
+    } else {
+      const stopCode = Number(body.stop_code);
+      if (!Number.isInteger(stopCode) || stopCode <= 0) return { error: '清運點編號必須是正整數。' };
+      payload.stop_code = stopCode;
+    }
+  }
+  if (body.longitude !== undefined) {
+    if (body.longitude === null || body.longitude === '') {
+      payload.longitude = null;
+    } else {
+      const longitude = Number(body.longitude);
+      if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return { error: '經度格式不正確。' };
+      payload.longitude = longitude;
+    }
+  }
+  if (body.latitude !== undefined) {
+    if (body.latitude === null || body.latitude === '') {
+      payload.latitude = null;
+    } else {
+      const latitude = Number(body.latitude);
+      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return { error: '緯度格式不正確。' };
+      payload.latitude = latitude;
+    }
+  }
+  if (body.arrival_time !== undefined) {
+    const arrivalTime = String(body.arrival_time || '').trim();
+    if (arrivalTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(arrivalTime)) {
+      return { error: '預估到達時間請用 HH:MM 格式（例如 18:49）。' };
+    }
+    payload.arrival_time = arrivalTime || null;
+  }
+  if (body.is_zhengsha !== undefined) payload.is_zhengsha = body.is_zhengsha === true;
+  if (body.is_active !== undefined) payload.is_active = body.is_active === true;
+  return { payload };
 }
 
 // 管理端：路段列表
@@ -4075,7 +4148,7 @@ app.get('/api/admin/garbage/routes', async (req, res) => {
     }
     const { data: rows, error } = await supabaseAdmin
       .from('garbage_routes')
-      .select('id, name, sort_order, is_active, created_at, updated_at')
+      .select('id, name, code, sort_order, is_active, recycling_days, off_days, created_at, updated_at')
       .order('sort_order', { ascending: true })
       .order('id', { ascending: true });
     if (error) {
@@ -4099,6 +4172,18 @@ app.post('/api/admin/garbage/routes', async (req, res) => {
     if (name.length > GARBAGE_NAME_MAX_LENGTH) {
       return res.status(400).json({ success: false, message: `路段名稱請控制在 ${GARBAGE_NAME_MAX_LENGTH} 字以內。` });
     }
+    const code = String((req.body || {}).code || '').trim();
+    if (code.length > GARBAGE_CODE_MAX_LENGTH) {
+      return res.status(400).json({ success: false, message: `路線代碼請控制在 ${GARBAGE_CODE_MAX_LENGTH} 字以內。` });
+    }
+    const recyclingDays = normalizeGarbageDayArray((req.body || {}).recycling_days ?? []);
+    if (!recyclingDays) {
+      return res.status(400).json({ success: false, message: '回收日格式不正確（需為 0-6 的陣列）。' });
+    }
+    const offDays = normalizeGarbageDayArray((req.body || {}).off_days ?? [0, 3]);
+    if (!offDays) {
+      return res.status(400).json({ success: false, message: '休運日格式不正確（需為 0-6 的陣列）。' });
+    }
     const isActive = (req.body || {}).is_active !== false;
     if (!supabaseAdmin) {
       return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未設定。' });
@@ -4114,8 +4199,15 @@ app.post('/api/admin/garbage/routes', async (req, res) => {
 
     const { data: row, error } = await supabaseAdmin
       .from('garbage_routes')
-      .insert({ name, sort_order: nextOrder, is_active: isActive })
-      .select('id, name, sort_order, is_active, created_at, updated_at')
+      .insert({
+        name,
+        code: code || null,
+        sort_order: nextOrder,
+        is_active: isActive,
+        recycling_days: recyclingDays,
+        off_days: offDays,
+      })
+      .select('id, name, code, sort_order, is_active, recycling_days, off_days, created_at, updated_at')
       .single();
     if (error) {
       console.error('admin garbage routes create failed:', error);
@@ -4146,6 +4238,23 @@ app.patch('/api/admin/garbage/routes/:id', async (req, res) => {
       }
       payload.name = name;
     }
+    if (body.code !== undefined) {
+      const code = String(body.code || '').trim();
+      if (code.length > GARBAGE_CODE_MAX_LENGTH) {
+        return res.status(400).json({ success: false, message: `路線代碼請控制在 ${GARBAGE_CODE_MAX_LENGTH} 字以內。` });
+      }
+      payload.code = code || null;
+    }
+    if (body.recycling_days !== undefined) {
+      const days = normalizeGarbageDayArray(body.recycling_days);
+      if (!days) return res.status(400).json({ success: false, message: '回收日格式不正確（需為 0-6 的陣列）。' });
+      payload.recycling_days = days;
+    }
+    if (body.off_days !== undefined) {
+      const days = normalizeGarbageDayArray(body.off_days);
+      if (!days) return res.status(400).json({ success: false, message: '休運日格式不正確（需為 0-6 的陣列）。' });
+      payload.off_days = days;
+    }
     if (body.is_active !== undefined) payload.is_active = body.is_active === true;
     if (Object.keys(payload).length === 0) {
       return res.status(400).json({ success: false, message: '沒有可更新的欄位。' });
@@ -4158,7 +4267,7 @@ app.patch('/api/admin/garbage/routes/:id', async (req, res) => {
       .from('garbage_routes')
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', routeId)
-      .select('id, name, sort_order, is_active, created_at, updated_at')
+      .select('id, name, code, sort_order, is_active, recycling_days, off_days, created_at, updated_at')
       .single();
     if (error || !row) {
       if (!row) return res.status(404).json({ success: false, message: '找不到這個路段。' });
@@ -4219,7 +4328,7 @@ app.post('/api/admin/garbage/routes/:id/move', async (req, res) => {
 
     const { data: rows } = await supabaseAdmin
       .from('garbage_routes')
-      .select('id, name, sort_order, is_active, created_at, updated_at')
+      .select('id, name, code, sort_order, is_active, recycling_days, off_days, created_at, updated_at')
       .order('sort_order', { ascending: true })
       .order('id', { ascending: true });
     return res.json({ success: true, message: '路段順序已更新。', items: rows || [] });
@@ -4251,14 +4360,14 @@ app.delete('/api/admin/garbage/routes/:id', async (req, res) => {
       console.error('admin garbage routes delete failed:', error);
       return res.status(500).json({ success: false, message: '路段刪除失敗，請稍後再試。' });
     }
-    return res.json({ success: true, message: '路段已刪除（含時間表與特殊日期）。', data: { id: routeId } });
+    return res.json({ success: true, message: '路段已刪除（含清運點與特殊日期）。', data: { id: routeId } });
   } catch (error) {
     return handleAuthOrServerError(res, error, 'admin garbage routes delete failed:');
   }
 });
 
-// 管理端：路段的固定時間表（一週七天現況）
-app.get('/api/admin/garbage/routes/:id/schedules', async (req, res) => {
+// 管理端：路段的清運點列表（依 sort_order；含非正砂里點）
+app.get('/api/admin/garbage/routes/:id/stops', async (req, res) => {
   try {
     await requireAdmin(req);
     const routeId = Number.parseInt(req.params.id, 10);
@@ -4269,83 +4378,41 @@ app.get('/api/admin/garbage/routes/:id/schedules', async (req, res) => {
       return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未設定。' });
     }
     const { data: rows, error } = await supabaseAdmin
-      .from('garbage_schedules')
-      .select('id, route_id, day_of_week, time_text, location_text, note, is_active, created_at, updated_at')
+      .from('garbage_stops')
+      .select(GARBAGE_STOP_SELECT)
       .eq('route_id', routeId)
-      .order('day_of_week', { ascending: true });
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true });
     if (error) {
-      console.error('admin garbage schedules list failed:', error);
-      return res.status(500).json({ success: false, message: '時間表載入失敗，請稍後再試。' });
+      console.error('admin garbage stops list failed:', error);
+      return res.status(500).json({ success: false, message: '清運點載入失敗，請稍後再試。' });
     }
     return res.json({ success: true, items: rows || [] });
   } catch (error) {
-    return handleAuthOrServerError(res, error, 'admin garbage schedules list failed:');
+    return handleAuthOrServerError(res, error, 'admin garbage stops list failed:');
   }
 });
 
-// 管理端：批次儲存固定時間表（upsert 一週七天；沒送到的天數會刪除）
-app.put('/api/admin/garbage/routes/:id/schedules', async (req, res) => {
+// 管理端：新增清運點（sort_order 自動排最後）
+app.post('/api/admin/garbage/routes/:id/stops', async (req, res) => {
   try {
     await requireAdmin(req);
     const routeId = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(routeId) || routeId <= 0) {
       return res.status(400).json({ success: false, message: '路段編號不正確。' });
     }
-
-    const daysInput = Array.isArray((req.body || {}).days) ? req.body.days : null;
-    if (!daysInput || daysInput.length === 0) {
-      return res.status(400).json({ success: false, message: '請至少設定一天的時間。' });
+    const { payload, error: validationError } = buildGarbageStopPayload(req.body || {});
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError });
     }
-
-    const seenDays = new Set();
-    const normalizedDays = [];
-    for (const day of daysInput) {
-      const dayOfWeek = Number(day && day.day_of_week);
-      if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
-        return res.status(400).json({ success: false, message: '星期必須是 0（週日）到 6（週六）。' });
-      }
-      if (seenDays.has(dayOfWeek)) {
-        return res.status(400).json({ success: false, message: `${GARBAGE_DAY_LABELS[dayOfWeek]}重複設定。` });
-      }
-      seenDays.add(dayOfWeek);
-
-      const isActive = day.is_active !== false;
-      const timeText = String((day && day.time_text) || '').trim();
-      const locationText = String((day && day.location_text) || '').trim();
-      const note = String((day && day.note) || '').trim();
-      if (isActive && (!timeText || !locationText)) {
-        return res.status(400).json({
-          success: false,
-          message: `${GARBAGE_DAY_LABELS[dayOfWeek]}啟用時，時間與地點都必須填寫。`,
-        });
-      }
-      if (timeText.length > GARBAGE_TEXT_MAX_LENGTH || locationText.length > GARBAGE_TEXT_MAX_LENGTH) {
-        return res.status(400).json({
-          success: false,
-          message: `${GARBAGE_DAY_LABELS[dayOfWeek]}的時間／地點請控制在 ${GARBAGE_TEXT_MAX_LENGTH} 字以內。`,
-        });
-      }
-      if (note.length > GARBAGE_NOTE_MAX_LENGTH) {
-        return res.status(400).json({
-          success: false,
-          message: `${GARBAGE_DAY_LABELS[dayOfWeek]}的備註請控制在 ${GARBAGE_NOTE_MAX_LENGTH} 字以內。`,
-        });
-      }
-      normalizedDays.push({
-        route_id: routeId,
-        day_of_week: dayOfWeek,
-        time_text: timeText,
-        location_text: locationText,
-        note: note || null,
-        is_active: isActive,
-        updated_at: new Date().toISOString(),
-      });
+    if (payload.name === undefined) {
+      return res.status(400).json({ success: false, message: '請輸入清運點名稱。' });
     }
-
+    if (payload.is_zhengsha === undefined) payload.is_zhengsha = false;
+    if (payload.is_active === undefined) payload.is_active = true;
     if (!supabaseAdmin) {
       return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未設定。' });
     }
-
     const { data: routeRow } = await supabaseAdmin
       .from('garbage_routes')
       .select('id')
@@ -4353,33 +4420,161 @@ app.put('/api/admin/garbage/routes/:id/schedules', async (req, res) => {
       .maybeSingle();
     if (!routeRow) return res.status(404).json({ success: false, message: '找不到這個路段。' });
 
-    const { error } = await supabaseAdmin
-      .from('garbage_schedules')
-      .upsert(normalizedDays, { onConflict: 'route_id,day_of_week' });
+    const { data: lastRow } = await supabaseAdmin
+      .from('garbage_stops')
+      .select('sort_order')
+      .eq('route_id', routeId)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextOrder = lastRow && Number.isInteger(lastRow.sort_order) ? lastRow.sort_order + 1 : 0;
+
+    const { data: row, error } = await supabaseAdmin
+      .from('garbage_stops')
+      .insert({ ...payload, route_id: routeId, sort_order: nextOrder })
+      .select(GARBAGE_STOP_SELECT)
+      .single();
     if (error) {
-      console.error('admin garbage schedules save failed:', error);
-      return res.status(500).json({ success: false, message: '時間表儲存失敗，請稍後再試。' });
+      if (error.code === '23505') {
+        return res.status(409).json({ success: false, message: '這個編號的清運點已存在。' });
+      }
+      console.error('admin garbage stops create failed:', error);
+      return res.status(500).json({ success: false, message: '清運點建立失敗，請稍後再試。' });
+    }
+    return res.status(201).json({ success: true, message: '清運點已建立。', item: row });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin garbage stops create failed:');
+  }
+});
+
+// 管理端：編輯清運點（部分更新；一律 bump updated_at）
+app.patch('/api/admin/garbage/stops/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+    const stopId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(stopId) || stopId <= 0) {
+      return res.status(400).json({ success: false, message: '清運點編號不正確。' });
+    }
+    const { payload, error: validationError } = buildGarbageStopPayload(req.body || {});
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError });
+    }
+    if (Object.keys(payload).length === 0) {
+      return res.status(400).json({ success: false, message: '沒有可更新的欄位。' });
+    }
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未設定。' });
+    }
+    const { data: row, error } = await supabaseAdmin
+      .from('garbage_stops')
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', stopId)
+      .select(GARBAGE_STOP_SELECT)
+      .single();
+    if (error || !row) {
+      if (error && error.code === '23505') {
+        return res.status(409).json({ success: false, message: '這個編號的清運點已存在。' });
+      }
+      if (!row) return res.status(404).json({ success: false, message: '找不到這個清運點。' });
+      console.error('admin garbage stops update failed:', error);
+      return res.status(500).json({ success: false, message: '清運點更新失敗，請稍後再試。' });
+    }
+    return res.json({ success: true, message: '清運點已更新。', item: row });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin garbage stops update failed:');
+  }
+});
+
+// 管理端：刪除清運點
+app.delete('/api/admin/garbage/stops/:id', async (req, res) => {
+  try {
+    await requireAdmin(req);
+    const stopId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(stopId) || stopId <= 0) {
+      return res.status(400).json({ success: false, message: '清運點編號不正確。' });
+    }
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未設定。' });
+    }
+    const { data: existing } = await supabaseAdmin
+      .from('garbage_stops')
+      .select('id')
+      .eq('id', stopId)
+      .maybeSingle();
+    if (!existing) return res.status(404).json({ success: false, message: '找不到這個清運點。' });
+
+    const { error } = await supabaseAdmin.from('garbage_stops').delete().eq('id', stopId);
+    if (error) {
+      console.error('admin garbage stops delete failed:', error);
+      return res.status(500).json({ success: false, message: '清運點刪除失敗，請稍後再試。' });
+    }
+    return res.json({ success: true, message: '清運點已刪除。', data: { id: stopId } });
+  } catch (error) {
+    return handleAuthOrServerError(res, error, 'admin garbage stops delete failed:');
+  }
+});
+
+// 管理端：清運點上移/下移（路段內交換 sort_order，重整為 0..n-1）
+app.post('/api/admin/garbage/stops/:id/move', async (req, res) => {
+  try {
+    await requireAdmin(req);
+    const stopId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(stopId) || stopId <= 0) {
+      return res.status(400).json({ success: false, message: '清運點編號不正確。' });
+    }
+    const direction = String((req.body || {}).direction || '');
+    if (direction !== 'up' && direction !== 'down') {
+      return res.status(400).json({ success: false, message: '方向必須是 up 或 down。' });
+    }
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: 'Supabase Service Role 尚未設定。' });
+    }
+    const { data: stopRow } = await supabaseAdmin
+      .from('garbage_stops')
+      .select('id, route_id')
+      .eq('id', stopId)
+      .maybeSingle();
+    if (!stopRow) return res.status(404).json({ success: false, message: '找不到這個清運點。' });
+
+    const { data: stops, error } = await supabaseAdmin
+      .from('garbage_stops')
+      .select('id, sort_order')
+      .eq('route_id', stopRow.route_id)
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true });
+    if (error) {
+      console.error('admin garbage stops move failed:', error);
+      return res.status(500).json({ success: false, message: '清運點排序失敗，請稍後再試。' });
     }
 
-    // 沒送到的一天（例如一次只存部分天數）→ 刪除
-    const missingDays = [0, 1, 2, 3, 4, 5, 6].filter((d) => !seenDays.has(d));
-    if (missingDays.length > 0 && missingDays.length < 7) {
-      const { error: deleteError } = await supabaseAdmin
-        .from('garbage_schedules')
-        .delete()
-        .eq('route_id', routeId)
-        .in('day_of_week', missingDays);
-      if (deleteError) console.error('admin garbage schedules cleanup failed:', deleteError);
+    const index = (stops || []).findIndex((s) => Number(s.id) === stopId);
+    if (index < 0) return res.status(404).json({ success: false, message: '找不到這個清運點。' });
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= stops.length) {
+      return res.status(400).json({ success: false, message: direction === 'up' ? '清運點已在最上方。' : '清運點已在最下方。' });
+    }
+
+    const ordered = [...stops];
+    [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+    for (let i = 0; i < ordered.length; i += 1) {
+      if (Number(ordered[i].sort_order) !== i) {
+        const { error: updateError } = await supabaseAdmin
+          .from('garbage_stops')
+          .update({ sort_order: i, updated_at: new Date().toISOString() })
+          .eq('id', ordered[i].id);
+        if (updateError) console.error('admin garbage stops move update failed:', updateError);
+      }
     }
 
     const { data: rows } = await supabaseAdmin
-      .from('garbage_schedules')
-      .select('id, route_id, day_of_week, time_text, location_text, note, is_active, created_at, updated_at')
-      .eq('route_id', routeId)
-      .order('day_of_week', { ascending: true });
-    return res.json({ success: true, message: '時間表已儲存。', items: rows || [] });
+      .from('garbage_stops')
+      .select(GARBAGE_STOP_SELECT)
+      .eq('route_id', stopRow.route_id)
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true });
+    return res.json({ success: true, message: '清運點順序已更新。', items: rows || [] });
   } catch (error) {
-    return handleAuthOrServerError(res, error, 'admin garbage schedules save failed:');
+    return handleAuthOrServerError(res, error, 'admin garbage stops move failed:');
   }
 });
 
@@ -7084,14 +7279,29 @@ async function replyRichMenuPostback(event) {
 // 垃圾車查詢（第一期：手動選路段）
 //   「垃圾車」→ 查啟用中路段 → Quick Reply 按鈕（text = 垃圾車|{路段ID}）
 //   「垃圾車|{數字}」→ 該路段今天（台北時區）的時間地點
-//     特殊日期（garbage_special_dates，優先）→ 沒有則固定時間表（garbage_schedules）
-//   查無資料回「今天該路段無垃圾車」；失敗只 log，不讓 webhook 500
+//     特殊日期（garbage_special_dates，優先）→ 休運日（off_days）→ 官方清運點時刻（garbage_stops，只列正砂里點）
+//   回覆格式見 replyGarbageRouteSchedule；失敗只 log，不讓 webhook 500
 // ============================================================================
 
 const GARBAGE_KEYWORD = '垃圾車';
 const GARBAGE_ROUTE_PATTERN = /^垃圾車\|(\d+)$/;
 // LINE Quick Reply 每則訊息上限 13 顆按鈕
 const GARBAGE_QUICK_REPLY_LIMIT = 13;
+// 星期顯示順序：週一 → 週日（GARBAGE_DAY_LABELS 定義在管理 API 區塊，共用）
+const GARBAGE_DAY_DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+// day_of_week 陣列 → 「週一、週四、週五」
+function formatGarbageDays(days) {
+  const set = new Set(Array.isArray(days) ? days.map(Number) : []);
+  return GARBAGE_DAY_DISPLAY_ORDER.filter((d) => set.has(d)).map((d) => GARBAGE_DAY_LABELS[d]).join('、');
+}
+
+// 路線顯示名稱：「34-1 中正區正榮街」（無 code 只顯示名稱）
+function garbageRouteLabel(route) {
+  const code = String(route.code || '').trim();
+  const name = String(route.name || '').trim();
+  return code ? `${code} ${name}` : name;
+}
 
 // 台北時區今天的星期（0=週日 ... 6=週六），與 garbage_schedules.day_of_week 對齊
 function getTaipeiTodayDayOfWeek() {
@@ -7105,7 +7315,7 @@ async function replyGarbageRouteSelection(event) {
   if (supabaseAdmin) {
     const { data: rows, error } = await supabaseAdmin
       .from('garbage_routes')
-      .select('id, name')
+      .select('id, name, code')
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
       .order('id', { ascending: true });
@@ -7122,7 +7332,7 @@ async function replyGarbageRouteSelection(event) {
 
   // 超過 13 顆按鈕上限時，退回純文字列表
   if (routes.length > GARBAGE_QUICK_REPLY_LIMIT) {
-    const lines = routes.map((r) => `・${r.name}`);
+    const lines = routes.map((r) => `・${garbageRouteLabel(r)}`);
     return lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [
@@ -7145,7 +7355,7 @@ async function replyGarbageRouteSelection(event) {
             type: 'action',
             action: {
               type: 'message',
-              label: String(route.name || '').slice(0, 20),
+              label: garbageRouteLabel(route).slice(0, 20),
               text: `垃圾車|${route.id}`,
             },
           })),
@@ -7155,13 +7365,14 @@ async function replyGarbageRouteSelection(event) {
   });
 }
 
-// 「垃圾車|{路段ID}」→ 該路段今天的時間地點（特殊日期優先 → 固定時間表）
+// 「垃圾車|{路段ID}」→ 該路段今天的清運資訊
+// 優先序：特殊日期（停運/加運覆蓋）→ 休運日 → 官方清運點時刻（只列正砂里點＋預估到達）
 async function replyGarbageRouteSchedule(event, routeId) {
   let route = null;
   if (supabaseAdmin) {
     const { data: row, error } = await supabaseAdmin
       .from('garbage_routes')
-      .select('id, name')
+      .select('id, name, code, recycling_days, off_days')
       .eq('id', routeId)
       .eq('is_active', true)
       .maybeSingle();
@@ -7176,11 +7387,11 @@ async function replyGarbageRouteSchedule(event, routeId) {
     });
   }
 
+  const routeLabel = garbageRouteLabel(route);
   const today = getTaipeiToday();
-  let row = null;
 
+  // 1. 特殊日期（優先）：今天的日期有設定就用它（例如春節暫停、加運）
   if (supabaseAdmin) {
-    // 1. 特殊日期（優先）：今天的日期有設定就用它
     const { data: special, error: specialError } = await supabaseAdmin
       .from('garbage_special_dates')
       .select('time_text, location_text, note')
@@ -7191,36 +7402,64 @@ async function replyGarbageRouteSchedule(event, routeId) {
       .maybeSingle();
     if (specialError) console.error('garbage special date query failed:', specialError);
     if (special) {
-      row = special;
-    } else {
-      // 2. 固定時間表：今天星期幾
-      const { data: schedule, error: scheduleError } = await supabaseAdmin
-        .from('garbage_schedules')
-        .select('time_text, location_text, note')
-        .eq('route_id', route.id)
-        .eq('day_of_week', getTaipeiTodayDayOfWeek())
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
-      if (scheduleError) console.error('garbage schedule query failed:', scheduleError);
-      row = schedule || null;
+      const lines = [routeLabel];
+      const timeText = String(special.time_text || '').trim();
+      const locationText = String(special.location_text || '').trim();
+      const note = String(special.note || '').trim();
+      if (timeText) lines.push(`時間：${timeText}`);
+      if (locationText) lines.push(`地點：${locationText}`);
+      if (note) lines.push(note);
+      let replyText = lines.join('\n');
+      if (replyText.length > 2000) replyText = replyText.slice(0, 2000);
+      return lineClient.replyMessage({
+        replyToken: event.replyToken,
+        messages: [{ type: 'text', text: replyText }],
+      });
     }
   }
 
-  if (!row) {
+  const dayOfWeek = getTaipeiTodayDayOfWeek();
+  const offDays = Array.isArray(route.off_days) ? route.off_days.map(Number) : [];
+  const recyclingDays = Array.isArray(route.recycling_days) ? route.recycling_days.map(Number) : [];
+
+  // 2. 休運日（例如週三、週日）
+  if (offDays.includes(dayOfWeek)) {
+    const offText = formatGarbageDays(offDays);
     return lineClient.replyMessage({
       replyToken: event.replyToken,
-      messages: [{ type: 'text', text: '今天該路段無垃圾車' }],
+      messages: [{ type: 'text', text: `${routeLabel}\n今天休運${offText ? `（休運日：${offText}）` : ''}` }],
     });
   }
 
-  const lines = [String(route.name || '').trim()];
-  const timeText = String(row.time_text || '').trim();
-  const locationText = String(row.location_text || '').trim();
-  const note = String(row.note || '').trim();
-  if (timeText) lines.push(`時間：${timeText}`);
-  if (locationText) lines.push(`地點：${locationText}`);
-  if (note) lines.push(note);
+  // 3. 正常清運日：列正砂里清運點的別名＋名稱＋預估到達時間
+  let stops = [];
+  if (supabaseAdmin) {
+    const { data: rows, error } = await supabaseAdmin
+      .from('garbage_stops')
+      .select('name, alias, arrival_time')
+      .eq('route_id', route.id)
+      .eq('is_zhengsha', true)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true });
+    if (error) console.error('garbage stops query failed:', error);
+    stops = rows || [];
+  }
+
+  const lines = [routeLabel];
+  const offText = formatGarbageDays(offDays);
+  lines.push(offText ? `每天清運（休運日：${offText}）` : '每天清運');
+  if (recyclingDays.includes(dayOfWeek)) lines.push('♻ 今天有資源回收車');
+  if (stops.length > 0) {
+    lines.push('', '正砂里清運點：');
+    stops.forEach((stop) => {
+      const name = String(stop.name || '').trim();
+      const alias = String(stop.alias || '').trim();
+      const time = String(stop.arrival_time || '').trim();
+      const label = alias && name ? `${alias}（${name}）` : alias || name || '未命名清運點';
+      lines.push(`・${label}${time ? ` 約 ${time}` : ''}`);
+    });
+  }
 
   let replyText = lines.join('\n');
   if (replyText.length > 2000) replyText = replyText.slice(0, 2000);

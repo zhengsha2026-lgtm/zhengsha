@@ -584,7 +584,7 @@
       <div id="moduleGarbage" class="hidden">
         <section id="garbageListView">
           <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <p class="max-w-2xl text-sm leading-6 text-slate-500">里民傳「垃圾車」或點圖文選單後，先選路段再收到該路段今天的時間地點；特殊日期（例如春節暫停）優先於固定時間表。</p>
+            <p class="max-w-2xl text-sm leading-6 text-slate-500">里民傳「垃圾車」或點圖文選單後，先選路段再收到該路段今天的正砂里清運點與預估到達時間；休運日、回收日依路段設定顯示，特殊日期（例如春節暫停）優先覆蓋。</p>
             <div class="flex items-center gap-2.5">
               <button id="garbageCreateButton" type="button" class="inline-flex h-10 items-center gap-2 rounded-full bg-violet-600 px-5 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95">
                 <i data-lucide="plus" class="h-4 w-4"></i><span>新增路段</span>
@@ -760,11 +760,44 @@
       </div>
 
       <form id="garbageRouteForm" class="space-y-5">
+        <div class="grid gap-5 sm:grid-cols-[1fr_10rem]">
+          <div>
+            <label for="garbageRouteNameInput" class="block text-sm font-semibold text-slate-700">路段名稱 <span class="text-violet-600">（必填）</span></label>
+            <input id="garbageRouteNameInput" type="text" maxlength="50" placeholder="例如：中正區正榮街"
+              class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+          <div>
+            <label for="garbageRouteCodeInput" class="block text-sm font-semibold text-slate-700">路線代碼 <span class="text-slate-400">（選填）</span></label>
+            <input id="garbageRouteCodeInput" type="text" maxlength="20" placeholder="例如：34-1"
+              class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+        </div>
+        <p class="-mt-2 text-xs leading-5 text-slate-400">里民傳「垃圾車」後會出現路段按鈕；顯示為「代碼＋名稱」（上限 20 字）。</p>
+
         <div>
-          <label for="garbageRouteNameInput" class="block text-sm font-semibold text-slate-700">路段名稱 <span class="text-violet-600">（必填）</span></label>
-          <input id="garbageRouteNameInput" type="text" maxlength="50" placeholder="例如：正砂路"
-            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
-          <p class="mt-2 text-xs leading-5 text-slate-400">里民傳「垃圾車」後會出現路段按鈕；名稱即按鈕文字（上限 20 字顯示）。</p>
+          <p class="text-sm font-semibold text-slate-700">回收日 <span class="text-slate-400">（選填，這幾天有資源回收車跟垃圾車）</span></p>
+          <div id="garbageRouteRecyclingGroup" class="mt-2 flex flex-wrap gap-2">
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-violet-300 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"><input type="checkbox" value="1" class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />週一</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-violet-300 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"><input type="checkbox" value="2" class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />週二</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-violet-300 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"><input type="checkbox" value="3" class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />週三</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-violet-300 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"><input type="checkbox" value="4" class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />週四</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-violet-300 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"><input type="checkbox" value="5" class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />週五</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-violet-300 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"><input type="checkbox" value="6" class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />週六</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-violet-300 has-[:checked]:bg-violet-50 has-[:checked]:text-violet-700"><input type="checkbox" value="0" class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />週日</label>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-sm font-semibold text-slate-700">休運日 <span class="text-slate-400">（這幾天不清運）</span></p>
+          <div id="garbageRouteOffGroup" class="mt-2 flex flex-wrap gap-2">
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-amber-300 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-700"><input type="checkbox" value="1" class="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-300" />週一</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-amber-300 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-700"><input type="checkbox" value="2" class="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-300" />週二</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-amber-300 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-700"><input type="checkbox" value="3" class="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-300" />週三</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-amber-300 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-700"><input type="checkbox" value="4" class="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-300" />週四</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-amber-300 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-700"><input type="checkbox" value="5" class="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-300" />週五</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-amber-300 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-700"><input type="checkbox" value="6" class="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-300" />週六</label>
+            <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition has-[:checked]:border-amber-300 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-700"><input type="checkbox" value="0" class="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-300" />週日</label>
+          </div>
         </div>
 
         <label class="flex items-center justify-between gap-3 rounded-xl border border-violet-100/60 bg-violet-50/30 px-5 py-4 text-base font-medium text-slate-700">
@@ -789,26 +822,96 @@
     </div>
   </div>
 
-  <!-- ===== 垃圾車：固定時間表 modal（一週七天批次） ===== -->
-  <div id="garbageScheduleModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/40 px-6 py-10">
+  <!-- ===== 垃圾車：清運點 modal（官方路線完整清運點） ===== -->
+  <div id="garbageStopsModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/40 px-6 py-10">
     <div class="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
       <div class="mb-2 flex items-center justify-between">
-        <h2 id="garbageScheduleModalTitle" class="text-xl font-bold text-slate-900">固定時間表</h2>
-        <button id="garbageScheduleModalCloseButton" type="button" class="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700" aria-label="關閉">
+        <h2 id="garbageStopsModalTitle" class="text-xl font-bold text-slate-900">清運點</h2>
+        <button id="garbageStopsModalCloseButton" type="button" class="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700" aria-label="關閉">
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
       </div>
-      <p class="mb-6 text-sm leading-6 text-slate-500">一週七天的固定時間；勾選「啟用」的天才會回覆。特殊日期（例如春節暫停）設定後會優先於這裡。</p>
+      <p class="mb-6 text-sm leading-6 text-slate-500">官方路線的完整清運點（含正砂里以外，方便推估垃圾車位置）；只有標記「正砂里」的點會出現在里民回覆。特殊日期（例如春節暫停）仍優先於這裡。</p>
 
-      <form id="garbageScheduleForm" class="space-y-4">
-        <div id="garbageScheduleRows" class="space-y-3"></div>
+      <div class="overflow-hidden rounded-2xl border border-slate-200/70">
+        <table class="w-full text-left text-sm">
+          <thead>
+            <tr class="border-b border-slate-100 bg-slate-50/60 text-slate-500">
+              <th class="px-4 py-3 font-semibold">排序</th>
+              <th class="px-4 py-3 font-semibold">清運點</th>
+              <th class="px-4 py-3 font-semibold">預估到達</th>
+              <th class="px-4 py-3 font-semibold">正砂里</th>
+              <th class="px-4 py-3 font-semibold">狀態</th>
+              <th class="px-4 py-3 text-right font-semibold">操作</th>
+            </tr>
+          </thead>
+          <tbody id="garbageStopsTableBody"></tbody>
+        </table>
+        <div id="garbageStopsListEmpty" class="hidden px-6 py-10 text-center text-base text-slate-400">尚無清運點</div>
+        <div id="garbageStopsListLoading" class="hidden px-6 py-10 text-center text-base text-slate-400">載入中…</div>
+      </div>
 
-        <div class="flex items-center justify-end gap-3 pt-2">
-          <button type="button" id="garbageScheduleCancelButton" class="inline-flex h-11 items-center rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+      <form id="garbageStopForm" class="mt-6 space-y-5 rounded-2xl border border-violet-100/60 bg-violet-50/30 p-6">
+        <p id="garbageStopFormTitle" class="text-sm font-bold text-slate-700">新增清運點</p>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label for="garbageStopNameInput" class="block text-sm font-semibold text-slate-700">清運點名稱 <span class="text-violet-600">（必填）</span></label>
+            <input id="garbageStopNameInput" type="text" maxlength="100" placeholder="例如：中正路330號"
+              class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+          <div>
+            <label for="garbageStopAliasInput" class="block text-sm font-semibold text-slate-700">別名 <span class="text-slate-400">（選填，里民端優先顯示）</span></label>
+            <input id="garbageStopAliasInput" type="text" maxlength="100" placeholder="例如：郵局、二信"
+              class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label for="garbageStopCodeInput" class="block text-sm font-semibold text-slate-700">官方編號 <span class="text-slate-400">（選填）</span></label>
+            <input id="garbageStopCodeInput" type="number" min="1" step="1" placeholder="例如：1344"
+              class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+          <div>
+            <label for="garbageStopArrivalInput" class="block text-sm font-semibold text-slate-700">預估到達 <span class="text-slate-400">（選填）</span></label>
+            <input id="garbageStopArrivalInput" type="text" maxlength="5" placeholder="18:49"
+              class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="garbageStopLongitudeInput" class="block text-sm font-semibold text-slate-700">經度</label>
+              <input id="garbageStopLongitudeInput" type="text" inputmode="decimal" placeholder="121.76"
+                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+            </div>
+            <div>
+              <label for="garbageStopLatitudeInput" class="block text-sm font-semibold text-slate-700">緯度</label>
+              <input id="garbageStopLatitudeInput" type="text" inputmode="decimal" placeholder="25.14"
+                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+            </div>
+          </div>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="flex items-center justify-between gap-3 text-sm font-medium text-slate-700">
+            <span>正砂里清運點（出現在里民回覆）</span>
+            <input id="garbageStopZhengshaInput" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+          </label>
+          <label class="flex items-center justify-between gap-3 text-sm font-medium text-slate-700">
+            <span>啟用（停用中的清運點不顯示）</span>
+            <input id="garbageStopActiveInput" type="checkbox" class="h-5 w-5 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300" />
+          </label>
+        </div>
+
+        <div class="flex items-center justify-between gap-4 pt-1">
+          <button type="button" id="garbageStopDeleteButton" class="hidden inline-flex h-11 items-center gap-2 rounded-full bg-rose-50 px-5 text-sm font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+            <i data-lucide="trash-2" class="h-4 w-4"></i><span id="garbageStopDeleteButtonText">刪除</span>
+          </button>
+          <button type="button" id="garbageStopResetButton" class="hidden ml-auto mr-3 inline-flex h-11 items-center rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+            改為新增
+          </button>
+          <button type="button" id="garbageStopCancelButton" class="inline-flex h-11 items-center rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
             取消
           </button>
-          <button type="submit" id="garbageScheduleSubmitButton" class="inline-flex h-11 items-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
-            <i data-lucide="check" class="h-4 w-4"></i><span id="garbageScheduleSubmitButtonText">儲存整週時間表</span>
+          <button type="submit" id="garbageStopSubmitButton" class="inline-flex h-11 items-center gap-2 rounded-full bg-violet-600 px-6 text-sm font-semibold text-white transition hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+            <i data-lucide="check" class="h-4 w-4"></i><span id="garbageStopSubmitButtonText">新增清運點</span>
           </button>
         </div>
       </form>
@@ -1009,10 +1112,15 @@ const state = {
     deleting: false,
     moving: false,
     modalOpen: false,
-    schedule: { // 固定時間表 modal
+    stops: { // 清運點 modal
       routeId: null,
       routeName: '',
+      loading: false,
+      items: [],
+      editId: null, // null = 新增
       saving: false,
+      deleting: false,
+      moving: false,
       modalOpen: false,
     },
     special: { // 特殊日期 modal
@@ -1061,8 +1169,12 @@ function cacheElements() {
     'moduleGarbage', 'garbageTableBody', 'garbageListEmpty', 'garbageListLoading', 'garbageCreateButton', 'garbageRefreshButton',
     'garbageRouteModal', 'garbageRouteModalTitle', 'garbageRouteModalCloseButton', 'garbageRouteForm', 'garbageRouteNameInput', 'garbageRouteActiveInput',
     'garbageRouteSubmitButton', 'garbageRouteSubmitButtonText', 'garbageRouteCancelButton', 'garbageRouteDeleteButton', 'garbageRouteDeleteButtonText',
-    'garbageScheduleModal', 'garbageScheduleModalTitle', 'garbageScheduleModalCloseButton', 'garbageScheduleForm', 'garbageScheduleRows',
-    'garbageScheduleSubmitButton', 'garbageScheduleSubmitButtonText', 'garbageScheduleCancelButton',
+    'garbageRouteCodeInput', 'garbageRouteRecyclingGroup', 'garbageRouteOffGroup',
+    'garbageStopsModal', 'garbageStopsModalTitle', 'garbageStopsModalCloseButton', 'garbageStopsTableBody', 'garbageStopsListEmpty', 'garbageStopsListLoading',
+    'garbageStopForm', 'garbageStopFormTitle', 'garbageStopNameInput', 'garbageStopAliasInput', 'garbageStopCodeInput',
+    'garbageStopArrivalInput', 'garbageStopLongitudeInput', 'garbageStopLatitudeInput', 'garbageStopZhengshaInput', 'garbageStopActiveInput',
+    'garbageStopSubmitButton', 'garbageStopSubmitButtonText', 'garbageStopCancelButton', 'garbageStopDeleteButton', 'garbageStopDeleteButtonText',
+    'garbageStopResetButton',
     'garbageSpecialModal', 'garbageSpecialModalTitle', 'garbageSpecialModalCloseButton', 'garbageSpecialTableBody', 'garbageSpecialListEmpty',
     'garbageSpecialForm', 'garbageSpecialFormTitle', 'garbageSpecialDateInput', 'garbageSpecialTimeInput', 'garbageSpecialLocationInput',
     'garbageSpecialNoteInput', 'garbageSpecialActiveInput', 'garbageSpecialSubmitButton', 'garbageSpecialSubmitButtonText',
@@ -2974,10 +3086,37 @@ async function toggleRichActive(id) {
 }
 
 // ============================================================================
-// 垃圾車時間管理：路段列表／新增編輯刪除／排序／固定時間表／特殊日期
+// 垃圾車時間管理：路段列表／新增編輯刪除／排序／清運點（官方路線）／特殊日期
 // ============================================================================
 
 const GARBAGE_DAY_LABELS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+const GARBAGE_DAY_DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+// 星期陣列 → 短顯示「一二五」（空白表示未設定）
+function garbageFormatDaysShort(days) {
+  const set = new Set(Array.isArray(days) ? days.map(Number) : []);
+  return GARBAGE_DAY_DISPLAY_ORDER.filter((d) => set.has(d)).map((d) => GARBAGE_DAY_LABELS[d].replace('週', '')).join('');
+}
+
+// 路線顯示名稱：「34-1 中正區正榮街」
+function garbageRouteLabel(route) {
+  const code = String((route && route.code) || '').trim();
+  const name = String((route && route.name) || '').trim();
+  return code ? `${code} ${name}` : name;
+}
+
+// day checkbox 群組 → 數值陣列
+function garbageReadDayGroup(groupEl) {
+  return Array.from(groupEl.querySelectorAll('input[type="checkbox"]:checked')).map((el) => Number(el.value));
+}
+
+// 數值陣列 → 勾選 day checkbox 群組
+function garbageFillDayGroup(groupEl, days) {
+  const set = new Set(Array.isArray(days) ? days.map(Number) : []);
+  groupEl.querySelectorAll('input[type="checkbox"]').forEach((el) => {
+    el.checked = set.has(Number(el.value));
+  });
+}
 
 function garbageEscapeHtml(value) {
   return String(value == null ? '' : value)
@@ -3031,7 +3170,10 @@ function renderGarbageTable() {
           </div>
         </td>
         <td class="px-6 py-4">
-          <p class="max-w-[12rem] truncate font-semibold text-slate-800" title="${garbageEscapeHtml(item.name)}">${garbageEscapeHtml(item.name)}</p>
+          <p class="max-w-[14rem] truncate font-semibold text-slate-800" title="${garbageEscapeHtml(garbageRouteLabel(item))}">${garbageEscapeHtml(garbageRouteLabel(item))}</p>
+          <p class="mt-1 max-w-[14rem] truncate text-xs text-slate-400">
+            ♻ ${garbageFormatDaysShort(item.recycling_days)} ・ 休 ${garbageFormatDaysShort(item.off_days) || '無'}
+          </p>
         </td>
         <td class="px-6 py-4">
           <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${item.is_active ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-slate-500 ring-slate-200'}">
@@ -3042,7 +3184,7 @@ function renderGarbageTable() {
         <td class="px-6 py-4">
           <div class="flex items-center justify-end gap-2">
             <button type="button" data-garbage-toggle="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-violet-600 transition hover:bg-violet-50">${item.is_active ? '停用' : '啟用'}</button>
-            <button type="button" data-garbage-schedule="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">本週時間</button>
+            <button type="button" data-garbage-stops="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">清運點</button>
             <button type="button" data-garbage-special="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">特殊日期</button>
             <button type="button" data-garbage-edit="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">編輯</button>
           </div>
@@ -3058,6 +3200,9 @@ function renderGarbageTable() {
 
 function fillGarbageRouteForm(item) {
   elements.garbageRouteNameInput.value = item ? String(item.name || '') : '';
+  elements.garbageRouteCodeInput.value = item ? String(item.code || '') : '';
+  garbageFillDayGroup(elements.garbageRouteRecyclingGroup, item ? item.recycling_days : []);
+  garbageFillDayGroup(elements.garbageRouteOffGroup, item ? item.off_days : [0, 3]);
   elements.garbageRouteActiveInput.checked = item ? item.is_active === true : true;
 }
 
@@ -3099,7 +3244,13 @@ async function saveGarbageRoute(e) {
   }
   setGarbageRouteBusy(true);
   try {
-    const payload = { name, is_active: elements.garbageRouteActiveInput.checked };
+    const payload = {
+      name,
+      code: elements.garbageRouteCodeInput.value.trim(),
+      recycling_days: garbageReadDayGroup(elements.garbageRouteRecyclingGroup),
+      off_days: garbageReadDayGroup(elements.garbageRouteOffGroup),
+      is_active: elements.garbageRouteActiveInput.checked,
+    };
     const editing = state.garbage.editId != null;
     const res = await authedFetch(
       editing ? `/api/admin/garbage/routes/${encodeURIComponent(state.garbage.editId)}` : '/api/admin/garbage/routes',
@@ -3137,7 +3288,7 @@ function setGarbageRouteDeleting(busy) {
 async function deleteGarbageRoute() {
   if (state.garbage.editId == null || state.garbage.deleting) return;
   const item = state.garbage.items.find((r) => Number(r.id) === Number(state.garbage.editId));
-  if (!window.confirm(`確定刪除路段「${item ? item.name : ''}」？\n路段的固定時間表與特殊日期會一併刪除。`)) return;
+  if (!window.confirm(`確定刪除路段「${item ? garbageRouteLabel(item) : ''}」？\n路段的清運點與特殊日期會一併刪除。`)) return;
   setGarbageRouteDeleting(true);
   try {
     const res = await authedFetch(`/api/admin/garbage/routes/${encodeURIComponent(state.garbage.editId)}`, { method: 'DELETE' });
@@ -3206,126 +3357,234 @@ async function toggleGarbageRouteActive(id) {
   }
 }
 
-// ===== 固定時間表 modal（一週七天批次） =====
+// ===== 清運點 modal（官方路線完整清運點） =====
 
-function renderGarbageScheduleRows(rows) {
-  const byDay = {};
-  (rows || []).forEach((r) => { byDay[Number(r.day_of_week)] = r; });
-  elements.garbageScheduleRows.innerHTML = GARBAGE_DAY_LABELS.map((label, day) => {
-    const row = byDay[day] || {};
-    const active = row.is_active !== false && (row.time_text || row.location_text);
-    return `
-      <div class="rounded-xl border border-slate-100 p-4" data-garbage-day="${day}">
-        <div class="mb-3 flex items-center justify-between">
-          <p class="text-sm font-bold text-slate-700">${label}</p>
-          <label class="flex items-center gap-2 text-xs font-semibold text-slate-500">
-            <span>啟用</span>
-            <input type="checkbox" data-garbage-field="active" ${active ? 'checked' : ''} class="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-300" />
-          </label>
-        </div>
-        <div class="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400">時間（啟用時必填）</label>
-            <input type="text" maxlength="100" placeholder="例如：18:30–19:00" data-garbage-field="time" value="${garbageEscapeHtml(row.time_text || '')}"
-              class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+function renderGarbageStopsTable() {
+  const items = state.garbage.stops.items;
+  elements.garbageStopsTableBody.innerHTML = items
+    .map((item) => `
+      <tr class="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/40 ${item.is_active ? '' : 'opacity-60'}">
+        <td class="px-4 py-3">
+          <div class="flex items-center gap-1">
+            <button type="button" data-garbage-stop-move="up" data-garbage-stop-id="${item.id}" title="上移" class="rounded-full bg-slate-100 p-1 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40">
+              <i data-lucide="chevron-up" class="h-3 w-3"></i>
+            </button>
+            <button type="button" data-garbage-stop-move="down" data-garbage-stop-id="${item.id}" title="下移" class="rounded-full bg-slate-100 p-1 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40">
+              <i data-lucide="chevron-down" class="h-3 w-3"></i>
+            </button>
+            <span class="ml-0.5 text-xs font-semibold text-slate-400">${item.sort_order + 1}</span>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-400">地點（啟用時必填）</label>
-            <input type="text" maxlength="100" placeholder="例如：正砂路與中正路口" data-garbage-field="location" value="${garbageEscapeHtml(row.location_text || '')}"
-              class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+        </td>
+        <td class="px-4 py-3">
+          <p class="max-w-[13rem] truncate font-semibold text-slate-800" title="${garbageEscapeHtml(item.name)}">${garbageEscapeHtml(item.name)}</p>
+          <p class="mt-0.5 text-xs text-slate-400">${item.alias ? `別名：${garbageEscapeHtml(item.alias)}` : `編號 ${garbageEscapeHtml(item.stop_code ?? '—')}`}</p>
+        </td>
+        <td class="px-4 py-3 font-semibold text-slate-600">${garbageEscapeHtml(item.arrival_time || '—')}</td>
+        <td class="px-4 py-3">
+          ${item.is_zhengsha ? '<span class="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 ring-1 ring-violet-200">正砂里</span>' : '<span class="text-xs text-slate-400">—</span>'}
+        </td>
+        <td class="px-4 py-3">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${item.is_active ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-slate-500 ring-slate-200'}">
+            ${item.is_active ? '啟用' : '停用'}
+          </span>
+        </td>
+        <td class="px-4 py-3">
+          <div class="flex items-center justify-end gap-2">
+            <button type="button" data-garbage-stop-edit="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">編輯</button>
+            <button type="button" data-garbage-stop-delete="${item.id}" class="rounded-full px-3 py-1.5 text-xs font-semibold text-rose-500 transition hover:bg-rose-50">刪除</button>
           </div>
-        </div>
-        <div class="mt-3">
-          <label class="block text-xs font-semibold text-slate-400">備註（選填）</label>
-          <input type="text" maxlength="200" placeholder="例如：繞行順序依現場調整" data-garbage-field="note" value="${garbageEscapeHtml(row.note || '')}"
-            class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
-        </div>
-      </div>
-    `;
-  }).join('');
+        </td>
+      </tr>
+    `)
+    .join('');
+  elements.garbageStopsListEmpty.classList.toggle('hidden', items.length > 0);
+  if (window.lucide) window.lucide.createIcons();
 }
 
-async function openGarbageScheduleEditor(id) {
-  const item = state.garbage.items.find((r) => Number(r.id) === Number(id));
-  if (!item) return;
-  state.garbage.schedule.routeId = item.id;
-  state.garbage.schedule.routeName = item.name;
-  elements.garbageScheduleModalTitle.textContent = `固定時間表 — ${item.name}`;
-  elements.garbageScheduleRows.innerHTML = '<p class="py-6 text-center text-sm text-slate-400">載入中…</p>';
-  elements.garbageScheduleModal.classList.remove('hidden');
-  elements.garbageScheduleModal.classList.add('flex');
-  state.garbage.schedule.modalOpen = true;
+function fillGarbageStopForm(item) {
+  elements.garbageStopNameInput.value = item ? String(item.name || '') : '';
+  elements.garbageStopAliasInput.value = item ? String(item.alias || '') : '';
+  elements.garbageStopCodeInput.value = item && item.stop_code != null ? String(item.stop_code) : '';
+  elements.garbageStopArrivalInput.value = item ? String(item.arrival_time || '') : '';
+  elements.garbageStopLongitudeInput.value = item && item.longitude != null ? String(item.longitude) : '';
+  elements.garbageStopLatitudeInput.value = item && item.latitude != null ? String(item.latitude) : '';
+  elements.garbageStopZhengshaInput.checked = item ? item.is_zhengsha === true : false;
+  elements.garbageStopActiveInput.checked = item ? item.is_active !== false : true;
+  elements.garbageStopFormTitle.textContent = item ? `編輯清運點（${item.name}）` : '新增清運點';
+  elements.garbageStopSubmitButtonText.textContent = item ? '更新清運點' : '新增清運點';
+  elements.garbageStopDeleteButton.classList.toggle('hidden', !item);
+  elements.garbageStopResetButton.classList.toggle('hidden', !item);
+}
+
+async function loadGarbageStopsList() {
+  if (state.garbage.stops.routeId == null) return;
+  state.garbage.stops.loading = true;
+  elements.garbageStopsListLoading.classList.remove('hidden');
   try {
-    const res = await authedFetch(`/api/admin/garbage/routes/${encodeURIComponent(item.id)}/schedules`);
+    const res = await authedFetch(`/api/admin/garbage/routes/${encodeURIComponent(state.garbage.stops.routeId)}/stops`);
     if (res.status === 401) { await handleRelogin(); return; }
     if (res.status === 403) { showScreen('denied'); return; }
     const json = await res.json().catch(() => null);
     if (!res.ok || !json || json.success === false) {
       throw new Error((json && json.message) || `載入失敗（HTTP ${res.status}）`);
     }
-    renderGarbageScheduleRows(json.items || []);
+    state.garbage.stops.items = json.items || [];
+    renderGarbageStopsTable();
   } catch (err) {
-    console.error('openGarbageScheduleEditor failed:', err);
-    showToast(err.message || '時間表載入失敗');
-    closeGarbageScheduleEditor();
+    console.error('loadGarbageStopsList failed:', err);
+    showToast(err.message || '清運點載入失敗');
+  } finally {
+    state.garbage.stops.loading = false;
+    elements.garbageStopsListLoading.classList.add('hidden');
   }
 }
 
-function closeGarbageScheduleEditor() {
-  state.garbage.schedule.modalOpen = false;
-  elements.garbageScheduleModal.classList.add('hidden');
-  elements.garbageScheduleModal.classList.remove('flex');
+async function openGarbageStopsEditor(id) {
+  const item = state.garbage.items.find((r) => Number(r.id) === Number(id));
+  if (!item) return;
+  state.garbage.stops.routeId = item.id;
+  state.garbage.stops.routeName = garbageRouteLabel(item);
+  state.garbage.stops.items = [];
+  state.garbage.stops.editId = null;
+  elements.garbageStopsModalTitle.textContent = `清運點 — ${garbageRouteLabel(item)}`;
+  elements.garbageStopsTableBody.innerHTML = '';
+  elements.garbageStopsListEmpty.classList.add('hidden');
+  fillGarbageStopForm(null);
+  elements.garbageStopsModal.classList.remove('hidden');
+  elements.garbageStopsModal.classList.add('flex');
+  state.garbage.stops.modalOpen = true;
+  await loadGarbageStopsList();
 }
 
-function setGarbageScheduleBusy(busy) {
-  state.garbage.schedule.saving = busy;
-  elements.garbageScheduleSubmitButton.disabled = busy;
-  elements.garbageScheduleSubmitButtonText.textContent = busy ? '儲存中…' : '儲存整週時間表';
-  elements.garbageScheduleCancelButton.disabled = busy;
+function closeGarbageStopsEditor() {
+  state.garbage.stops.modalOpen = false;
+  elements.garbageStopsModal.classList.add('hidden');
+  elements.garbageStopsModal.classList.remove('flex');
 }
 
-async function saveGarbageSchedule(e) {
+function setGarbageStopBusy(busy) {
+  state.garbage.stops.saving = busy;
+  elements.garbageStopSubmitButton.disabled = busy;
+  elements.garbageStopSubmitButtonText.textContent = busy ? '儲存中…' : state.garbage.stops.editId != null ? '更新清運點' : '新增清運點';
+  elements.garbageStopDeleteButton.disabled = busy;
+  elements.garbageStopCancelButton.disabled = busy;
+  elements.garbageStopResetButton.disabled = busy;
+}
+
+async function saveGarbageStop(e) {
   e.preventDefault();
-  if (state.garbage.schedule.saving || state.garbage.schedule.routeId == null) return;
-  const days = [];
-  let invalid = '';
-  elements.garbageScheduleRows.querySelectorAll('[data-garbage-day]').forEach((card) => {
-    const dayOfWeek = Number(card.dataset.garbageDay);
-    const active = card.querySelector('[data-garbage-field="active"]').checked;
-    const timeText = card.querySelector('[data-garbage-field="time"]').value.trim();
-    const locationText = card.querySelector('[data-garbage-field="location"]').value.trim();
-    const note = card.querySelector('[data-garbage-field="note"]').value.trim();
-    if (active && (!timeText || !locationText)) {
-      invalid = `${GARBAGE_DAY_LABELS[dayOfWeek]}啟用時，時間與地點都要填。`;
-    }
-    days.push({ day_of_week: dayOfWeek, time_text: timeText, location_text: locationText, note, is_active: active });
-  });
-  if (invalid) {
-    showToast(invalid);
+  if (state.garbage.stops.saving || state.garbage.stops.routeId == null) return;
+  const name = elements.garbageStopNameInput.value.trim();
+  if (!name) {
+    showToast('請輸入清運點名稱。');
     return;
   }
+  const arrivalTime = elements.garbageStopArrivalInput.value.trim();
+  if (arrivalTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(arrivalTime)) {
+    showToast('預估到達時間請用 HH:MM 格式（例如 18:49）。');
+    return;
+  }
+  const longitudeText = elements.garbageStopLongitudeInput.value.trim();
+  const latitudeText = elements.garbageStopLatitudeInput.value.trim();
+  if (longitudeText && !Number.isFinite(Number(longitudeText))) { showToast('經度格式不正確。'); return; }
+  if (latitudeText && !Number.isFinite(Number(latitudeText))) { showToast('緯度格式不正確。'); return; }
+  const stopCodeText = elements.garbageStopCodeInput.value.trim();
 
-  setGarbageScheduleBusy(true);
+  const payload = {
+    name,
+    alias: elements.garbageStopAliasInput.value.trim(),
+    stop_code: stopCodeText ? Number(stopCodeText) : null,
+    arrival_time: arrivalTime,
+    longitude: longitudeText ? Number(longitudeText) : null,
+    latitude: latitudeText ? Number(latitudeText) : null,
+    is_zhengsha: elements.garbageStopZhengshaInput.checked,
+    is_active: elements.garbageStopActiveInput.checked,
+  };
+
+  setGarbageStopBusy(true);
   try {
-    const res = await authedFetch(`/api/admin/garbage/routes/${encodeURIComponent(state.garbage.schedule.routeId)}/schedules`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ days }),
-    });
+    const editing = state.garbage.stops.editId != null;
+    const res = await authedFetch(
+      editing ? `/api/admin/garbage/stops/${encodeURIComponent(state.garbage.stops.editId)}` : `/api/admin/garbage/routes/${encodeURIComponent(state.garbage.stops.routeId)}/stops`,
+      {
+        method: editing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
     if (res.status === 401) { await handleRelogin(); return; }
     if (res.status === 403) { showScreen('denied'); return; }
     const json = await res.json().catch(() => null);
     if (!res.ok || !json || json.success === false) {
       throw new Error((json && json.message) || `儲存失敗（HTTP ${res.status}）`);
     }
-    showToast(json.message || '時間表已儲存。');
-    closeGarbageScheduleEditor();
-    await loadGarbageRoutes();
+    showToast(json.message || '清運點已儲存。');
+    state.garbage.stops.editId = null;
+    fillGarbageStopForm(null);
+    await loadGarbageStopsList();
   } catch (err) {
-    console.error('saveGarbageSchedule failed:', err);
-    showToast(err.message || '時間表儲存失敗');
+    console.error('saveGarbageStop failed:', err);
+    showToast(err.message || '清運點儲存失敗');
   } finally {
-    setGarbageScheduleBusy(false);
+    setGarbageStopBusy(false);
+  }
+}
+
+function setGarbageStopDeleting(busy) {
+  state.garbage.stops.deleting = busy;
+  elements.garbageStopDeleteButton.disabled = busy;
+  elements.garbageStopDeleteButtonText.textContent = busy ? '刪除中…' : '刪除';
+  elements.garbageStopSubmitButton.disabled = busy;
+  elements.garbageStopCancelButton.disabled = busy;
+}
+
+async function deleteGarbageStop() {
+  if (state.garbage.stops.editId == null || state.garbage.stops.deleting) return;
+  const item = state.garbage.stops.items.find((s) => Number(s.id) === Number(state.garbage.stops.editId));
+  if (!window.confirm(`確定刪除清運點「${item ? item.name : ''}」？`)) return;
+  setGarbageStopDeleting(true);
+  try {
+    const res = await authedFetch(`/api/admin/garbage/stops/${encodeURIComponent(state.garbage.stops.editId)}`, { method: 'DELETE' });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `刪除失敗（HTTP ${res.status}）`);
+    }
+    showToast(json.message || '清運點已刪除。');
+    state.garbage.stops.editId = null;
+    fillGarbageStopForm(null);
+    await loadGarbageStopsList();
+  } catch (err) {
+    console.error('deleteGarbageStop failed:', err);
+    showToast(err.message || '清運點刪除失敗');
+  } finally {
+    setGarbageStopDeleting(false);
+  }
+}
+
+async function moveGarbageStop(id, direction) {
+  if (state.garbage.stops.moving) return;
+  state.garbage.stops.moving = true;
+  try {
+    const res = await authedFetch(`/api/admin/garbage/stops/${encodeURIComponent(id)}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ direction }),
+    });
+    if (res.status === 401) { await handleRelogin(); return; }
+    if (res.status === 403) { showScreen('denied'); return; }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error((json && json.message) || `排序失敗（HTTP ${res.status}）`);
+    }
+    state.garbage.stops.items = json.items || [];
+    renderGarbageStopsTable();
+  } catch (err) {
+    console.error('moveGarbageStop failed:', err);
+    showToast(err.message || '清運點排序失敗');
+  } finally {
+    state.garbage.stops.moving = false;
   }
 }
 
@@ -3979,7 +4238,7 @@ function bindEvents() {
     if (e.key === 'Escape' && state.rich.modalOpen) closeRichEditor();
   });
 
-  // 垃圾車：路段列表操作（排序／啟用切換／時間表／特殊日期／編輯）＋三個 modal
+  // 垃圾車：路段列表操作（排序／啟用切換／清運點／特殊日期／編輯）＋三個 modal
   elements.garbageRefreshButton.addEventListener('click', () => loadGarbageRoutes());
   elements.garbageCreateButton.addEventListener('click', () => openGarbageRouteEditor(null));
   elements.garbageTableBody.addEventListener('click', (e) => {
@@ -3993,9 +4252,9 @@ function bindEvents() {
       toggleGarbageRouteActive(Number(toggleBtn.dataset.garbageToggle));
       return;
     }
-    const scheduleBtn = e.target.closest('[data-garbage-schedule]');
-    if (scheduleBtn) {
-      openGarbageScheduleEditor(Number(scheduleBtn.dataset.garbageSchedule));
+    const stopsBtn = e.target.closest('[data-garbage-stops]');
+    if (stopsBtn) {
+      openGarbageStopsEditor(Number(stopsBtn.dataset.garbageStops));
       return;
     }
     const specialBtn = e.target.closest('[data-garbage-special]');
@@ -4016,12 +4275,42 @@ function bindEvents() {
   elements.garbageRouteModal.addEventListener('click', (e) => {
     if (e.target === elements.garbageRouteModal) closeGarbageRouteEditor();
   });
-  // 時間表 modal
-  elements.garbageScheduleForm.addEventListener('submit', saveGarbageSchedule);
-  elements.garbageScheduleCancelButton.addEventListener('click', closeGarbageScheduleEditor);
-  elements.garbageScheduleModalCloseButton.addEventListener('click', closeGarbageScheduleEditor);
-  elements.garbageScheduleModal.addEventListener('click', (e) => {
-    if (e.target === elements.garbageScheduleModal) closeGarbageScheduleEditor();
+  // 清運點 modal
+  elements.garbageStopForm.addEventListener('submit', saveGarbageStop);
+  elements.garbageStopCancelButton.addEventListener('click', closeGarbageStopsEditor);
+  elements.garbageStopsModalCloseButton.addEventListener('click', closeGarbageStopsEditor);
+  elements.garbageStopDeleteButton.addEventListener('click', deleteGarbageStop);
+  elements.garbageStopResetButton.addEventListener('click', () => {
+    fillGarbageStopForm(null);
+    state.garbage.stops.editId = null;
+  });
+  elements.garbageStopsTableBody.addEventListener('click', (e) => {
+    const moveBtn = e.target.closest('[data-garbage-stop-move]');
+    if (moveBtn) {
+      moveGarbageStop(Number(moveBtn.dataset.garbageStopId), moveBtn.dataset.garbageStopMove);
+      return;
+    }
+    const editBtn = e.target.closest('[data-garbage-stop-edit]');
+    if (editBtn) {
+      const item = state.garbage.stops.items.find((s) => Number(s.id) === Number(editBtn.dataset.garbageStopEdit));
+      if (item) {
+        state.garbage.stops.editId = item.id;
+        fillGarbageStopForm(item);
+      }
+      return;
+    }
+    const deleteBtn = e.target.closest('[data-garbage-stop-delete]');
+    if (deleteBtn) {
+      const item = state.garbage.stops.items.find((s) => Number(s.id) === Number(deleteBtn.dataset.garbageStopDelete));
+      if (item) {
+        state.garbage.stops.editId = item.id;
+        fillGarbageStopForm(item);
+        deleteGarbageStop();
+      }
+    }
+  });
+  elements.garbageStopsModal.addEventListener('click', (e) => {
+    if (e.target === elements.garbageStopsModal) closeGarbageStopsEditor();
   });
   // 特殊日期 modal
   elements.garbageSpecialForm.addEventListener('submit', saveGarbageSpecial);
@@ -4059,7 +4348,7 @@ function bindEvents() {
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (state.garbage.modalOpen) closeGarbageRouteEditor();
-    else if (state.garbage.schedule.modalOpen) closeGarbageScheduleEditor();
+    else if (state.garbage.stops.modalOpen) closeGarbageStopsEditor();
     else if (state.garbage.special.modalOpen) closeGarbageSpecialEditor();
   });
 
