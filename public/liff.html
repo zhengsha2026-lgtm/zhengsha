@@ -3031,10 +3031,20 @@
                   <p id="adminGarbageSpecialEditTitle" class="text-sm font-semibold text-violet-950">新增特殊日期</p>
                 </div>
 
-                <p class="rounded-[1.25rem] bg-violet-50/60 px-4 py-3 text-xs leading-6 text-slate-500">特定日期的例外安排（過年、連假等），當天優先於清運點時刻；時間地點可留空，只填備註（例如「春節暫停」）。</p>
+                <p class="rounded-[1.25rem] bg-violet-50/60 px-4 py-3 text-xs leading-6 text-slate-500">特定日期的例外安排（過年、連假等），當天優先於清運點時刻；可設「停運」或「增班」。</p>
 
                 <form id="adminGarbageSpecialForm" class="space-y-4">
                   <div class="rounded-[1.5rem] border border-violet-100 bg-white p-5 shadow-input space-y-4">
+                    <div>
+                      <label for="adminGarbageSpecialKind" class="text-sm font-semibold text-violet-950">類型</label>
+                      <select
+                        id="adminGarbageSpecialKind"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      >
+                        <option value="off">停運（當天暫停清運）</option>
+                        <option value="extra">增班（當天加開一趟）</option>
+                      </select>
+                    </div>
                     <div>
                       <label for="adminGarbageSpecialDate" class="text-sm font-semibold text-violet-950">日期 <span class="text-rose-500">（必填）</span></label>
                       <input
@@ -3043,7 +3053,16 @@
                         class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-violet-300"
                       />
                     </div>
-                    <div>
+                    <div id="adminGarbageSpecialExtraWrap" class="hidden">
+                      <label for="adminGarbageSpecialExtraFirstTime" class="text-sm font-semibold text-violet-950">第一個清運點到達時間 <span class="text-rose-500">（增班必填）</span></label>
+                      <input
+                        id="adminGarbageSpecialExtraFirstTime"
+                        type="time"
+                        class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                      <p class="mt-2 text-xs leading-5 text-slate-400">其餘清運點時間會依原路線間隔自動推算。</p>
+                    </div>
+                    <div id="adminGarbageSpecialTimeWrap">
                       <label for="adminGarbageSpecialTime" class="text-sm font-semibold text-violet-950">時間 <span class="text-slate-400">（選填）</span></label>
                       <input
                         id="adminGarbageSpecialTime"
@@ -3053,7 +3072,7 @@
                         class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
                       />
                     </div>
-                    <div>
+                    <div id="adminGarbageSpecialLocationWrap">
                       <label for="adminGarbageSpecialLocation" class="text-sm font-semibold text-violet-950">地點 <span class="text-slate-400">（選填）</span></label>
                       <input
                         id="adminGarbageSpecialLocation"
@@ -3072,7 +3091,7 @@
                         placeholder="例如：春節暫停"
                         class="mt-2 h-12 w-full rounded-2xl border-0 bg-white px-4 text-base text-slate-800 shadow-input ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
                       />
-                      <p class="mt-2 text-xs leading-5 text-slate-400">時間、地點、備註至少填一項。</p>
+                      <p class="mt-2 text-xs leading-5 text-slate-400">停運請至少填時間、地點或備註其中一項。</p>
                     </div>
                     <label class="flex items-center justify-between gap-3 rounded-2xl bg-violet-50/50 px-4 py-3 text-sm font-medium text-slate-700">
                       <span>啟用（停用中的特殊日期不生效）</span>
@@ -3845,6 +3864,11 @@
         adminGarbageSpecialEditBackButton: document.getElementById('adminGarbageSpecialEditBackButton'),
         adminGarbageSpecialEditTitle: document.getElementById('adminGarbageSpecialEditTitle'),
         adminGarbageSpecialForm: document.getElementById('adminGarbageSpecialForm'),
+        adminGarbageSpecialKind: document.getElementById('adminGarbageSpecialKind'),
+        adminGarbageSpecialExtraWrap: document.getElementById('adminGarbageSpecialExtraWrap'),
+        adminGarbageSpecialExtraFirstTime: document.getElementById('adminGarbageSpecialExtraFirstTime'),
+        adminGarbageSpecialTimeWrap: document.getElementById('adminGarbageSpecialTimeWrap'),
+        adminGarbageSpecialLocationWrap: document.getElementById('adminGarbageSpecialLocationWrap'),
         adminGarbageSpecialDate: document.getElementById('adminGarbageSpecialDate'),
         adminGarbageSpecialTime: document.getElementById('adminGarbageSpecialTime'),
         adminGarbageSpecialLocation: document.getElementById('adminGarbageSpecialLocation'),
@@ -5034,6 +5058,9 @@
         }
         if (elements.adminGarbageSpecialForm) {
           elements.adminGarbageSpecialForm.addEventListener('submit', saveAdminGarbageSpecial);
+          if (elements.adminGarbageSpecialKind) {
+            elements.adminGarbageSpecialKind.addEventListener('change', toggleAdminGarbageSpecialKindFields);
+          }
         }
         // 瀏覽紀錄事件（管理端，僅查看）
         if (elements.adminPageViewsBackButton) {
@@ -9745,14 +9772,24 @@
             const activeBadge = item.is_active
               ? '<span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">啟用</span>'
               : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">停用</span>';
+            const isExtra = item.kind === 'extra';
+            const kindBadge = isExtra
+              ? '<span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-100">增班</span>'
+              : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">停運</span>';
+            const timeText = isExtra
+              ? `第一點 ${garbageEscapeHtml(item.extra_first_time || '—')} 起`
+              : garbageEscapeHtml(item.time_text || '—');
             return `
               <div class="rounded-[1.25rem] border border-violet-100 bg-white p-4 shadow-input ${item.is_active ? '' : 'opacity-60'}">
                 <div class="flex items-center justify-between gap-3">
-                  <p class="text-base font-semibold text-violet-950">${garbageEscapeHtml(item.special_date)}</p>
+                  <div class="flex items-center gap-2">
+                    <p class="text-base font-semibold text-violet-950">${garbageEscapeHtml(item.special_date)}</p>
+                    ${kindBadge}
+                  </div>
                   ${activeBadge}
                 </div>
                 <div class="mt-2 space-y-1 text-xs leading-6 text-slate-600">
-                  <p>時間：${garbageEscapeHtml(item.time_text || '—')}</p>
+                  <p>時間：${timeText}</p>
                   <p>地點：${garbageEscapeHtml(item.location_text || '—')}</p>
                   <p>備註：${garbageEscapeHtml(item.note || '—')}</p>
                 </div>
@@ -9793,12 +9830,27 @@
         await loadAdminGarbageSpecial();
       }
 
+      // 依類型切換表單欄位：增班顯示第一點時間、隱藏時間/地點；停運相反
+      function toggleAdminGarbageSpecialKindFields() {
+        if (!elements.adminGarbageSpecialKind) return;
+        const isExtra = elements.adminGarbageSpecialKind.value === 'extra';
+        if (elements.adminGarbageSpecialExtraWrap) elements.adminGarbageSpecialExtraWrap.classList.toggle('hidden', !isExtra);
+        if (elements.adminGarbageSpecialTimeWrap) elements.adminGarbageSpecialTimeWrap.classList.toggle('hidden', isExtra);
+        if (elements.adminGarbageSpecialLocationWrap) elements.adminGarbageSpecialLocationWrap.classList.toggle('hidden', isExtra);
+      }
+
       function fillAdminGarbageSpecialForm(item) {
+        const isExtra = item && item.kind === 'extra';
+        if (elements.adminGarbageSpecialKind) elements.adminGarbageSpecialKind.value = isExtra ? 'extra' : 'off';
         if (elements.adminGarbageSpecialDate) elements.adminGarbageSpecialDate.value = item ? String(item.special_date || '') : '';
+        if (elements.adminGarbageSpecialExtraFirstTime) {
+          elements.adminGarbageSpecialExtraFirstTime.value = item && isExtra ? String(item.extra_first_time || '') : '';
+        }
         if (elements.adminGarbageSpecialTime) elements.adminGarbageSpecialTime.value = item ? String(item.time_text || '') : '';
         if (elements.adminGarbageSpecialLocation) elements.adminGarbageSpecialLocation.value = item ? String(item.location_text || '') : '';
         if (elements.adminGarbageSpecialNote) elements.adminGarbageSpecialNote.value = item ? String(item.note || '') : '';
         if (elements.adminGarbageSpecialActive) elements.adminGarbageSpecialActive.checked = item ? item.is_active !== false : true;
+        toggleAdminGarbageSpecialKindFields();
         if (elements.adminGarbageSpecialEditTitle) {
           elements.adminGarbageSpecialEditTitle.textContent = item ? `編輯特殊日期 — ${item.special_date}` : `新增特殊日期 — ${state.admin.garbage.special.routeName || ''}`;
         }
@@ -9826,10 +9878,16 @@
           showToast('請選擇日期。');
           return;
         }
+        const kind = elements.adminGarbageSpecialKind && elements.adminGarbageSpecialKind.value === 'extra' ? 'extra' : 'off';
+        const extraFirstTime = (elements.adminGarbageSpecialExtraFirstTime && elements.adminGarbageSpecialExtraFirstTime.value.trim()) || '';
         const timeText = (elements.adminGarbageSpecialTime && elements.adminGarbageSpecialTime.value.trim()) || '';
         const locationText = (elements.adminGarbageSpecialLocation && elements.adminGarbageSpecialLocation.value.trim()) || '';
         const note = (elements.adminGarbageSpecialNote && elements.adminGarbageSpecialNote.value.trim()) || '';
-        if (!timeText && !locationText && !note) {
+        if (kind === 'extra' && !extraFirstTime) {
+          showToast('增班請填第一個清運點到達時間。');
+          return;
+        }
+        if (kind === 'off' && !timeText && !locationText && !note) {
           showToast('時間、地點、備註至少填一項。');
           return;
         }
@@ -9846,12 +9904,17 @@
           }
           const editing = state.admin.garbage.special.edit.id != null;
           const payload = {
+            kind,
             special_date: dateStr,
-            time_text: timeText,
-            location_text: locationText,
             note,
             is_active: elements.adminGarbageSpecialActive ? elements.adminGarbageSpecialActive.checked : true,
           };
+          if (kind === 'extra') {
+            payload.extra_first_time = extraFirstTime;
+          } else {
+            payload.time_text = timeText;
+            payload.location_text = locationText;
+          }
           if (!editing) payload.route_id = state.admin.garbage.special.routeId;
           const res = await fetch(
             editing ? `/api/admin/garbage/special-dates/${state.admin.garbage.special.edit.id}` : '/api/admin/garbage/special-dates',

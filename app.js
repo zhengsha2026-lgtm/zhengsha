@@ -4604,7 +4604,7 @@ app.get('/api/admin/garbage/special-dates', async (req, res) => {
     }
     const { data: rows, error } = await supabaseAdmin
       .from('garbage_special_dates')
-      .select('id, route_id, special_date, time_text, location_text, note, is_active, created_at, updated_at')
+      .select('id, route_id, special_date, kind, extra_first_time, time_text, location_text, note, is_active, created_at, updated_at')
       .eq('route_id', routeId)
       .order('special_date', { ascending: false });
     if (error) {
@@ -4618,6 +4618,7 @@ app.get('/api/admin/garbage/special-dates', async (req, res) => {
 });
 
 // 共用：特殊日期欄位驗證（新增/編輯）
+// kind：'off' 停運（現有行為）／'extra' 增班（extra_first_time 必填，其餘清運點時間由後端依原路線間隔推算）
 function buildGarbageSpecialPayload(body, { partial }) {
   const payload = {};
 
@@ -4638,6 +4639,28 @@ function buildGarbageSpecialPayload(body, { partial }) {
     }
     payload.special_date = dateStr;
   }
+
+  // 類型：'off'（新增預設）／'extra'；編輯未帶 kind 時沿用現值（kind = null 表示不變）
+  let kind = null;
+  if (body.kind !== undefined) {
+    if (body.kind !== 'off' && body.kind !== 'extra') {
+      return { success: false, message: '類型只支援「停運」或「增班」。' };
+    }
+    kind = body.kind;
+  } else if (!partial) {
+    kind = 'off';
+  }
+
+  // 增班：第一個清運點到達時間必填（'HH:MM'）
+  let extraFirstTime = null;
+  if (kind === 'extra') {
+    const timeStr = String(body.extra_first_time || '').trim();
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(timeStr)) {
+      return { success: false, message: '增班請填第一個清運點到達時間（HH:MM，例如 06:30）。' };
+    }
+    extraFirstTime = timeStr;
+  }
+
   if (!partial || body.time_text !== undefined) {
     const timeText = String(body.time_text || '').trim();
     if (timeText.length > GARBAGE_TEXT_MAX_LENGTH) {
@@ -4663,10 +4686,25 @@ function buildGarbageSpecialPayload(body, { partial }) {
     payload.is_active = body.is_active !== false;
   }
 
-  // 新增時至少要有一個內容欄位（時間／地點／備註），否則這筆特殊日期沒意義
+  // kind 專屬欄位（放在最後，避免被上面 time_text/location_text 區塊覆蓋）：
+  //   增班 → extra_first_time 必填、時間/地點清空；停運 → extra_first_time 清空
+  if (kind === 'extra') {
+    payload.kind = 'extra';
+    payload.extra_first_time = extraFirstTime;
+    payload.time_text = null;
+    payload.location_text = null;
+  } else if (kind === 'off') {
+    payload.kind = 'off';
+    payload.extra_first_time = null;
+  }
+
+  // 新增時至少要有一個內容欄位（停運：時間／地點／備註；增班：第一點時間即內容）
   // （編輯不做此限制：可只切換啟用狀態，既有內容保留）
   if (!partial) {
-    const hasContent = Boolean(payload.time_text || payload.location_text || payload.note);
+    const hasContent =
+      payload.kind === 'extra'
+        ? Boolean(payload.extra_first_time || payload.note)
+        : Boolean(payload.time_text || payload.location_text || payload.note);
     if (!hasContent) {
       return { success: false, message: '時間、地點、備註至少填一項（例如備註填「春節暫停」）。' };
     }
@@ -4694,10 +4732,29 @@ app.post('/api/admin/garbage/special-dates', async (req, res) => {
       .maybeSingle();
     if (!routeRow) return res.status(404).json({ success: false, message: '找不到這個路段。' });
 
+    // 增班：驗證該路線第一個啟用清運點已設定到達時間（作為推算間隔的基準）
+    if (normalized.data.kind === 'extra') {
+      const { data: firstStop } = await supabaseAdmin
+        .from('garbage_stops')
+        .select('id, arrival_time')
+        .eq('route_id', normalized.data.route_id)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      const firstTime = firstStop ? String(firstStop.arrival_time || '').trim() : '';
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(firstTime)) {
+        return res.status(400).json({
+          success: false,
+          message: '這個路段的第一個清運點尚未設定到達時間，無法推算增班時間。請先到清運點管理補上。',
+        });
+      }
+    }
+
     const { data: row, error } = await supabaseAdmin
       .from('garbage_special_dates')
       .insert(normalized.data)
-      .select('id, route_id, special_date, time_text, location_text, note, is_active, created_at, updated_at')
+      .select('id, route_id, special_date, kind, extra_first_time, time_text, location_text, note, is_active, created_at, updated_at')
       .single();
     if (error) {
       if (error.code === '23505') {
@@ -4735,7 +4792,7 @@ app.patch('/api/admin/garbage/special-dates/:id', async (req, res) => {
       .from('garbage_special_dates')
       .update({ ...normalized.data, updated_at: new Date().toISOString() })
       .eq('id', specialId)
-      .select('id, route_id, special_date, time_text, location_text, note, is_active, created_at, updated_at')
+      .select('id, route_id, special_date, kind, extra_first_time, time_text, location_text, note, is_active, created_at, updated_at')
       .single();
     if (error || !row) {
       if (!row) return res.status(404).json({ success: false, message: '找不到這筆特殊日期。' });
@@ -7422,12 +7479,12 @@ async function replyGarbageRouteSelection(event) {
   });
 }
 
-// 查詢某路線指定日期的特殊停運日（garbage_special_dates），無則 null
+// 查詢某路線指定日期的特殊日期（kind='off' 停運／kind='extra' 增班），無則 null
 async function findGarbageSpecialOnDate(routeId, dateStr) {
   if (!supabaseAdmin) return null;
   const { data: special, error } = await supabaseAdmin
     .from('garbage_special_dates')
-    .select('time_text, location_text, note')
+    .select('kind, extra_first_time, time_text, location_text, note')
     .eq('route_id', routeId)
     .eq('special_date', dateStr)
     .eq('is_active', true)
@@ -7437,41 +7494,74 @@ async function findGarbageSpecialOnDate(routeId, dateStr) {
   return special || null;
 }
 
-// 今天的特殊停運日
+// 今天的特殊日期
 async function findGarbageSpecialToday(routeId) {
   return findGarbageSpecialOnDate(routeId, getTaipeiToday());
 }
 
-// 從 fromDateStr 的隔天起，找最近一個可清運日（非特殊停運日且非休運日）
-// 回 { date: 'YYYY-MM-DD', dayOfWeek }；最多找 31 天，找不到回 null（實務上不會發生）
+// 'HH:MM' → 分鐘數；格式錯誤回 null
+function garbageTimeToMinutes(timeStr) {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(timeStr || '').trim());
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+// 推算某清運點的增班到達時間：
+//   增班第 i 點時間 = extraFirstTime + (stop.arrival_time − 第一個清運點.arrival_time)
+//   （時間間隔與原路線相同；跨日（<00:00 或 ≥24:00）回 null 不顯示）
+// routeStops：該路線全部啟用清運點（含 sort_order, arrival_time），已按 sort_order 排序
+function computeGarbageExtraArrival(extraFirstTime, routeStops, stopId) {
+  const extraFirstMin = garbageTimeToMinutes(extraFirstTime);
+  if (extraFirstMin == null) return null;
+  const baseStop = routeStops.find((s) => s.arrival_time);
+  if (!baseStop) return null;
+  const baseMin = garbageTimeToMinutes(baseStop.arrival_time);
+  if (baseMin == null) return null;
+  const target = routeStops.find((s) => Number(s.id) === Number(stopId));
+  if (!target) return null;
+  const targetMin = garbageTimeToMinutes(target.arrival_time);
+  if (targetMin == null) return null;
+  const minutes = extraFirstMin + targetMin - baseMin;
+  if (minutes < 0 || minutes >= 1440) return null;
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+// 從 fromDateStr 的隔天起，找最近一個可清運日（非休運日，且非 kind='off' 停運日；
+// kind='extra' 增班日當天有清運，可作為最近清運日）
+// 回 { date, dayOfWeek, special }（special = 該日特殊日期或 null）；最多找 31 天
 async function findNextGarbageCollectionDay(routeId, offDays, fromDateStr, maxDays = 31) {
-  const specialSet = new Set();
+  const offSpecialSet = new Set();
+  const specialMap = new Map();
   if (supabaseAdmin) {
     const endDate = addGarbageDays(fromDateStr, maxDays);
     const { data: rows, error } = await supabaseAdmin
       .from('garbage_special_dates')
-      .select('special_date')
+      .select('special_date, kind, extra_first_time')
       .eq('route_id', routeId)
       .eq('is_active', true)
       .gt('special_date', fromDateStr)
       .lte('special_date', endDate);
     if (error) console.error('garbage special dates range query failed:', error);
     for (const row of rows || []) {
-      specialSet.add(String(row.special_date).slice(0, 10));
+      const dateKey = String(row.special_date).slice(0, 10);
+      specialMap.set(dateKey, row);
+      if (row.kind === 'off') offSpecialSet.add(dateKey);
     }
   }
   for (let i = 1; i <= maxDays; i += 1) {
     const date = addGarbageDays(fromDateStr, i);
-    if (specialSet.has(date)) continue;
+    if (offSpecialSet.has(date)) continue;
     const dayOfWeek = new Date(`${date}T00:00:00Z`).getUTCDay();
-    if (offDays.includes(dayOfWeek)) continue;
-    return { date, dayOfWeek };
+    const special = specialMap.get(date) || null;
+    if (offDays.includes(dayOfWeek) && !(special && special.kind === 'extra')) continue;
+    return { date, dayOfWeek, special };
   }
   return null;
 }
 
 // 「垃圾車|{路線ID}」→ 第二層：該路線的正砂里清運點選擇
-// 休運日直接回「今天休運」；特殊停運日不攔截（由第三層回覆停運說明＋最近清運日）
+// 休運日直接回「今天休運」（增班日除外——當天有加開趟次，照常列清運點）；
+// 特殊日期（停運/增班）不攔截，由第三層回覆說明
 async function replyGarbageStopSelection(event, routeId) {
   let route = null;
   if (supabaseAdmin) {
@@ -7494,11 +7584,13 @@ async function replyGarbageStopSelection(event, routeId) {
 
   const routeLabel = garbageRoutePublicLabel(route);
 
-  // 休運日（例如週三、週日）
-  // （特殊停運日不在此攔截：讓里民可繼續選清運點，由第三層回覆停運說明＋最近清運日）
+  // 休運日（例如週三、週日）；增班日（kind='extra'）不受休運日限制
+  // （特殊日期不在此攔截：讓里民可繼續選清運點，由第三層回覆停運說明或增班趟次）
   const dayOfWeek = getTaipeiTodayDayOfWeek();
   const offDays = Array.isArray(route.off_days) ? route.off_days.map(Number) : [];
-  if (offDays.includes(dayOfWeek)) {
+  const specialToday = await findGarbageSpecialToday(route.id);
+  const isExtraToday = specialToday && specialToday.kind === 'extra';
+  if (offDays.includes(dayOfWeek) && !isExtraToday) {
     const offText = formatGarbageDays(offDays);
     return lineClient.replyMessage({
       replyToken: event.replyToken,
@@ -7565,9 +7657,9 @@ async function replyGarbageStopSelection(event, routeId) {
 }
 
 // 「垃圾車點|{清運點ID}」→ 第三層：該清運點的到達時間（第一行為日期星期，如「10/30(五)」）
-// 優先序：今天特殊停運日（告知停運＋最近清運日）→ 休運日（維持原回覆）→
-//   清運中（今天日期＋到達時間）→ 已結束（明天特殊停運則「明天起停運」，
-//   否則「正砂里今日清運已結束」，＋最近清運日日期＋到達時間）
+// 優先序：今天特殊日期（停運 → 告知停運＋最近清運日；增班 → 原趟次＋增班趟次）→
+//   休運日 → 清運中（今天日期＋到達時間）→ 已結束（明天停運則「明天起停運」，
+//   否則「正砂里今日清運已結束」，＋最近清運日；最近清運日可為增班日）
 async function replyGarbageStopDetail(event, stopId) {
   let stop = null;
   if (supabaseAdmin) {
@@ -7606,10 +7698,41 @@ async function replyGarbageStopDetail(event, stopId) {
   const offDays = route && Array.isArray(route.off_days) ? route.off_days.map(Number) : [];
   const recyclingDays = route && Array.isArray(route.recycling_days) ? route.recycling_days.map(Number) : [];
 
-  // 到達時間區塊：日期星期 → 清運點 → 約幾點到 →（回收日註記）
-  const buildArrivalLines = (dateStr, dayOfWeek, isToday) => {
+  // 該路線全部啟用清運點（按 sort_order；增班時間推算與結束判斷共用）
+  let routeStops = [];
+  if (route && supabaseAdmin) {
+    const { data: rows, error } = await supabaseAdmin
+      .from('garbage_stops')
+      .select('id, arrival_time, is_zhengsha')
+      .eq('route_id', route.id)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    if (error) console.error('garbage route stops query failed:', error);
+    routeStops = rows || [];
+  }
+
+  // 某日期該清運點的趟次：原趟次（非休運日且有時間；增班日加「原趟次」標記）＋
+  // 增班趟次（特殊日期 kind='extra'，依原路線時間間隔推算）
+  const buildTrips = (dayOfWeek, special) => {
+    const trips = [];
+    const isExtraDay = special && special.kind === 'extra';
+    if (!offDays.includes(dayOfWeek) && arrivalTime) {
+      trips.push({ label: isExtraDay ? '原趟次' : null, time: arrivalTime });
+    }
+    if (isExtraDay) {
+      const extraTime = computeGarbageExtraArrival(special.extra_first_time, routeStops, stop.id);
+      if (extraTime) trips.push({ label: '增班趟次', time: extraTime });
+    }
+    return trips;
+  };
+
+  // 到達時間區塊：日期星期 → 清運點 → 各趟次 →（回收日註記）
+  const buildArrivalLines = (dateStr, dayOfWeek, special, isToday) => {
+    const trips = buildTrips(dayOfWeek, special);
     const lines = [formatGarbageDateLabel(dateStr), stopLabel];
-    if (arrivalTime) lines.push(`約 ${arrivalTime} 到`);
+    for (const trip of trips) {
+      lines.push(trip.label ? `${trip.label} 約 ${trip.time} 到` : `約 ${trip.time} 到`);
+    }
     if (recyclingDays.includes(dayOfWeek)) {
       lines.push(isToday ? '♻ 今天有資源回收車' : '♻ 當天有資源回收車');
     }
@@ -7625,66 +7748,67 @@ async function replyGarbageStopDetail(event, stopId) {
     });
   };
 
-  // 1. 今天特殊停運日（優先於一般休運日）：告知停運＋最近清運日
-  if (route) {
-    const special = await findGarbageSpecialToday(route.id);
-    if (special) {
-      const note = String(special.note || '').trim();
-      const lines = [`今天停運${note ? `（${note}）` : ''}`];
-      const next = await findNextGarbageCollectionDay(route.id, offDays, today);
-      if (next) lines.push(...buildArrivalLines(next.date, next.dayOfWeek, false));
-      else lines.push(stopLabel);
-      return replyLines(lines);
+  // 1. 今天特殊日期
+  const specialToday = route ? await findGarbageSpecialToday(route.id) : null;
+
+  // 1a. 停運（優先於一般休運日）：告知停運＋最近清運日
+  if (specialToday && specialToday.kind !== 'extra') {
+    const note = String(specialToday.note || '').trim();
+    const lines = [`今天停運${note ? `（${note}）` : ''}`];
+    const next = await findNextGarbageCollectionDay(route.id, offDays, today);
+    if (next) lines.push(...buildArrivalLines(next.date, next.dayOfWeek, next.special, false));
+    else lines.push(stopLabel);
+    return replyLines(lines);
+  }
+
+  const nowHHMM = getTaipeiNowHHMM();
+
+  // 1b. 增班日（優先於休運日檢查）：顯示今天原趟次＋增班趟次；全部過了才進「已結束」
+  if (specialToday && specialToday.kind === 'extra') {
+    const trips = buildTrips(todayDayOfWeek, specialToday);
+    const allPassed = trips.length > 0 && trips.every((t) => t.time < nowHHMM);
+    if (!allPassed) {
+      return replyLines(buildArrivalLines(today, todayDayOfWeek, specialToday, true));
     }
-  }
+  } else {
+    // 2. 休運日（無特殊日期；維持原回覆）
+    if (offDays.includes(todayDayOfWeek)) {
+      const offText = formatGarbageDays(offDays);
+      return lineClient.replyMessage({
+        replyToken: event.replyToken,
+        messages: [{ type: 'text', text: `${stopLabel}\n今天休運${offText ? `（休運日：${offText}）` : ''}` }],
+      });
+    }
 
-  // 2. 休運日（維持原回覆）
-  if (offDays.includes(todayDayOfWeek)) {
-    const offText = formatGarbageDays(offDays);
-    return lineClient.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{ type: 'text', text: `${stopLabel}\n今天休運${offText ? `（休運日：${offText}）` : ''}` }],
-    });
-  }
-
-  // 3. 正常清運日：判斷正砂里清運是否已全部結束
-  //    （該路線所有 is_zhengsha 且啟用的清運點，arrival_time 都早於台北現在時間；無到達時間的點不算已過）
-  let ended = false;
-  if (route && supabaseAdmin) {
-    const { data: zsStops, error } = await supabaseAdmin
-      .from('garbage_stops')
-      .select('arrival_time')
-      .eq('route_id', route.id)
-      .eq('is_zhengsha', true)
-      .eq('is_active', true);
-    if (error) console.error('garbage zhengsha stops query failed:', error);
-    const rows = zsStops || [];
-    const nowHHMM = getTaipeiNowHHMM();
-    ended =
-      rows.length > 0 &&
-      rows.every((s) => {
+    // 3. 正常清運日：判斷正砂里清運是否已全部結束
+    //    （該路線所有 is_zhengsha 且啟用的清運點，arrival_time 都早於現在；無到達時間的點不算已過）
+    const zsRows = routeStops.filter((s) => s.is_zhengsha);
+    const ended =
+      zsRows.length > 0 &&
+      zsRows.every((s) => {
         const t = String(s.arrival_time || '').trim().slice(0, 5);
         return t && t < nowHHMM;
       });
+
+    // 3a. 清運中：今天日期星期＋到達時間
+    if (!ended) {
+      return replyLines(buildArrivalLines(today, todayDayOfWeek, null, true));
+    }
   }
 
-  // 3a. 清運中：今天日期星期＋到達時間
-  if (!ended) {
-    return replyLines(buildArrivalLines(today, todayDayOfWeek, true));
-  }
-
-  // 3b. 已結束：明天起找最近清運日；若明天是特殊停運日，改報停運說明
+  // 3b. 已結束（正常日全部過了，或增班日全部趟次過了）：
+  //     明天停運 → 「明天起停運」；否則「正砂里今日清運已結束」＋最近清運日（可為增班日）
   const tomorrow = addGarbageDays(today, 1);
   const specialTomorrow = route ? await findGarbageSpecialOnDate(route.id, tomorrow) : null;
   const lines = [];
-  if (specialTomorrow) {
+  if (specialTomorrow && specialTomorrow.kind === 'off') {
     const note = String(specialTomorrow.note || '').trim();
     lines.push(`明天起停運${note ? `（${note}）` : ''}`);
   } else {
     lines.push('正砂里今日清運已結束');
   }
   const next = route ? await findNextGarbageCollectionDay(route.id, offDays, today) : null;
-  if (next) lines.push(...buildArrivalLines(next.date, next.dayOfWeek, false));
+  if (next) lines.push(...buildArrivalLines(next.date, next.dayOfWeek, next.special, false));
   else lines.push(stopLabel);
   return replyLines(lines);
 }

@@ -953,19 +953,33 @@
 
       <form id="garbageSpecialForm" class="mt-6 space-y-5 rounded-2xl border border-violet-100/60 bg-violet-50/30 p-6">
         <p id="garbageSpecialFormTitle" class="text-sm font-bold text-slate-700">新增特殊日期</p>
+        <div>
+          <label for="garbageSpecialKindInput" class="block text-sm font-semibold text-slate-700">類型</label>
+          <select id="garbageSpecialKindInput"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100">
+            <option value="off">停運（當天暫停清運）</option>
+            <option value="extra">增班（當天加開一趟）</option>
+          </select>
+        </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
             <label for="garbageSpecialDateInput" class="block text-sm font-semibold text-slate-700">日期 <span class="text-violet-600">（必填）</span></label>
             <input id="garbageSpecialDateInput" type="date"
               class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
           </div>
-          <div>
-            <label for="garbageSpecialTimeInput" class="block text-sm font-semibold text-slate-700">時間 <span class="text-slate-400">（選填）</span></label>
-            <input id="garbageSpecialTimeInput" type="text" maxlength="100" placeholder="例如：18:30–19:00"
+          <div id="garbageSpecialExtraWrap" class="hidden">
+            <label for="garbageSpecialExtraFirstTimeInput" class="block text-sm font-semibold text-slate-700">第一個清運點到達時間 <span class="text-violet-600">（增班必填）</span></label>
+            <input id="garbageSpecialExtraFirstTimeInput" type="time"
               class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+            <p class="mt-2 text-xs leading-5 text-slate-400">其餘清運點時間會依原路線間隔自動推算。</p>
           </div>
         </div>
-        <div>
+        <div id="garbageSpecialTimeWrap">
+          <label for="garbageSpecialTimeInput" class="block text-sm font-semibold text-slate-700">時間 <span class="text-slate-400">（選填）</span></label>
+          <input id="garbageSpecialTimeInput" type="text" maxlength="100" placeholder="例如：18:30–19:00"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
+        </div>
+        <div id="garbageSpecialLocationWrap">
           <label for="garbageSpecialLocationInput" class="block text-sm font-semibold text-slate-700">地點 <span class="text-slate-400">（選填）</span></label>
           <input id="garbageSpecialLocationInput" type="text" maxlength="100" placeholder="例如：正砂路與中正路口"
             class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
@@ -974,7 +988,7 @@
           <label for="garbageSpecialNoteInput" class="block text-sm font-semibold text-slate-700">備註 <span class="text-slate-400">（選填）</span></label>
           <input id="garbageSpecialNoteInput" type="text" maxlength="200" placeholder="例如：春節暫停"
             class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100" />
-          <p class="mt-2 text-xs leading-5 text-slate-400">時間、地點、備註至少填一項。</p>
+          <p class="mt-2 text-xs leading-5 text-slate-400">停運請至少填時間、地點或備註其中一項。</p>
         </div>
         <label class="flex items-center justify-between gap-3 text-base font-medium text-slate-700">
           <span>啟用（停用中的特殊日期不生效）</span>
@@ -1181,7 +1195,9 @@ function cacheElements() {
     'garbageStopSubmitButton', 'garbageStopSubmitButtonText', 'garbageStopCancelButton', 'garbageStopDeleteButton', 'garbageStopDeleteButtonText',
     'garbageStopResetButton',
     'garbageSpecialModal', 'garbageSpecialModalTitle', 'garbageSpecialModalCloseButton', 'garbageSpecialTableBody', 'garbageSpecialListEmpty',
-    'garbageSpecialForm', 'garbageSpecialFormTitle', 'garbageSpecialDateInput', 'garbageSpecialTimeInput', 'garbageSpecialLocationInput',
+    'garbageSpecialForm', 'garbageSpecialFormTitle', 'garbageSpecialKindInput', 'garbageSpecialDateInput',
+    'garbageSpecialExtraWrap', 'garbageSpecialExtraFirstTimeInput', 'garbageSpecialTimeWrap', 'garbageSpecialTimeInput',
+    'garbageSpecialLocationWrap', 'garbageSpecialLocationInput',
     'garbageSpecialNoteInput', 'garbageSpecialActiveInput', 'garbageSpecialSubmitButton', 'garbageSpecialSubmitButtonText',
     'garbageSpecialCancelButton', 'garbageSpecialDeleteButton', 'garbageSpecialDeleteButtonText', 'garbageSpecialResetButton',
     'safetyListView', 'safetyTableBody', 'safetyListEmpty', 'safetyListLoading', 'safetyRefreshButton',
@@ -3600,10 +3616,18 @@ async function moveGarbageStop(id, direction) {
 function renderGarbageSpecialTable() {
   const items = state.garbage.special.items;
   elements.garbageSpecialTableBody.innerHTML = items
-    .map((item) => `
+    .map((item) => {
+      const isExtra = item.kind === 'extra';
+      const kindBadge = isExtra
+        ? '<span class="ml-2 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">增班</span>'
+        : '<span class="ml-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">停運</span>';
+      const timeText = isExtra
+        ? `第一點 ${garbageEscapeHtml(item.extra_first_time || '—')} 起`
+        : garbageEscapeHtml(item.time_text || '—');
+      return `
       <tr class="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/40 ${item.is_active ? '' : 'opacity-60'}">
-        <td class="px-4 py-3 font-semibold text-slate-800">${garbageEscapeHtml(item.special_date)}</td>
-        <td class="px-4 py-3 text-slate-600">${garbageEscapeHtml(item.time_text || '—')}</td>
+        <td class="px-4 py-3 font-semibold text-slate-800">${garbageEscapeHtml(item.special_date)}${kindBadge}</td>
+        <td class="px-4 py-3 text-slate-600">${timeText}</td>
         <td class="px-4 py-3 max-w-[12rem] truncate text-slate-600" title="${garbageEscapeHtml(item.location_text || '')}">${garbageEscapeHtml(item.location_text || '—')}</td>
         <td class="px-4 py-3 max-w-[12rem] truncate text-slate-600" title="${garbageEscapeHtml(item.note || '')}">${garbageEscapeHtml(item.note || '—')}</td>
         <td class="px-4 py-3">
@@ -3618,17 +3642,30 @@ function renderGarbageSpecialTable() {
           </div>
         </td>
       </tr>
-    `)
+    `;
+    })
     .join('');
   elements.garbageSpecialListEmpty.classList.toggle('hidden', items.length > 0);
 }
 
+// 依類型切換表單欄位：增班顯示第一點時間、隱藏時間/地點；停運相反
+function toggleGarbageSpecialKindFields() {
+  const isExtra = elements.garbageSpecialKindInput.value === 'extra';
+  elements.garbageSpecialExtraWrap.classList.toggle('hidden', !isExtra);
+  elements.garbageSpecialTimeWrap.classList.toggle('hidden', isExtra);
+  elements.garbageSpecialLocationWrap.classList.toggle('hidden', isExtra);
+}
+
 function fillGarbageSpecialForm(item) {
+  const isExtra = item && item.kind === 'extra';
+  elements.garbageSpecialKindInput.value = isExtra ? 'extra' : 'off';
   elements.garbageSpecialDateInput.value = item ? String(item.special_date || '') : '';
+  elements.garbageSpecialExtraFirstTimeInput.value = item && isExtra ? String(item.extra_first_time || '') : '';
   elements.garbageSpecialTimeInput.value = item ? String(item.time_text || '') : '';
   elements.garbageSpecialLocationInput.value = item ? String(item.location_text || '') : '';
   elements.garbageSpecialNoteInput.value = item ? String(item.note || '') : '';
   elements.garbageSpecialActiveInput.checked = item ? item.is_active !== false : true;
+  toggleGarbageSpecialKindFields();
   elements.garbageSpecialFormTitle.textContent = item ? `編輯特殊日期（${item.special_date}）` : '新增特殊日期';
   elements.garbageSpecialSubmitButtonText.textContent = item ? '更新日期' : '新增日期';
   elements.garbageSpecialDeleteButton.classList.toggle('hidden', !item);
@@ -3696,10 +3733,16 @@ async function saveGarbageSpecial(e) {
     showToast('請選擇日期。');
     return;
   }
+  const kind = elements.garbageSpecialKindInput.value === 'extra' ? 'extra' : 'off';
+  const extraFirstTime = elements.garbageSpecialExtraFirstTimeInput.value.trim();
   const timeText = elements.garbageSpecialTimeInput.value.trim();
   const locationText = elements.garbageSpecialLocationInput.value.trim();
   const note = elements.garbageSpecialNoteInput.value.trim();
-  if (!timeText && !locationText && !note) {
+  if (kind === 'extra' && !extraFirstTime) {
+    showToast('增班請填第一個清運點到達時間。');
+    return;
+  }
+  if (kind === 'off' && !timeText && !locationText && !note) {
     showToast('時間、地點、備註至少填一項。');
     return;
   }
@@ -3708,12 +3751,17 @@ async function saveGarbageSpecial(e) {
   try {
     const editing = state.garbage.special.editId != null;
     const payload = {
+      kind,
       special_date: dateStr,
-      time_text: timeText,
-      location_text: locationText,
       note,
       is_active: elements.garbageSpecialActiveInput.checked,
     };
+    if (kind === 'extra') {
+      payload.extra_first_time = extraFirstTime;
+    } else {
+      payload.time_text = timeText;
+      payload.location_text = locationText;
+    }
     if (!editing) payload.route_id = state.garbage.special.routeId;
     const res = await authedFetch(
       editing ? `/api/admin/garbage/special-dates/${encodeURIComponent(state.garbage.special.editId)}` : '/api/admin/garbage/special-dates',
@@ -4322,6 +4370,7 @@ function bindEvents() {
   });
   // 特殊日期 modal
   elements.garbageSpecialForm.addEventListener('submit', saveGarbageSpecial);
+  elements.garbageSpecialKindInput.addEventListener('change', toggleGarbageSpecialKindFields);
   elements.garbageSpecialCancelButton.addEventListener('click', closeGarbageSpecialEditor);
   elements.garbageSpecialModalCloseButton.addEventListener('click', closeGarbageSpecialEditor);
   elements.garbageSpecialDeleteButton.addEventListener('click', deleteGarbageSpecial);
