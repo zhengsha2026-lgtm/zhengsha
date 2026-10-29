@@ -7289,10 +7289,12 @@ async function replyRichMenuPostback(event) {
 }
 
 // ============================================================================
-// 垃圾車查詢（第四期：Quick Reply 改 postback，對話框顯示名稱而非內部指令）
+// 垃圾車查詢（第五期：到達時間加日期星期、清運結束/特殊停運改顯示最近清運日；
+//             第四期 Quick Reply 改 postback，對話框顯示名稱而非內部指令）
 //   「垃圾車」→ 查啟用中路線 → Quick Reply（label = 別名，無則名稱；data = 垃圾車|{路線ID}；顯示文字同 label）
-//   「垃圾車|{路線ID}」（postback.data 或直接輸入）→ 特殊日期/休運日優先 → 該路線正砂里清運點 Quick Reply（data = 垃圾車點|{清運點ID}）
-//   「垃圾車點|{清運點ID}」→ 特殊日期/休運日優先 → 別名＋預估到達＋回收日註記
+//   「垃圾車|{路線ID}」（postback.data 或直接輸入）→ 休運日優先 → 該路線正砂里清運點 Quick Reply（data = 垃圾車點|{清運點ID}）
+//   「垃圾車點|{清運點ID}」→ 今天特殊停運（告知停運＋最近清運日）→ 休運日 →
+//       清運中（今天日期星期＋到達時間）／已結束（「正砂里今日清運已結束」＋最近清運日日期星期＋到達時間）
 //   失敗只 log，不讓 webhook 500
 // ============================================================================
 
@@ -7335,6 +7337,29 @@ function garbageStopPublicLabel(stop) {
 function getTaipeiTodayDayOfWeek() {
   const today = getTaipeiToday(); // 'YYYY-MM-DD'
   return new Date(`${today}T00:00:00Z`).getUTCDay();
+}
+
+// 台北時區現在時間 'HH:MM'（24 小時制、零補齊，可與 arrival_time 字串比較）
+function getTaipeiNowHHMM() {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: SAFETY_TAIPEI_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+}
+
+// 'YYYY-MM-DD' + n 天 → 'YYYY-MM-DD'（以 UTC 計算避免時區偏移）
+function addGarbageDays(dateStr, days) {
+  const base = new Date(`${dateStr}T00:00:00Z`).getTime();
+  return new Date(base + days * 86400000).toISOString().slice(0, 10);
+}
+
+// 'YYYY-MM-DD' → '10/30(五)'（月/日＋中文星期，台北時區算出的日期才傳入）
+function formatGarbageDateLabel(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const weekday = GARBAGE_DAY_LABELS[d.getUTCDay()].slice(1); // '週五' → '五'
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${weekday})`;
 }
 
 // 「垃圾車」→ 第一層：路線選擇（Quick Reply 按鈕顯示別名，無則名稱；不出現 code）
@@ -7394,14 +7419,14 @@ async function replyGarbageRouteSelection(event) {
   });
 }
 
-// 查詢某路線今天的特殊日期（停運/加運覆蓋），無則 null（第二、三層共用）
-async function findGarbageSpecialToday(routeId) {
+// 查詢某路線指定日期的特殊停運日（garbage_special_dates），無則 null
+async function findGarbageSpecialOnDate(routeId, dateStr) {
   if (!supabaseAdmin) return null;
   const { data: special, error } = await supabaseAdmin
     .from('garbage_special_dates')
     .select('time_text, location_text, note')
     .eq('route_id', routeId)
-    .eq('special_date', getTaipeiToday())
+    .eq('special_date', dateStr)
     .eq('is_active', true)
     .limit(1)
     .maybeSingle();
@@ -7409,22 +7434,41 @@ async function findGarbageSpecialToday(routeId) {
   return special || null;
 }
 
-// 特殊日期回覆文字：「{路線}\n時間：…\n地點：…\n{note}」（>2000 字截斷）
-function buildGarbageSpecialText(routeLabel, special) {
-  const lines = [routeLabel];
-  const timeText = String(special.time_text || '').trim();
-  const locationText = String(special.location_text || '').trim();
-  const note = String(special.note || '').trim();
-  if (timeText) lines.push(`時間：${timeText}`);
-  if (locationText) lines.push(`地點：${locationText}`);
-  if (note) lines.push(note);
-  let replyText = lines.join('\n');
-  if (replyText.length > 2000) replyText = replyText.slice(0, 2000);
-  return replyText;
+// 今天的特殊停運日
+async function findGarbageSpecialToday(routeId) {
+  return findGarbageSpecialOnDate(routeId, getTaipeiToday());
+}
+
+// 從 fromDateStr 的隔天起，找最近一個可清運日（非特殊停運日且非休運日）
+// 回 { date: 'YYYY-MM-DD', dayOfWeek }；最多找 31 天，找不到回 null（實務上不會發生）
+async function findNextGarbageCollectionDay(routeId, offDays, fromDateStr, maxDays = 31) {
+  const specialSet = new Set();
+  if (supabaseAdmin) {
+    const endDate = addGarbageDays(fromDateStr, maxDays);
+    const { data: rows, error } = await supabaseAdmin
+      .from('garbage_special_dates')
+      .select('special_date')
+      .eq('route_id', routeId)
+      .eq('is_active', true)
+      .gt('special_date', fromDateStr)
+      .lte('special_date', endDate);
+    if (error) console.error('garbage special dates range query failed:', error);
+    for (const row of rows || []) {
+      specialSet.add(String(row.special_date).slice(0, 10));
+    }
+  }
+  for (let i = 1; i <= maxDays; i += 1) {
+    const date = addGarbageDays(fromDateStr, i);
+    if (specialSet.has(date)) continue;
+    const dayOfWeek = new Date(`${date}T00:00:00Z`).getUTCDay();
+    if (offDays.includes(dayOfWeek)) continue;
+    return { date, dayOfWeek };
+  }
+  return null;
 }
 
 // 「垃圾車|{路線ID}」→ 第二層：該路線的正砂里清運點選擇
-// 優先序：特殊日期（停運/加運覆蓋）→ 休運日 → 正砂里清運點 Quick Reply
+// 休運日直接回「今天休運」；特殊停運日不攔截（由第三層回覆停運說明＋最近清運日）
 async function replyGarbageStopSelection(event, routeId) {
   let route = null;
   if (supabaseAdmin) {
@@ -7447,16 +7491,8 @@ async function replyGarbageStopSelection(event, routeId) {
 
   const routeLabel = garbageRoutePublicLabel(route);
 
-  // 1. 特殊日期（優先）：今天的日期有設定就用它（例如春節暫停、加運）
-  const special = await findGarbageSpecialToday(route.id);
-  if (special) {
-    return lineClient.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{ type: 'text', text: buildGarbageSpecialText(routeLabel, special) }],
-    });
-  }
-
-  // 2. 休運日（例如週三、週日）
+  // 休運日（例如週三、週日）
+  // （特殊停運日不在此攔截：讓里民可繼續選清運點，由第三層回覆停運說明＋最近清運日）
   const dayOfWeek = getTaipeiTodayDayOfWeek();
   const offDays = Array.isArray(route.off_days) ? route.off_days.map(Number) : [];
   if (offDays.includes(dayOfWeek)) {
@@ -7467,7 +7503,7 @@ async function replyGarbageStopSelection(event, routeId) {
     });
   }
 
-  // 3. 正常清運日：該路線的正砂里清運點按鈕（label = 別名，無則名稱）
+  // 正常清運日：該路線的正砂里清運點按鈕（label = 別名，無則名稱）
   let stops = [];
   if (supabaseAdmin) {
     const { data: rows, error } = await supabaseAdmin
@@ -7525,8 +7561,10 @@ async function replyGarbageStopSelection(event, routeId) {
   });
 }
 
-// 「垃圾車點|{清運點ID}」→ 第三層：該清運點的到達時間
-// 優先序：特殊日期（路線層級）→ 休運日 → 別名＋預估到達＋回收日註記
+// 「垃圾車點|{清運點ID}」→ 第三層：該清運點的到達時間（第一行為日期星期，如「10/30(五)」）
+// 優先序：今天特殊停運日（告知停運＋最近清運日）→ 休運日（維持原回覆）→
+//   清運中（今天日期＋到達時間）→ 已結束（明天特殊停運則「明天起停運」，
+//   否則「正砂里今日清運已結束」，＋最近清運日日期＋到達時間）
 async function replyGarbageStopDetail(event, stopId) {
   let stop = null;
   if (supabaseAdmin) {
@@ -7559,25 +7597,46 @@ async function replyGarbageStopDetail(event, stopId) {
   }
 
   const stopLabel = garbageStopPublicLabel(stop);
-  const routeLabel = route ? garbageRoutePublicLabel(route) : '';
-
-  // 1. 特殊日期（路線層級，優先覆蓋）
-  if (route) {
-    const special = await findGarbageSpecialToday(route.id);
-    if (special) {
-      return lineClient.replyMessage({
-        replyToken: event.replyToken,
-        messages: [{ type: 'text', text: buildGarbageSpecialText(routeLabel, special) }],
-      });
-    }
-  }
-
-  const dayOfWeek = getTaipeiTodayDayOfWeek();
+  const arrivalTime = String(stop.arrival_time || '').trim();
+  const today = getTaipeiToday();
+  const todayDayOfWeek = getTaipeiTodayDayOfWeek();
   const offDays = route && Array.isArray(route.off_days) ? route.off_days.map(Number) : [];
   const recyclingDays = route && Array.isArray(route.recycling_days) ? route.recycling_days.map(Number) : [];
 
-  // 2. 休運日
-  if (offDays.includes(dayOfWeek)) {
+  // 到達時間區塊：日期星期 → 清運點 → 約幾點到 →（回收日註記）
+  const buildArrivalLines = (dateStr, dayOfWeek, isToday) => {
+    const lines = [formatGarbageDateLabel(dateStr), stopLabel];
+    if (arrivalTime) lines.push(`約 ${arrivalTime} 到`);
+    if (recyclingDays.includes(dayOfWeek)) {
+      lines.push(isToday ? '♻ 今天有資源回收車' : '♻ 當天有資源回收車');
+    }
+    return lines;
+  };
+
+  const replyLines = (lines) => {
+    let replyText = lines.join('\n');
+    if (replyText.length > 2000) replyText = replyText.slice(0, 2000);
+    return lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [{ type: 'text', text: replyText }],
+    });
+  };
+
+  // 1. 今天特殊停運日（優先於一般休運日）：告知停運＋最近清運日
+  if (route) {
+    const special = await findGarbageSpecialToday(route.id);
+    if (special) {
+      const note = String(special.note || '').trim();
+      const lines = [`今天停運${note ? `（${note}）` : ''}`];
+      const next = await findNextGarbageCollectionDay(route.id, offDays, today);
+      if (next) lines.push(...buildArrivalLines(next.date, next.dayOfWeek, false));
+      else lines.push(stopLabel);
+      return replyLines(lines);
+    }
+  }
+
+  // 2. 休運日（維持原回覆）
+  if (offDays.includes(todayDayOfWeek)) {
     const offText = formatGarbageDays(offDays);
     return lineClient.replyMessage({
       replyToken: event.replyToken,
@@ -7585,19 +7644,46 @@ async function replyGarbageStopDetail(event, stopId) {
     });
   }
 
-  // 3. 正常清運日：別名＋預估到達＋回收日註記
-  const lines = [stopLabel];
-  const arrivalTime = String(stop.arrival_time || '').trim();
-  if (arrivalTime) lines.push(`約 ${arrivalTime} 到`);
-  if (recyclingDays.includes(dayOfWeek)) lines.push('♻ 今天有資源回收車');
+  // 3. 正常清運日：判斷正砂里清運是否已全部結束
+  //    （該路線所有 is_zhengsha 且啟用的清運點，arrival_time 都早於台北現在時間；無到達時間的點不算已過）
+  let ended = false;
+  if (route && supabaseAdmin) {
+    const { data: zsStops, error } = await supabaseAdmin
+      .from('garbage_stops')
+      .select('arrival_time')
+      .eq('route_id', route.id)
+      .eq('is_zhengsha', true)
+      .eq('is_active', true);
+    if (error) console.error('garbage zhengsha stops query failed:', error);
+    const rows = zsStops || [];
+    const nowHHMM = getTaipeiNowHHMM();
+    ended =
+      rows.length > 0 &&
+      rows.every((s) => {
+        const t = String(s.arrival_time || '').trim().slice(0, 5);
+        return t && t < nowHHMM;
+      });
+  }
 
-  let replyText = lines.join('\n');
-  if (replyText.length > 2000) replyText = replyText.slice(0, 2000);
+  // 3a. 清運中：今天日期星期＋到達時間
+  if (!ended) {
+    return replyLines(buildArrivalLines(today, todayDayOfWeek, true));
+  }
 
-  return lineClient.replyMessage({
-    replyToken: event.replyToken,
-    messages: [{ type: 'text', text: replyText }],
-  });
+  // 3b. 已結束：明天起找最近清運日；若明天是特殊停運日，改報停運說明
+  const tomorrow = addGarbageDays(today, 1);
+  const specialTomorrow = route ? await findGarbageSpecialOnDate(route.id, tomorrow) : null;
+  const lines = [];
+  if (specialTomorrow) {
+    const note = String(specialTomorrow.note || '').trim();
+    lines.push(`明天起停運${note ? `（${note}）` : ''}`);
+  } else {
+    lines.push('正砂里今日清運已結束');
+  }
+  const next = route ? await findNextGarbageCollectionDay(route.id, offDays, today) : null;
+  if (next) lines.push(...buildArrivalLines(next.date, next.dayOfWeek, false));
+  else lines.push(stopLabel);
+  return replyLines(lines);
 }
 
 // 垃圾車指令統一入口：incomingText 可為使用者輸入的文字或 postback.data
