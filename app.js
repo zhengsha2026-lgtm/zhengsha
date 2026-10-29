@@ -7289,9 +7289,9 @@ async function replyRichMenuPostback(event) {
 }
 
 // ============================================================================
-// 垃圾車查詢（第三期：兩層選擇 — 路線別名 → 清運點 → 到達時間）
-//   「垃圾車」→ 查啟用中路線 → Quick Reply（label = 別名，無則名稱；text = 垃圾車|{路線ID}）
-//   「垃圾車|{路線ID}」→ 特殊日期/休運日優先 → 該路線正砂里清運點 Quick Reply（text = 垃圾車點|{清運點ID}）
+// 垃圾車查詢（第四期：Quick Reply 改 postback，對話框顯示名稱而非內部指令）
+//   「垃圾車」→ 查啟用中路線 → Quick Reply（label = 別名，無則名稱；data = 垃圾車|{路線ID}；顯示文字同 label）
+//   「垃圾車|{路線ID}」（postback.data 或直接輸入）→ 特殊日期/休運日優先 → 該路線正砂里清運點 Quick Reply（data = 垃圾車點|{清運點ID}）
 //   「垃圾車點|{清運點ID}」→ 特殊日期/休運日優先 → 別名＋預估到達＋回收日註記
 //   失敗只 log，不讓 webhook 500
 // ============================================================================
@@ -7382,9 +7382,10 @@ async function replyGarbageRouteSelection(event) {
           items: routes.map((route) => ({
             type: 'action',
             action: {
-              type: 'message',
+              type: 'postback',
               label: garbageRoutePublicLabel(route).slice(0, 20),
-              text: `垃圾車|${route.id}`,
+              data: `垃圾車|${route.id}`,
+              displayText: garbageRoutePublicLabel(route).slice(0, 300),
             },
           })),
         },
@@ -7512,9 +7513,10 @@ async function replyGarbageStopSelection(event, routeId) {
           items: stops.map((stop) => ({
             type: 'action',
             action: {
-              type: 'message',
+              type: 'postback',
               label: garbageStopPublicLabel(stop).slice(0, 20),
-              text: `垃圾車點|${stop.id}`,
+              data: `垃圾車點|${stop.id}`,
+              displayText: garbageStopPublicLabel(stop).slice(0, 300),
             },
           })),
         },
@@ -7598,7 +7600,8 @@ async function replyGarbageStopDetail(event, stopId) {
   });
 }
 
-// 垃圾車關鍵字統一入口：回 null 表示不是本功能的關鍵字
+// 垃圾車指令統一入口：incomingText 可為使用者輸入的文字或 postback.data
+// 回 null 表示不是本功能的指令
 async function replyGarbageKeyword(event, incomingText) {
   if (incomingText === GARBAGE_KEYWORD) {
     return replyGarbageRouteSelection(event);
@@ -7630,6 +7633,20 @@ async function handleEvent(event) {
     return null;
   }
 
+  // 垃圾車 Quick Reply（postback）：data = 「垃圾車|{路線ID}」或「垃圾車點|{清運點ID}」（失敗只 log，不影響其他 postback）
+  if (event.type === 'postback') {
+    const postbackData = event.postback && event.postback.data ? String(event.postback.data).trim() : '';
+    if (postbackData) {
+      try {
+        const garbageReply = await replyGarbageKeyword(event, postbackData);
+        if (garbageReply) return garbageReply;
+      } catch (error) {
+        console.error('garbage postback reply failed:', error);
+        return null;
+      }
+    }
+  }
+
   // 圖文選單動態回覆：postback（失敗只 log，不影響其他事件）
   if (event.type === 'postback') {
     try {
@@ -7646,7 +7663,8 @@ async function handleEvent(event) {
 
   const incomingText = event.message.text.trim();
 
-  // 垃圾車查詢（兩層選擇）：「垃圾車」選路線 →「垃圾車|{路線ID}」選清運點 →「垃圾車點|{清運點ID}」查到達時間（失敗只 log，不影響其他關鍵字）
+  // 垃圾車查詢（兩層選擇）：「垃圾車」選路線 →「垃圾車|{路線ID}」選清運點 →「垃圾車點|{清運點ID}」查到達時間
+  // 按鈕走 postback，這裡保留直接輸入指令的相容路徑（失敗只 log，不影響其他關鍵字）
   try {
     const garbageReply = await replyGarbageKeyword(event, incomingText);
     if (garbageReply) return garbageReply;
