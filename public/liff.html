@@ -9852,6 +9852,7 @@
             note,
             is_active: elements.adminGarbageSpecialActive ? elements.adminGarbageSpecialActive.checked : true,
           };
+          if (!editing) payload.route_id = state.admin.garbage.special.routeId;
           const res = await fetch(
             editing ? `/api/admin/garbage/special-dates/${state.admin.garbage.special.edit.id}` : '/api/admin/garbage/special-dates',
             {

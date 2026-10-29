@@ -3714,6 +3714,7 @@ async function saveGarbageSpecial(e) {
       note,
       is_active: elements.garbageSpecialActiveInput.checked,
     };
+    if (!editing) payload.route_id = state.garbage.special.routeId;
     const res = await authedFetch(
       editing ? `/api/admin/garbage/special-dates/${encodeURIComponent(state.garbage.special.editId)}` : '/api/admin/garbage/special-dates',
       {

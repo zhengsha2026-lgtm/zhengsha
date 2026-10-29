@@ -4622,6 +4622,9 @@ function buildGarbageSpecialPayload(body, { partial }) {
   const payload = {};
 
   if (!partial || body.route_id !== undefined) {
+    if (body.route_id === undefined || body.route_id === null || String(body.route_id).trim() === '') {
+      return { success: false, message: '缺少路段編號。' };
+    }
     const routeId = Number(body.route_id);
     if (!Number.isInteger(routeId) || routeId <= 0) {
       return { success: false, message: '路段編號不正確。' };
