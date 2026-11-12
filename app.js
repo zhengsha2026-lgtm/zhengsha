@@ -7473,16 +7473,15 @@ async function replyGarbageRouteSelection(event) {
     });
   }
 
-  // 單一 bubble：小卡橫向並排同一列（精簡、不上下拉長；超過 4 張換行仍可）
+  // 單一 bubble：每路線一張緊湊卡直排（名稱完整一行、第一站下方小字、高度低）
   const routeCards = routes.map((route) => {
     const label = garbageRoutePublicLabel(route);
     const firstTime = firstTimeByRoute.get(route.id) || '—';
     return {
       type: 'box',
       layout: 'vertical',
-      flex: 1,
       spacing: 'xs',
-      paddingAll: '14px',
+      paddingAll: '12px',
       cornerRadius: 'lg',
       backgroundColor: '#FFFFFF',
       borderColor: '#BBE3CC',
@@ -7495,22 +7494,35 @@ async function replyGarbageRouteSelection(event) {
       },
       contents: [
         {
-          type: 'text',
-          text: label,
-          size: 'lg',
-          weight: 'bold',
-          color: '#14532D',
-          align: 'center',
-          wrap: true,
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: label,
+              size: 'lg',
+              weight: 'bold',
+              color: '#14532D',
+              flex: 1,
+              gravity: 'center',
+            },
+            {
+              type: 'text',
+              text: '›',
+              size: 'lg',
+              weight: 'bold',
+              color: '#16A34A',
+              gravity: 'center',
+            },
+          ],
         },
-        { type: 'text', text: '第一站', size: 'xs', color: '#6B7280', align: 'center' },
         {
           type: 'text',
-          text: firstTime,
-          size: 'md',
-          weight: 'bold',
+          text: `🚛 第一站 ${firstTime}`,
+          size: 'xs',
           color: '#166534',
-          align: 'center',
+          weight: 'bold',
         },
       ],
     };
@@ -7529,7 +7541,7 @@ async function replyGarbageRouteSelection(event) {
               type: 'box',
               layout: 'vertical',
               spacing: 'md',
-              paddingAll: '16px',
+              paddingAll: '14px',
               backgroundColor: '#E9F5EE',
               contents: [
                 {
@@ -7541,7 +7553,7 @@ async function replyGarbageRouteSelection(event) {
                 },
                 {
                   type: 'box',
-                  layout: 'horizontal',
+                  layout: 'vertical',
                   spacing: 'sm',
                   margin: 'sm',
                   contents: routeCards,
@@ -7845,7 +7857,7 @@ async function replyGarbageRouteDetail(event, routeId) {
       type: 'box',
       layout: 'horizontal',
       spacing: 'md',
-      paddingAll: '10px',
+      paddingAll: '6px',
       cornerRadius: 'md',
       contents: [nameText, ...timeTexts],
     };
@@ -7882,7 +7894,13 @@ async function replyGarbageRouteDetail(event, routeId) {
       color: '#15803D',
     });
   }
-  bodyContents.push({ type: 'box', layout: 'vertical', spacing: 'sm', contents: stopRowBoxes });
+  bodyContents.push({
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'xs',
+    margin: 'md',
+    contents: stopRowBoxes,
+  });
 
   try {
     return await lineClient.replyMessage({
@@ -7898,8 +7916,9 @@ async function replyGarbageRouteDetail(event, routeId) {
               backgroundColor: '#16A34A',
               layout: 'horizontal',
               spacing: 'sm',
+              paddingAll: '14px',
               contents: [
-                { type: 'text', text: '🚛', size: 'lg', gravity: 'center' },
+                { type: 'text', text: '🚛', size: 'xxl', gravity: 'center' },
                 {
                   type: 'text',
                   text: routeLabel,
