@@ -7507,7 +7507,7 @@ async function replyGarbageRouteSelection(event) {
             {
               type: 'text',
               text: label,
-              size: 'md',
+              size: 'lg',
               weight: 'bold',
               color: '#14532D',
               flex: 1,
@@ -7517,10 +7517,11 @@ async function replyGarbageRouteSelection(event) {
             {
               type: 'text',
               text: '›',
-              size: 'md',
+              size: 'lg',
               weight: 'bold',
               color: '#16A34A',
               gravity: 'center',
+              flex: 0,
             },
           ],
         },
@@ -7856,13 +7857,14 @@ async function replyGarbageRouteDetail(event, routeId) {
       color: rowPassed ? '#9CA3AF' : '#1F2937',
     };
     const timeTexts = row.times.length === 0
-      ? [{ type: 'text', text: '未定', size: 'sm', color: '#9CA3AF', gravity: 'center' }]
+      ? [{ type: 'text', text: '未定', size: 'sm', color: '#9CA3AF', gravity: 'center', flex: 0 }]
       : row.times.map((t) => ({
           type: 'text',
           text: t.kind === 'extra' ? `增班 ${t.time}` : t.time,
           size: 'sm',
           wrap: true,
           gravity: 'center',
+          flex: 0,
           weight: isHighlight ? 'bold' : 'regular',
           color: t.kind === 'extra'
             ? '#B45309'
@@ -7937,11 +7939,11 @@ async function replyGarbageRouteDetail(event, routeId) {
               spacing: 'sm',
               paddingAll: '14px',
               contents: [
-                { type: 'text', text: '🚚', size: 'xl', gravity: 'center' },
+                { type: 'text', text: '🚚', size: 'xl', gravity: 'center', flex: 0 },
                 {
                   type: 'text',
                   text: routeLabel,
-                  size: 'md',
+                  size: 'lg',
                   weight: 'bold',
                   color: '#FFFFFF',
                   flex: 1,
