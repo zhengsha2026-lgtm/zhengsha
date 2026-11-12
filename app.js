@@ -7350,10 +7350,10 @@ async function replyRichMenuPostback(event) {
 
 // ============================================================================
 // 垃圾車查詢（第七期：改用 Flex Message 圖卡呈現）
-//   「垃圾車」→ 路線選擇 Flex Carousel（每張卡：路線名＋第一站時間＋箭頭，整卡可點，
-//               data = 垃圾車|{路線ID}）
+//   「垃圾車」→ 路線選擇 Flex 圖卡（單一 bubble 三卡直排，同畫面完整顯示免滑動；
+//               每張卡：路線名＋第一站時間＋箭頭，整卡可點，data = 垃圾車|{路線ID}）
 //   「垃圾車|{路線ID}」（postback.data 或直接輸入）→ 該路線清運時刻 Flex 圖卡：
-//               列出全部清運點（地點左、時間右），依現在時間判斷狀態——
+//               只列正砂里清運點（地點左、時間右），依現在時間判斷狀態——
 //               尚未發車（黃底標第一站）／清運中（黃底標下一站）／今日已結束（＋下一個清運日時刻）；
 //               今天停運／休運 → 顯示下一個清運日的時刻；增班日 → 同卡顯示原趟次＋增班趟次
 //   「垃圾車點|{清運點ID}」→ 舊按鈕相容（純文字回覆單點到達時間，第五/六期邏輯不變）
@@ -7459,7 +7459,7 @@ async function replyGarbageRouteSelection(event) {
     if (time && !firstTimeByRoute.has(stop.route_id)) firstTimeByRoute.set(stop.route_id, time);
   }
 
-  // 超過 Flex Carousel 上限（12 張）時，退回純文字列表
+  // 直排卡過多會超過單一 bubble 高度，超過 12 條路線退回純文字列表
   if (routes.length > 12) {
     const lines = routes.map((r) => `・${garbageRoutePublicLabel(r)}`);
     return lineClient.replyMessage({
@@ -7473,61 +7473,70 @@ async function replyGarbageRouteSelection(event) {
     });
   }
 
-  const cards = routes.map((route) => {
+  // 單一 bubble 內三卡直排（同畫面完整顯示、免左右滑動）
+  const routeBoxes = routes.map((route) => {
     const label = garbageRoutePublicLabel(route);
     const firstTime = firstTimeByRoute.get(route.id) || '—';
     return {
-      type: 'bubble',
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'md',
-        paddingAll: '20px',
-        backgroundColor: '#F0FDF4',
-        action: {
-          type: 'postback',
-          label: `查看${label}清運時間`,
-          data: `垃圾車|${route.id}`,
-          displayText: `垃圾車 ${label}`,
-        },
-        contents: [
-          {
-            type: 'text',
-            text: label,
-            weight: 'bold',
-            size: 'xl',
-            wrap: true,
-            color: '#14532D',
-          },
-          {
-            type: 'box',
-            layout: 'horizontal',
-            spacing: 'sm',
-            paddingAll: '12px',
-            cornerRadius: 'md',
-            backgroundColor: '#FFFFFF',
-            contents: [
-              {
-                type: 'text',
-                text: `🚛 第一站 ${firstTime}`,
-                size: 'sm',
-                color: '#374151',
-                flex: 1,
-                gravity: 'center',
-                wrap: true,
-              },
-              {
-                type: 'text',
-                text: '›',
-                size: 'xl',
-                weight: 'bold',
-                color: '#16A34A',
-                gravity: 'center',
-              },
-            ],
-          },
-        ],
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      paddingAll: '18px',
+      cornerRadius: 'lg',
+      backgroundColor: '#FFFFFF',
+      borderColor: '#BBE3CC',
+      borderWidth: '1px',
+      action: {
+        type: 'postback',
+        label: `查看${label}清運時間`,
+        data: `垃圾車|${route.id}`,
+        displayText: `垃圾車 ${label}`,
       },
+      contents: [
+        {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: label,
+              size: 'xxl',
+              weight: 'bold',
+              color: '#14532D',
+              flex: 1,
+              wrap: true,
+              gravity: 'center',
+            },
+            {
+              type: 'text',
+              text: '›',
+              size: 'xxl',
+              weight: 'bold',
+              color: '#16A34A',
+              gravity: 'center',
+            },
+          ],
+        },
+        {
+          type: 'box',
+          layout: 'horizontal',
+          paddingAll: '10px',
+          cornerRadius: 'md',
+          backgroundColor: '#F0FDF4',
+          contents: [
+            {
+              type: 'text',
+              text: `🚛 第一站 ${firstTime}`,
+              size: 'sm',
+              weight: 'bold',
+              color: '#166534',
+              gravity: 'center',
+              wrap: true,
+            },
+          ],
+        },
+      ],
     };
   });
 
@@ -7538,7 +7547,26 @@ async function replyGarbageRouteSelection(event) {
         {
           type: 'flex',
           altText: '請選擇垃圾車路線',
-          contents: { type: 'carousel', contents: cards },
+          contents: {
+            type: 'bubble',
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'lg',
+              paddingAll: '20px',
+              backgroundColor: '#E9F5EE',
+              contents: [
+                {
+                  type: 'text',
+                  text: '🚛 請選擇垃圾車路線',
+                  size: 'md',
+                  weight: 'bold',
+                  color: '#14532D',
+                },
+                ...routeBoxes,
+              ],
+            },
+          },
         },
       ],
     });
@@ -7649,8 +7677,8 @@ function determineGarbageDayStatus(allTimes, nowHHMM) {
   return { status: 'running', firstTime, nextTime };
 }
 
-// 「垃圾車|{路線ID}」→ 第二層：該路線清運時刻 Flex 圖卡
-// 列出全部清運點（地點左、時間右），依現在時間判斷狀態：
+// 「垃圾車|{路線ID}」→ 第二層：該路線清運時刻 Flex 圖卡（只列正砂里清運點；增班推算與第一站基準仍用全部點）
+// 列出清運點（地點左、時間右），依現在時間判斷狀態：
 //   今天停運（kind='off'）／休運日（非增班）→ 顯示下一個清運日的時刻
 //   尚未發車 → 狀態徽章＋黃底標第一站；清運中 → 黃底標下一站（已過的點時間變淡）
 //   全部過了 → 「今日清運已結束」＋下一個清運日的時刻（可為增班日）
@@ -7688,17 +7716,20 @@ async function replyGarbageRouteDetail(event, routeId) {
     stops = rows || [];
   }
 
-  if (stops.length === 0) {
+  // 顯示用：只列正砂里的清運點；增班推算與「第一站」仍以全部清運點為基準
+  const displayStops = stops.filter((s) => s.is_zhengsha);
+
+  if (displayStops.length === 0) {
     return lineClient.replyMessage({
       replyToken: event.replyToken,
-      messages: [{ type: 'text', text: '此路線目前沒有清運點資料' }],
+      messages: [{ type: 'text', text: '此路線目前沒有正砂里清運點' }],
     });
   }
 
-  if (!stops.some((s) => String(s.arrival_time || '').trim())) {
+  if (!displayStops.some((s) => String(s.arrival_time || '').trim())) {
     return lineClient.replyMessage({
       replyToken: event.replyToken,
-      messages: [{ type: 'text', text: '此路線尚未設定到達時間' }],
+      messages: [{ type: 'text', text: '此路線的正砂里清運點尚未設定到達時間' }],
     });
   }
 
@@ -7710,7 +7741,8 @@ async function replyGarbageRouteDetail(event, routeId) {
   const nowHHMM = getTaipeiNowHHMM();
 
   // 某天每個清運點的趟次時間：原趟次（非休運日且有時間）＋增班趟次（extra 日推算）
-  const buildRows = (dayOfWeek, special) => stops.map((stop) => {
+  // 顯示只列正砂里點；增班推算（computeGarbageExtraArrival）仍傳全部點，基準＝路線第一個有時間的點
+  const buildRows = (dayOfWeek, special) => displayStops.map((stop) => {
     const times = [];
     const arrival = String(stop.arrival_time || '').trim().slice(0, 5);
     const isExtraDay = special && special.kind === 'extra';
@@ -7808,6 +7840,7 @@ async function replyGarbageRouteDetail(event, routeId) {
       size: 'sm',
       wrap: true,
       flex: 1,
+      gravity: 'center',
       weight: isHighlight ? 'bold' : 'regular',
       color: rowPassed ? '#9CA3AF' : '#1F2937',
     };
@@ -7824,13 +7857,13 @@ async function replyGarbageRouteDetail(event, routeId) {
             ? '#B45309'
             : isTodayView && t.time < nowHHMM
               ? '#D1D5DB'
-              : '#15803D',
+              : '#166534',
         }));
     const rowBox = {
       type: 'box',
       layout: 'horizontal',
       spacing: 'md',
-      paddingAll: '8px',
+      paddingAll: '10px',
       cornerRadius: 'md',
       contents: [nameText, ...timeTexts],
     };
@@ -7867,7 +7900,7 @@ async function replyGarbageRouteDetail(event, routeId) {
       color: '#15803D',
     });
   }
-  bodyContents.push({ type: 'box', layout: 'vertical', spacing: 'xs', contents: stopRowBoxes });
+  bodyContents.push({ type: 'box', layout: 'vertical', spacing: 'sm', contents: stopRowBoxes });
 
   try {
     return await lineClient.replyMessage({
@@ -7901,6 +7934,7 @@ async function replyGarbageRouteDetail(event, routeId) {
               type: 'box',
               layout: 'vertical',
               spacing: 'md',
+              paddingAll: '20px',
               contents: bodyContents,
             },
             footer: {
@@ -7911,7 +7945,7 @@ async function replyGarbageRouteDetail(event, routeId) {
                   type: 'text',
                   text: '時間僅供參考，實際以現場為準',
                   size: 'xs',
-                  color: '#9CA3AF',
+                  color: '#B0B7C3',
                   align: 'center',
                   wrap: true,
                 },
