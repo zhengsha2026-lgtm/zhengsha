@@ -7438,7 +7438,7 @@ async function replyGarbageRouteSelection(event) {
 
     const { data: stopRows, error: stopError } = await supabaseAdmin
       .from('garbage_stops')
-      .select('route_id, arrival_time')
+      .select('route_id, arrival_time, is_zhengsha')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
     if (stopError) console.error('garbage stops for routes query failed:', stopError);
@@ -7452,11 +7452,17 @@ async function replyGarbageRouteSelection(event) {
     });
   }
 
-  // 每條路線第一個有到達時間的清運點（已按 sort_order 升冪）
+  // 每條路線「正砂里」第一個有到達時間的清運點（無正砂里點則退回全路線第一點；已按 sort_order 升冪）
   const firstTimeByRoute = new Map();
   for (const stop of stops) {
+    if (!stop.is_zhengsha) continue;
     const time = String(stop.arrival_time || '').trim().slice(0, 5);
     if (time && !firstTimeByRoute.has(stop.route_id)) firstTimeByRoute.set(stop.route_id, time);
+  }
+  for (const stop of stops) {
+    if (firstTimeByRoute.has(stop.route_id)) continue;
+    const time = String(stop.arrival_time || '').trim().slice(0, 5);
+    if (time) firstTimeByRoute.set(stop.route_id, time);
   }
 
   // 直排卡過多會超過單一 bubble 高度，超過 12 條路線退回純文字列表
@@ -7481,7 +7487,7 @@ async function replyGarbageRouteSelection(event) {
       type: 'box',
       layout: 'vertical',
       spacing: 'xs',
-      paddingAll: '12px',
+      paddingAll: '8px',
       cornerRadius: 'lg',
       backgroundColor: '#FFFFFF',
       borderColor: '#BBE3CC',
@@ -7496,12 +7502,12 @@ async function replyGarbageRouteSelection(event) {
         {
           type: 'box',
           layout: 'horizontal',
-          spacing: 'sm',
+          spacing: 'xs',
           contents: [
             {
               type: 'text',
               text: label,
-              size: 'sm',
+              size: 'md',
               weight: 'bold',
               color: '#14532D',
               flex: 1,
@@ -7511,7 +7517,7 @@ async function replyGarbageRouteSelection(event) {
             {
               type: 'text',
               text: '›',
-              size: 'sm',
+              size: 'md',
               weight: 'bold',
               color: '#16A34A',
               gravity: 'center',
