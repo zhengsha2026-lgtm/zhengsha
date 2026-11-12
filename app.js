@@ -7350,8 +7350,8 @@ async function replyRichMenuPostback(event) {
 
 // ============================================================================
 // 垃圾車查詢（第七期：改用 Flex Message 圖卡呈現）
-//   「垃圾車」→ 路線選擇 Flex 圖卡（單一 bubble 三卡直排，同畫面完整顯示免滑動；
-//               每張卡：路線名＋第一站時間＋箭頭，整卡可點，data = 垃圾車|{路線ID}）
+//   「垃圾車」→ 路線選擇 Flex 圖卡（單一 bubble、小卡橫向並排同一列；
+//               每張卡：路線名＋第一站時間，整卡可點，data = 垃圾車|{路線ID}）
 //   「垃圾車|{路線ID}」（postback.data 或直接輸入）→ 該路線清運時刻 Flex 圖卡：
 //               只列正砂里清運點（地點左、時間右），依現在時間判斷狀態——
 //               尚未發車（黃底標第一站）／清運中（黃底標下一站）／今日已結束（＋下一個清運日時刻）；
@@ -7473,15 +7473,16 @@ async function replyGarbageRouteSelection(event) {
     });
   }
 
-  // 單一 bubble 內三卡直排（同畫面完整顯示、免左右滑動）
-  const routeBoxes = routes.map((route) => {
+  // 單一 bubble：小卡橫向並排同一列（精簡、不上下拉長；超過 4 張換行仍可）
+  const routeCards = routes.map((route) => {
     const label = garbageRoutePublicLabel(route);
     const firstTime = firstTimeByRoute.get(route.id) || '—';
     return {
       type: 'box',
       layout: 'vertical',
-      spacing: 'sm',
-      paddingAll: '18px',
+      flex: 1,
+      spacing: 'xs',
+      paddingAll: '14px',
       cornerRadius: 'lg',
       backgroundColor: '#FFFFFF',
       borderColor: '#BBE3CC',
@@ -7494,47 +7495,22 @@ async function replyGarbageRouteSelection(event) {
       },
       contents: [
         {
-          type: 'box',
-          layout: 'horizontal',
-          spacing: 'md',
-          contents: [
-            {
-              type: 'text',
-              text: label,
-              size: 'xxl',
-              weight: 'bold',
-              color: '#14532D',
-              flex: 1,
-              wrap: true,
-              gravity: 'center',
-            },
-            {
-              type: 'text',
-              text: '›',
-              size: 'xxl',
-              weight: 'bold',
-              color: '#16A34A',
-              gravity: 'center',
-            },
-          ],
+          type: 'text',
+          text: label,
+          size: 'lg',
+          weight: 'bold',
+          color: '#14532D',
+          align: 'center',
+          wrap: true,
         },
+        { type: 'text', text: '第一站', size: 'xs', color: '#6B7280', align: 'center' },
         {
-          type: 'box',
-          layout: 'horizontal',
-          paddingAll: '10px',
-          cornerRadius: 'md',
-          backgroundColor: '#F0FDF4',
-          contents: [
-            {
-              type: 'text',
-              text: `🚛 第一站 ${firstTime}`,
-              size: 'sm',
-              weight: 'bold',
-              color: '#166534',
-              gravity: 'center',
-              wrap: true,
-            },
-          ],
+          type: 'text',
+          text: firstTime,
+          size: 'md',
+          weight: 'bold',
+          color: '#166534',
+          align: 'center',
         },
       ],
     };
@@ -7552,18 +7528,24 @@ async function replyGarbageRouteSelection(event) {
             body: {
               type: 'box',
               layout: 'vertical',
-              spacing: 'lg',
-              paddingAll: '20px',
+              spacing: 'md',
+              paddingAll: '16px',
               backgroundColor: '#E9F5EE',
               contents: [
                 {
                   type: 'text',
                   text: '🚛 請選擇垃圾車路線',
-                  size: 'md',
+                  size: 'sm',
                   weight: 'bold',
                   color: '#14532D',
                 },
-                ...routeBoxes,
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  spacing: 'sm',
+                  margin: 'sm',
+                  contents: routeCards,
+                },
               ],
             },
           },
@@ -7707,7 +7689,7 @@ async function replyGarbageRouteDetail(event, routeId) {
   if (supabaseAdmin) {
     const { data: rows, error } = await supabaseAdmin
       .from('garbage_stops')
-      .select('id, name, alias, arrival_time')
+      .select('id, name, alias, arrival_time, is_zhengsha')
       .eq('route_id', route.id)
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
