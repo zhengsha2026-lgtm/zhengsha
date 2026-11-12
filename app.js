@@ -7479,6 +7479,7 @@ async function replyGarbageRouteSelection(event) {
     return {
       type: 'bubble',
       body: {
+        type: 'box',
         layout: 'vertical',
         spacing: 'md',
         paddingAll: '20px',
@@ -7530,16 +7531,29 @@ async function replyGarbageRouteSelection(event) {
     };
   });
 
-  return lineClient.replyMessage({
-    replyToken: event.replyToken,
-    messages: [
-      {
-        type: 'flex',
-        altText: '請選擇垃圾車路線',
-        contents: { type: 'carousel', contents: cards },
-      },
-    ],
-  });
+  try {
+    return await lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [
+        {
+          type: 'flex',
+          altText: '請選擇垃圾車路線',
+          contents: { type: 'carousel', contents: cards },
+        },
+      ],
+    });
+  } catch (error) {
+    // Flex 失敗（如訊息被 LINE 拒絕）退回純文字，避免完全靜默
+    console.error('garbage route selection flex reply failed:', error);
+    const lines = routes.map((r) => {
+      const t = firstTimeByRoute.get(r.id);
+      return `・${garbageRoutePublicLabel(r)}${t ? `（第一站 ${t}）` : ''}`;
+    });
+    return lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [{ type: 'text', text: `請先選擇路線\n${lines.join('\n')}` }],
+    });
+  }
 }
 
 // 查詢某路線指定日期的特殊日期（kind='off' 停運／kind='extra' 增班），無則 null
@@ -7855,54 +7869,84 @@ async function replyGarbageRouteDetail(event, routeId) {
   }
   bodyContents.push({ type: 'box', layout: 'vertical', spacing: 'xs', contents: stopRowBoxes });
 
-  return lineClient.replyMessage({
-    replyToken: event.replyToken,
-    messages: [
-      {
-        type: 'flex',
-        altText: `${routeLabel}清運時間`,
-        contents: {
-          type: 'bubble',
-          header: {
-            backgroundColor: '#16A34A',
-            layout: 'horizontal',
-            spacing: 'sm',
-            contents: [
-              { type: 'text', text: '🚛', size: 'lg', gravity: 'center' },
-              {
-                type: 'text',
-                text: routeLabel,
-                size: 'lg',
-                weight: 'bold',
-                color: '#FFFFFF',
-                flex: 1,
-                wrap: true,
-                gravity: 'center',
-              },
-            ],
-          },
-          body: {
-            layout: 'vertical',
-            spacing: 'md',
-            contents: bodyContents,
-          },
-          footer: {
-            layout: 'vertical',
-            contents: [
-              {
-                type: 'text',
-                text: '時間僅供參考，實際以現場為準',
-                size: 'xs',
-                color: '#9CA3AF',
-                align: 'center',
-                wrap: true,
-              },
-            ],
+  try {
+    return await lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [
+        {
+          type: 'flex',
+          altText: `${routeLabel}清運時間`,
+          contents: {
+            type: 'bubble',
+            header: {
+              type: 'box',
+              backgroundColor: '#16A34A',
+              layout: 'horizontal',
+              spacing: 'sm',
+              contents: [
+                { type: 'text', text: '🚛', size: 'lg', gravity: 'center' },
+                {
+                  type: 'text',
+                  text: routeLabel,
+                  size: 'lg',
+                  weight: 'bold',
+                  color: '#FFFFFF',
+                  flex: 1,
+                  wrap: true,
+                  gravity: 'center',
+                },
+              ],
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'md',
+              contents: bodyContents,
+            },
+            footer: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'text',
+                  text: '時間僅供參考，實際以現場為準',
+                  size: 'xs',
+                  color: '#9CA3AF',
+                  align: 'center',
+                  wrap: true,
+                },
+              ],
+            },
           },
         },
-      },
-    ],
-  });
+      ],
+    });
+  } catch (error) {
+    // Flex 失敗（如訊息被 LINE 拒絕）退回純文字，避免完全靜默
+    console.error('garbage route detail flex reply failed:', error);
+    const lines = [routeLabel, badge.text];
+    if (status === 'ended' && specialTomorrow && specialTomorrow.kind === 'off') {
+      const note = String(specialTomorrow.note || '').trim();
+      lines.push(`明天起停運${note ? `（${note}）` : ''}`);
+    }
+    lines.push(targetDateLine);
+    if (recyclingDays.includes(targetDayOfWeek)) {
+      lines.push(isTodayView ? '♻️ 今天有資源回收車' : '♻️ 當天有資源回收車');
+    }
+    for (const row of targetRows) {
+      const times = row.times.length === 0
+        ? '未定'
+        : row.times.map((t) => (t.kind === 'extra' ? `增班 ${t.time}` : t.time)).join('／');
+      lines.push(`${garbageStopPublicLabel(row.stop)} ${times}`);
+    }
+    lines.push('時間僅供參考，實際以現場為準');
+    let fallbackText = lines.join('\n');
+    if (fallbackText.length > 2000) fallbackText = fallbackText.slice(0, 2000);
+    return lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [{ type: 'text', text: fallbackText }],
+    });
+  }
 }
 
 // 「垃圾車點|{清運點ID}」→ 舊按鈕相容（第七期改 Flex 圖卡後不再產生此指令，
