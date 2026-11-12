@@ -7349,20 +7349,20 @@ async function replyRichMenuPostback(event) {
 }
 
 // ============================================================================
-// 垃圾車查詢（第五期：到達時間加日期星期、清運結束/特殊停運改顯示最近清運日；
-//             第四期 Quick Reply 改 postback，對話框顯示名稱而非內部指令）
-//   「垃圾車」→ 查啟用中路線 → Quick Reply（label = 別名，無則名稱；data = 垃圾車|{路線ID}；顯示文字同 label）
-//   「垃圾車|{路線ID}」（postback.data 或直接輸入）→ 休運日優先 → 該路線正砂里清運點 Quick Reply（data = 垃圾車點|{清運點ID}）
-//   「垃圾車點|{清運點ID}」→ 今天特殊停運（告知停運＋最近清運日）→ 休運日 →
-//       清運中（今天日期星期＋到達時間）／已結束（「正砂里今日清運已結束」＋最近清運日日期星期＋到達時間）
+// 垃圾車查詢（第七期：改用 Flex Message 圖卡呈現）
+//   「垃圾車」→ 路線選擇 Flex Carousel（每張卡：路線名＋第一站時間＋箭頭，整卡可點，
+//               data = 垃圾車|{路線ID}）
+//   「垃圾車|{路線ID}」（postback.data 或直接輸入）→ 該路線清運時刻 Flex 圖卡：
+//               列出全部清運點（地點左、時間右），依現在時間判斷狀態——
+//               尚未發車（黃底標第一站）／清運中（黃底標下一站）／今日已結束（＋下一個清運日時刻）；
+//               今天停運／休運 → 顯示下一個清運日的時刻；增班日 → 同卡顯示原趟次＋增班趟次
+//   「垃圾車點|{清運點ID}」→ 舊按鈕相容（純文字回覆單點到達時間，第五/六期邏輯不變）
 //   失敗只 log，不讓 webhook 500
 // ============================================================================
 
 const GARBAGE_KEYWORD = '垃圾車';
 const GARBAGE_ROUTE_PATTERN = /^垃圾車\|(\d+)$/;
 const GARBAGE_STOP_PATTERN = /^垃圾車點\|(\d+)$/;
-// LINE Quick Reply 每則訊息上限 13 顆按鈕
-const GARBAGE_QUICK_REPLY_LIMIT = 13;
 // 星期顯示順序：週一 → 週日（GARBAGE_DAY_LABELS 定義在管理 API 區塊，共用）
 const GARBAGE_DAY_DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -7422,9 +7422,10 @@ function formatGarbageDateLabel(dateStr) {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${weekday})`;
 }
 
-// 「垃圾車」→ 第一層：路線選擇（Quick Reply 按鈕顯示別名，無則名稱；不出現 code）
+// 「垃圾車」→ 第一層：路線選擇 Flex Carousel（綠色系圖卡：路線名＋第一站時間＋箭頭，整卡可點）
 async function replyGarbageRouteSelection(event) {
   let routes = [];
+  let stops = [];
   if (supabaseAdmin) {
     const { data: rows, error } = await supabaseAdmin
       .from('garbage_routes')
@@ -7434,6 +7435,14 @@ async function replyGarbageRouteSelection(event) {
       .order('id', { ascending: true });
     if (error) console.error('garbage routes query failed:', error);
     routes = rows || [];
+
+    const { data: stopRows, error: stopError } = await supabaseAdmin
+      .from('garbage_stops')
+      .select('route_id, arrival_time')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    if (stopError) console.error('garbage stops for routes query failed:', stopError);
+    stops = stopRows || [];
   }
 
   if (routes.length === 0) {
@@ -7443,37 +7452,91 @@ async function replyGarbageRouteSelection(event) {
     });
   }
 
-  // 超過 13 顆按鈕上限時，退回純文字列表
-  if (routes.length > GARBAGE_QUICK_REPLY_LIMIT) {
+  // 每條路線第一個有到達時間的清運點（已按 sort_order 升冪）
+  const firstTimeByRoute = new Map();
+  for (const stop of stops) {
+    const time = String(stop.arrival_time || '').trim().slice(0, 5);
+    if (time && !firstTimeByRoute.has(stop.route_id)) firstTimeByRoute.set(stop.route_id, time);
+  }
+
+  // 超過 Flex Carousel 上限（12 張）時，退回純文字列表
+  if (routes.length > 12) {
     const lines = routes.map((r) => `・${garbageRoutePublicLabel(r)}`);
     return lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [
         {
           type: 'text',
-          text: `請先選擇路線（超過 ${GARBAGE_QUICK_REPLY_LIMIT} 個無法顯示按鈕，請直接輸入：垃圾車|路段編號）\n${lines.join('\n')}`,
+          text: `請先選擇路線（超過 12 個無法顯示圖卡，請直接輸入：垃圾車|路段編號）\n${lines.join('\n')}`,
         },
       ],
     });
   }
 
+  const cards = routes.map((route) => {
+    const label = garbageRoutePublicLabel(route);
+    const firstTime = firstTimeByRoute.get(route.id) || '—';
+    return {
+      type: 'bubble',
+      body: {
+        layout: 'vertical',
+        spacing: 'md',
+        paddingAll: '20px',
+        backgroundColor: '#F0FDF4',
+        action: {
+          type: 'postback',
+          label: `查看${label}清運時間`,
+          data: `垃圾車|${route.id}`,
+          displayText: `垃圾車 ${label}`,
+        },
+        contents: [
+          {
+            type: 'text',
+            text: label,
+            weight: 'bold',
+            size: 'xl',
+            wrap: true,
+            color: '#14532D',
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            paddingAll: '12px',
+            cornerRadius: 'md',
+            backgroundColor: '#FFFFFF',
+            contents: [
+              {
+                type: 'text',
+                text: `🚛 第一站 ${firstTime}`,
+                size: 'sm',
+                color: '#374151',
+                flex: 1,
+                gravity: 'center',
+                wrap: true,
+              },
+              {
+                type: 'text',
+                text: '›',
+                size: 'xl',
+                weight: 'bold',
+                color: '#16A34A',
+                gravity: 'center',
+              },
+            ],
+          },
+        ],
+      },
+    };
+  });
+
   return lineClient.replyMessage({
     replyToken: event.replyToken,
     messages: [
       {
-        type: 'text',
-        text: '請先選擇路線',
-        quickReply: {
-          items: routes.map((route) => ({
-            type: 'action',
-            action: {
-              type: 'postback',
-              label: garbageRoutePublicLabel(route).slice(0, 20),
-              data: `垃圾車|${route.id}`,
-              displayText: garbageRoutePublicLabel(route).slice(0, 300),
-            },
-          })),
-        },
+        type: 'flex',
+        altText: '請選擇垃圾車路線',
+        contents: { type: 'carousel', contents: cards },
       },
     ],
   });
@@ -7559,10 +7622,26 @@ async function findNextGarbageCollectionDay(routeId, offDays, fromDateStr, maxDa
   return null;
 }
 
-// 「垃圾車|{路線ID}」→ 第二層：該路線的正砂里清運點選擇
-// 休運日直接回「今天休運」（增班日除外——當天有加開趟次，照常列清運點）；
-// 特殊日期（停運/增班）不攔截，由第三層回覆說明
-async function replyGarbageStopSelection(event, routeId) {
+// 依某日全部趟次時間與現在時間（'HH:MM'）判定狀態（純函數）
+//   無趟次 → weeklyOff（休運或無時刻）；尚未到最早班次 → notYet；
+//   已過最晚班次 → ended；其間 → running（附下一個未到班次時間）
+function determineGarbageDayStatus(allTimes, nowHHMM) {
+  if (!Array.isArray(allTimes) || allTimes.length === 0) return { status: 'weeklyOff' };
+  const firstTime = allTimes.reduce((a, b) => (b < a ? b : a));
+  const lastTime = allTimes.reduce((a, b) => (b > a ? b : a));
+  if (nowHHMM < firstTime) return { status: 'notYet', firstTime };
+  if (nowHHMM >= lastTime) return { status: 'ended', firstTime };
+  const nextTime = allTimes.filter((t) => t >= nowHHMM).reduce((a, b) => (b < a ? b : a));
+  return { status: 'running', firstTime, nextTime };
+}
+
+// 「垃圾車|{路線ID}」→ 第二層：該路線清運時刻 Flex 圖卡
+// 列出全部清運點（地點左、時間右），依現在時間判斷狀態：
+//   今天停運（kind='off'）／休運日（非增班）→ 顯示下一個清運日的時刻
+//   尚未發車 → 狀態徽章＋黃底標第一站；清運中 → 黃底標下一站（已過的點時間變淡）
+//   全部過了 → 「今日清運已結束」＋下一個清運日的時刻（可為增班日）
+//   增班日（kind='extra'）→ 每點同時顯示原趟次（綠）＋增班趟次（琥珀），狀態以全部趟次判定
+async function replyGarbageRouteDetail(event, routeId) {
   let route = null;
   if (supabaseAdmin) {
     const { data: row, error } = await supabaseAdmin
@@ -7582,30 +7661,12 @@ async function replyGarbageStopSelection(event, routeId) {
     });
   }
 
-  const routeLabel = garbageRoutePublicLabel(route);
-
-  // 休運日（例如週三、週日）；增班日（kind='extra'）不受休運日限制
-  // （特殊日期不在此攔截：讓里民可繼續選清運點，由第三層回覆停運說明或增班趟次）
-  const dayOfWeek = getTaipeiTodayDayOfWeek();
-  const offDays = Array.isArray(route.off_days) ? route.off_days.map(Number) : [];
-  const specialToday = await findGarbageSpecialToday(route.id);
-  const isExtraToday = specialToday && specialToday.kind === 'extra';
-  if (offDays.includes(dayOfWeek) && !isExtraToday) {
-    const offText = formatGarbageDays(offDays);
-    return lineClient.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{ type: 'text', text: `${routeLabel}\n今天休運${offText ? `（休運日：${offText}）` : ''}` }],
-    });
-  }
-
-  // 正常清運日：該路線的正砂里清運點按鈕（label = 別名，無則名稱）
   let stops = [];
   if (supabaseAdmin) {
     const { data: rows, error } = await supabaseAdmin
       .from('garbage_stops')
-      .select('id, name, alias')
+      .select('id, name, alias, arrival_time')
       .eq('route_id', route.id)
-      .eq('is_zhengsha', true)
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
       .order('id', { ascending: true });
@@ -7616,47 +7677,236 @@ async function replyGarbageStopSelection(event, routeId) {
   if (stops.length === 0) {
     return lineClient.replyMessage({
       replyToken: event.replyToken,
-      messages: [{ type: 'text', text: '此路線目前沒有正砂里清運點' }],
+      messages: [{ type: 'text', text: '此路線目前沒有清運點資料' }],
     });
   }
 
-  // 超過 13 顆按鈕上限時，退回純文字列表
-  if (stops.length > GARBAGE_QUICK_REPLY_LIMIT) {
-    const lines = stops.map((s) => `・${garbageStopPublicLabel(s)}`);
+  if (!stops.some((s) => String(s.arrival_time || '').trim())) {
     return lineClient.replyMessage({
       replyToken: event.replyToken,
-      messages: [
-        {
-          type: 'text',
-          text: `請選擇清運點（超過 ${GARBAGE_QUICK_REPLY_LIMIT} 個無法顯示按鈕，請直接輸入：垃圾車點|清運點編號）\n${lines.join('\n')}`,
-        },
-      ],
+      messages: [{ type: 'text', text: '此路線尚未設定到達時間' }],
     });
   }
+
+  const routeLabel = garbageRoutePublicLabel(route);
+  const today = getTaipeiToday();
+  const todayDayOfWeek = getTaipeiTodayDayOfWeek();
+  const offDays = Array.isArray(route.off_days) ? route.off_days.map(Number) : [];
+  const recyclingDays = Array.isArray(route.recycling_days) ? route.recycling_days.map(Number) : [];
+  const nowHHMM = getTaipeiNowHHMM();
+
+  // 某天每個清運點的趟次時間：原趟次（非休運日且有時間）＋增班趟次（extra 日推算）
+  const buildRows = (dayOfWeek, special) => stops.map((stop) => {
+    const times = [];
+    const arrival = String(stop.arrival_time || '').trim().slice(0, 5);
+    const isExtraDay = special && special.kind === 'extra';
+    if (!offDays.includes(dayOfWeek) && arrival) times.push({ kind: 'original', time: arrival });
+    if (isExtraDay) {
+      const extraTime = computeGarbageExtraArrival(special.extra_first_time, stops, stop.id);
+      if (extraTime) times.push({ kind: 'extra', time: extraTime });
+    }
+    return { stop, times };
+  });
+
+  const specialToday = await findGarbageSpecialToday(route.id);
+
+  // 狀態判定（與第五/六期優先序一致：停運 → 增班/休運 → 尚未發車/清運中/已結束）
+  let status = ''; // 'off' | 'weeklyOff' | 'notYet' | 'running' | 'ended'
+  let firstTime = null; // 今天最早班次（notYet 徽章顯示）
+  let nextTime = null; // 下一個還沒到的班次（running 徽章顯示）
+  let nextInfo = null; // findNextGarbageCollectionDay 結果
+  let specialTomorrow = null;
+
+  if (specialToday && specialToday.kind !== 'extra') {
+    status = 'off';
+    nextInfo = await findNextGarbageCollectionDay(route.id, offDays, today);
+  } else {
+    const rows = buildRows(todayDayOfWeek, specialToday);
+    const allTimes = rows.flatMap((r) => r.times.map((t) => t.time));
+    const dayStatus = determineGarbageDayStatus(allTimes, nowHHMM);
+    status = dayStatus.status;
+    firstTime = dayStatus.firstTime || null;
+    nextTime = dayStatus.nextTime || null;
+    if (status === 'weeklyOff' || status === 'ended') {
+      nextInfo = await findNextGarbageCollectionDay(route.id, offDays, today);
+      if (status === 'ended') {
+        specialTomorrow = await findGarbageSpecialOnDate(route.id, addGarbageDays(today, 1));
+      }
+    }
+  }
+
+  // 要顯示時刻的目標日：清運中/尚未發車 → 今天；停運/休運/已結束 → 下一個清運日
+  const isTodayView = status === 'notYet' || status === 'running';
+  if (!isTodayView && !nextInfo) {
+    return lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [{ type: 'text', text: '近期查不到可清運日，請洽里辦詢問' }],
+    });
+  }
+
+  let targetRows;
+  let targetDateLine;
+  let targetDayOfWeek;
+  if (isTodayView) {
+    targetRows = buildRows(todayDayOfWeek, specialToday);
+    targetDayOfWeek = todayDayOfWeek;
+    targetDateLine = `📅 今日 ${formatGarbageDateLabel(today)}`;
+  } else {
+    targetRows = buildRows(nextInfo.dayOfWeek, nextInfo.special);
+    targetDayOfWeek = nextInfo.dayOfWeek;
+    const extraTag = nextInfo.special && nextInfo.special.kind === 'extra' ? '（增班日）' : '';
+    targetDateLine = `📅 下一個清運日 ${formatGarbageDateLabel(nextInfo.date)}${extraTag}`;
+  }
+
+  // 黃底標示對象：尚未發車 → 第一個有時間的點；清運中 → 下一個班次所在的點
+  let highlightStopId = null;
+  if (status === 'notYet') {
+    const firstRow = targetRows.find((r) => r.times.length > 0);
+    highlightStopId = firstRow ? firstRow.stop.id : null;
+  } else if (status === 'running') {
+    const nextRow = targetRows.find((r) => r.times.some((t) => t.time === nextTime));
+    highlightStopId = nextRow ? nextRow.stop.id : null;
+  }
+
+  // 狀態徽章
+  let badge;
+  if (status === 'off') {
+    const note = String(specialToday.note || '').trim();
+    badge = { bg: '#FFE4E6', fg: '#9F1239', text: `⛔ 今天停運${note ? `（${note}）` : ''}` };
+  } else if (status === 'weeklyOff') {
+    const offText = formatGarbageDays(offDays);
+    badge = { bg: '#F3F4F6', fg: '#4B5563', text: `💤 今天休運${offText ? `（休運日：${offText}）` : ''}` };
+  } else if (status === 'notYet') {
+    badge = { bg: '#FEF3C7', fg: '#92400E', text: `⏳ 尚未發車，第一站 ${firstTime}` };
+  } else if (status === 'running') {
+    badge = { bg: '#DCFCE7', fg: '#166534', text: `🚛 清運中，下一站約 ${nextTime}` };
+  } else {
+    badge = { bg: '#F3F4F6', fg: '#4B5563', text: '✅ 今日清運已結束' };
+  }
+
+  // 清運點列表（地點左、時間右；黃底 = 下一站；已過班次時間變淡）
+  const stopRowBoxes = targetRows.map((row) => {
+    const isHighlight = isTodayView && Number(row.stop.id) === Number(highlightStopId);
+    const rowPassed = isTodayView && !isHighlight && row.times.length > 0 && row.times.every((t) => t.time < nowHHMM);
+    const nameText = {
+      type: 'text',
+      text: `${isHighlight ? '▶ ' : ''}${garbageStopPublicLabel(row.stop)}`,
+      size: 'sm',
+      wrap: true,
+      flex: 1,
+      weight: isHighlight ? 'bold' : 'regular',
+      color: rowPassed ? '#9CA3AF' : '#1F2937',
+    };
+    const timeTexts = row.times.length === 0
+      ? [{ type: 'text', text: '未定', size: 'sm', color: '#9CA3AF', gravity: 'center' }]
+      : row.times.map((t) => ({
+          type: 'text',
+          text: t.kind === 'extra' ? `增班 ${t.time}` : t.time,
+          size: 'sm',
+          wrap: true,
+          gravity: 'center',
+          weight: isHighlight ? 'bold' : 'regular',
+          color: t.kind === 'extra'
+            ? '#B45309'
+            : isTodayView && t.time < nowHHMM
+              ? '#D1D5DB'
+              : '#15803D',
+        }));
+    const rowBox = {
+      type: 'box',
+      layout: 'horizontal',
+      spacing: 'md',
+      paddingAll: '8px',
+      cornerRadius: 'md',
+      contents: [nameText, ...timeTexts],
+    };
+    if (isHighlight) rowBox.backgroundColor = '#FEF3C7';
+    return rowBox;
+  });
+
+  const bodyContents = [
+    {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '10px',
+      cornerRadius: 'md',
+      backgroundColor: badge.bg,
+      contents: [{ type: 'text', text: badge.text, size: 'sm', weight: 'bold', color: badge.fg, wrap: true }],
+    },
+  ];
+  if (status === 'ended' && specialTomorrow && specialTomorrow.kind === 'off') {
+    const note = String(specialTomorrow.note || '').trim();
+    bodyContents.push({
+      type: 'text',
+      text: `明天起停運${note ? `（${note}）` : ''}`,
+      size: 'xs',
+      color: '#9F1239',
+      wrap: true,
+    });
+  }
+  bodyContents.push({ type: 'text', text: targetDateLine, size: 'sm', weight: 'bold', color: '#374151' });
+  if (recyclingDays.includes(targetDayOfWeek)) {
+    bodyContents.push({
+      type: 'text',
+      text: isTodayView ? '♻️ 今天有資源回收車' : '♻️ 當天有資源回收車',
+      size: 'xs',
+      color: '#15803D',
+    });
+  }
+  bodyContents.push({ type: 'box', layout: 'vertical', spacing: 'xs', contents: stopRowBoxes });
 
   return lineClient.replyMessage({
     replyToken: event.replyToken,
     messages: [
       {
-        type: 'text',
-        text: `${routeLabel}\n請選擇清運點`,
-        quickReply: {
-          items: stops.map((stop) => ({
-            type: 'action',
-            action: {
-              type: 'postback',
-              label: garbageStopPublicLabel(stop).slice(0, 20),
-              data: `垃圾車點|${stop.id}`,
-              displayText: garbageStopPublicLabel(stop).slice(0, 300),
-            },
-          })),
+        type: 'flex',
+        altText: `${routeLabel}清運時間`,
+        contents: {
+          type: 'bubble',
+          header: {
+            backgroundColor: '#16A34A',
+            layout: 'horizontal',
+            spacing: 'sm',
+            contents: [
+              { type: 'text', text: '🚛', size: 'lg', gravity: 'center' },
+              {
+                type: 'text',
+                text: routeLabel,
+                size: 'lg',
+                weight: 'bold',
+                color: '#FFFFFF',
+                flex: 1,
+                wrap: true,
+                gravity: 'center',
+              },
+            ],
+          },
+          body: {
+            layout: 'vertical',
+            spacing: 'md',
+            contents: bodyContents,
+          },
+          footer: {
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '時間僅供參考，實際以現場為準',
+                size: 'xs',
+                color: '#9CA3AF',
+                align: 'center',
+                wrap: true,
+              },
+            ],
+          },
         },
       },
     ],
   });
 }
 
-// 「垃圾車點|{清運點ID}」→ 第三層：該清運點的到達時間（第一行為日期星期，如「10/30(五)」）
+// 「垃圾車點|{清運點ID}」→ 舊按鈕相容（第七期改 Flex 圖卡後不再產生此指令，
+// 但里民對話紀錄中的舊 Quick Reply 按鈕仍可點）：純文字回覆該清運點到達時間（第五/六期邏輯不變）
 // 優先序：今天特殊日期（停運 → 告知停運＋最近清運日；增班 → 原趟次＋增班趟次）→
 //   休運日 → 清運中（今天日期＋到達時間）→ 已結束（明天停運則「明天起停運」，
 //   否則「正砂里今日清運已結束」，＋最近清運日；最近清運日可為增班日）
@@ -7821,7 +8071,7 @@ async function replyGarbageKeyword(event, incomingText) {
   }
   const routeMatch = GARBAGE_ROUTE_PATTERN.exec(incomingText);
   if (routeMatch) {
-    return replyGarbageStopSelection(event, Number.parseInt(routeMatch[1], 10));
+    return replyGarbageRouteDetail(event, Number.parseInt(routeMatch[1], 10));
   }
   const stopMatch = GARBAGE_STOP_PATTERN.exec(incomingText);
   if (stopMatch) {
@@ -7846,7 +8096,7 @@ async function handleEvent(event) {
     return null;
   }
 
-  // 垃圾車 Quick Reply（postback）：data = 「垃圾車|{路線ID}」或「垃圾車點|{清運點ID}」（失敗只 log，不影響其他 postback）
+  // 垃圾車（postback）：Flex 圖卡點擊 data = 「垃圾車|{路線ID}」；「垃圾車點|{清運點ID}」為舊按鈕相容（失敗只 log，不影響其他 postback）
   if (event.type === 'postback') {
     const postbackData = event.postback && event.postback.data ? String(event.postback.data).trim() : '';
     if (postbackData) {
