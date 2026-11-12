@@ -7505,6 +7505,7 @@ async function replyGarbageRouteSelection(event) {
               weight: 'bold',
               color: '#14532D',
               flex: 1,
+              wrap: true,
               gravity: 'center',
             },
             {
@@ -7519,7 +7520,7 @@ async function replyGarbageRouteSelection(event) {
         },
         {
           type: 'text',
-          text: `🚛 第一站 ${firstTime}`,
+          text: `🚚 第一站 ${firstTime}`,
           size: 'xs',
           color: '#166534',
           weight: 'bold',
@@ -7546,7 +7547,7 @@ async function replyGarbageRouteSelection(event) {
               contents: [
                 {
                   type: 'text',
-                  text: '🚛 請選擇垃圾車路線',
+                  text: '🚚 請選擇垃圾車路線',
                   size: 'sm',
                   weight: 'bold',
                   color: '#14532D',
@@ -7735,8 +7736,9 @@ async function replyGarbageRouteDetail(event, routeId) {
   const nowHHMM = getTaipeiNowHHMM();
 
   // 某天每個清運點的趟次時間：原趟次（非休運日且有時間）＋增班趟次（extra 日推算）
-  // 顯示只列正砂里點；增班推算（computeGarbageExtraArrival）仍傳全部點，基準＝路線第一個有時間的點
-  const buildRows = (dayOfWeek, special) => displayStops.map((stop) => {
+  // 顯示只列正砂里點；狀態判定（尚未發車/清運中/已結束）與「第一站」以全部清運點趟次為基準；
+  // 增班推算（computeGarbageExtraArrival）也以全部點為基準＝路線第一個有時間的點
+  const buildRows = (stopList, dayOfWeek, special) => stopList.map((stop) => {
     const times = [];
     const arrival = String(stop.arrival_time || '').trim().slice(0, 5);
     const isExtraDay = special && special.kind === 'extra';
@@ -7752,8 +7754,8 @@ async function replyGarbageRouteDetail(event, routeId) {
 
   // 狀態判定（與第五/六期優先序一致：停運 → 增班/休運 → 尚未發車/清運中/已結束）
   let status = ''; // 'off' | 'weeklyOff' | 'notYet' | 'running' | 'ended'
-  let firstTime = null; // 今天最早班次（notYet 徽章顯示）
-  let nextTime = null; // 下一個還沒到的班次（running 徽章顯示）
+  let firstTime = null; // 今天路線第一站（全部點，notYet 徽章顯示）
+  let zsNextTime = null; // 正砂里下一個未過班次（running 徽章＋黃底標示）
   let nextInfo = null; // findNextGarbageCollectionDay 結果
   let specialTomorrow = null;
 
@@ -7761,12 +7763,19 @@ async function replyGarbageRouteDetail(event, routeId) {
     status = 'off';
     nextInfo = await findNextGarbageCollectionDay(route.id, offDays, today);
   } else {
-    const rows = buildRows(todayDayOfWeek, specialToday);
-    const allTimes = rows.flatMap((r) => r.times.map((t) => t.time));
+    // 狀態以「全部清運點」趟次判定（路線何時發車/結束）；徽章的下一站另取正砂里未過班次
+    const allRows = buildRows(stops, todayDayOfWeek, specialToday);
+    const allTimes = allRows.flatMap((r) => r.times.map((t) => t.time));
     const dayStatus = determineGarbageDayStatus(allTimes, nowHHMM);
     status = dayStatus.status;
     firstTime = dayStatus.firstTime || null;
-    nextTime = dayStatus.nextTime || null;
+    if (status === 'running') {
+      const zsTimes = buildRows(displayStops, todayDayOfWeek, specialToday)
+        .flatMap((r) => r.times.map((t) => t.time))
+        .filter((t) => t >= nowHHMM)
+        .sort();
+      zsNextTime = zsTimes[0] || null;
+    }
     if (status === 'weeklyOff' || status === 'ended') {
       nextInfo = await findNextGarbageCollectionDay(route.id, offDays, today);
       if (status === 'ended') {
@@ -7788,23 +7797,23 @@ async function replyGarbageRouteDetail(event, routeId) {
   let targetDateLine;
   let targetDayOfWeek;
   if (isTodayView) {
-    targetRows = buildRows(todayDayOfWeek, specialToday);
+    targetRows = buildRows(displayStops, todayDayOfWeek, specialToday);
     targetDayOfWeek = todayDayOfWeek;
     targetDateLine = `📅 今日 ${formatGarbageDateLabel(today)}`;
   } else {
-    targetRows = buildRows(nextInfo.dayOfWeek, nextInfo.special);
+    targetRows = buildRows(displayStops, nextInfo.dayOfWeek, nextInfo.special);
     targetDayOfWeek = nextInfo.dayOfWeek;
     const extraTag = nextInfo.special && nextInfo.special.kind === 'extra' ? '（增班日）' : '';
     targetDateLine = `📅 下一個清運日 ${formatGarbageDateLabel(nextInfo.date)}${extraTag}`;
   }
 
-  // 黃底標示對象：尚未發車 → 第一個有時間的點；清運中 → 下一個班次所在的點
+  // 黃底標示對象：尚未發車 → 正砂里列表第一個有時間的點；清運中 → 正砂里下一個未過班次所在的點
   let highlightStopId = null;
   if (status === 'notYet') {
     const firstRow = targetRows.find((r) => r.times.length > 0);
     highlightStopId = firstRow ? firstRow.stop.id : null;
-  } else if (status === 'running') {
-    const nextRow = targetRows.find((r) => r.times.some((t) => t.time === nextTime));
+  } else if (status === 'running' && zsNextTime) {
+    const nextRow = targetRows.find((r) => r.times.some((t) => t.time === zsNextTime));
     highlightStopId = nextRow ? nextRow.stop.id : null;
   }
 
@@ -7819,7 +7828,9 @@ async function replyGarbageRouteDetail(event, routeId) {
   } else if (status === 'notYet') {
     badge = { bg: '#FEF3C7', fg: '#92400E', text: `⏳ 尚未發車，第一站 ${firstTime}` };
   } else if (status === 'running') {
-    badge = { bg: '#DCFCE7', fg: '#166534', text: `🚛 清運中，下一站約 ${nextTime}` };
+    badge = zsNextTime
+      ? { bg: '#DCFCE7', fg: '#166534', text: `🚚 清運中，下一站約 ${zsNextTime}` }
+      : { bg: '#DCFCE7', fg: '#166534', text: '🚚 清運中（正砂里段已通過）' };
   } else {
     badge = { bg: '#F3F4F6', fg: '#4B5563', text: '✅ 今日清運已結束' };
   }
@@ -7885,7 +7896,9 @@ async function replyGarbageRouteDetail(event, routeId) {
       wrap: true,
     });
   }
-  bodyContents.push({ type: 'text', text: targetDateLine, size: 'sm', weight: 'bold', color: '#374151' });
+  const dateLineElement = { type: 'text', text: targetDateLine, size: 'sm', weight: 'bold', color: '#374151' };
+  if (status === 'ended') dateLineElement.margin = 'md'; // 「今日清運已結束」徽章與下一個清運日之間多留白
+  bodyContents.push(dateLineElement);
   if (recyclingDays.includes(targetDayOfWeek)) {
     bodyContents.push({
       type: 'text',
@@ -7918,11 +7931,11 @@ async function replyGarbageRouteDetail(event, routeId) {
               spacing: 'sm',
               paddingAll: '14px',
               contents: [
-                { type: 'text', text: '🚛', size: 'xxl', gravity: 'center' },
+                { type: 'text', text: '🚚', size: 'xl', gravity: 'center' },
                 {
                   type: 'text',
                   text: routeLabel,
-                  size: 'lg',
+                  size: 'md',
                   weight: 'bold',
                   color: '#FFFFFF',
                   flex: 1,
