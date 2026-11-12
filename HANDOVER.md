@@ -631,7 +631,15 @@
   - 管理 API（requireAdmin）：路段 CRUD/move select 加 alias（POST/PATCH 可設定，≤50 字）；清運點 `GET/POST /api/admin/garbage/routes/:id/stops`（POST sort_order 接尾；stop_code 重複回 409）、`PATCH/DELETE /api/admin/garbage/stops/:id`、`POST /api/admin/garbage/stops/:id/move`（up/down 交換＋重整，回全列表）；驗證：stop name ≤100 必填、alias ≤100、arrival_time 需 `HH:MM`、經緯度範圍 -180~180/-90~90；特殊日期 `GET/POST /api/admin/garbage/special-dates`＋`PATCH/DELETE /:id`（select/insert/update 皆含 kind, extra_first_time）：kind 只允許 'off'/'extra'（新增預設 off；PATCH 未帶 kind 沿用現值不誤清）、增班 extra_first_time 必填 `HH:MM` 且後端另驗證該路段第一個啟用清運點已有 arrival_time（否則 400「尚無法推算增班時間」）、增班時 time_text/location_text 後端強制清 null、停運時 extra_first_time 清 null、同路段同日 409（UNIQUE 保證停運/增班互斥）；（**2026-10-29 修復**：新增特殊日期前端漏帶 `route_id`——admin/liff 的 save 現在 POST 時補 `route_id`，PATCH 不帶；錯誤訊息區分「缺少路段編號。」與「路段編號不正確。」）
   - admin.html：垃圾車分頁——路段表（「{code} {name}」＋第二行 ♻ 回收/休運）＋路段 modal（name/code 網格＋**alias 別名欄位**＋回收日 violet/休運日 amber 各 7 顆 chip）；「清運點」modal（表格：排序/名稱＋別名或編號/預估到達/正砂里 badge/狀態＋inline 表單：名稱/別名/官方編號/預估到達/經緯度/正砂里/啟用＋刪除＋「改為新增」reset）；「特殊日期」modal（**kind 下拉（停運/增班）切換欄位**：增班顯示「第一個清運點到達時間」type=time、隱藏時間/地點；停運相反；列表日期欄加「增班 amber／停運 slate」badge、增班時間欄顯示「第一點 HH:MM 起」）
   - liff.html 手機盾牌：路段編輯表單同步（name/code＋**alias 別名欄位**＋兩組 chip）；`stopsList`（清運點卡片列表）＋`stopEdit`（表單同 admin.html）視圖；`switchAdminGarbageView` 六視圖（list/routeEdit/stopsList/stopEdit/specialList/specialEdit）；`specialEdit`（**kind 下拉切換同 admin.html**；列表卡片日期旁加 kind badge、增班顯示「第一點 HH:MM 起」）
-  - **未做**：官方即時位置、地圖、LIFF 垃圾車頁（第七期明確不做）；定位推估（經緯度已保留備用）；清運點別名仍多為空（之後後台填，如「郵局」「二信」）；`停水停電` 關鍵字維持 rich 流程不動
+  - **未做**：官方即時位置、地圖、LIFF 垃圾車頁（第七期明確不做）；定位推估（經緯度已保留備用）；清運點別名仍多為空（之後後台填，如「郵局」「二信」）；`停水停電` 關鍵字維持 rich 流程不動（`停水` 已由專屬停水查詢接手，全字匹配互不干擾）
+
+- **停水查詢（2026-11-12 第一期，做法仿垃圾車 Flex 兩層、主題藍色系與綠色垃圾車區別）**
+  - 資料來源：台灣自來水公司開放資料（data.gov.tw/dataset/6050）JSON `https://web.water.gov.tw/wateroffapi/openData/export/json`（⚠️ 回傳 content-type octet-stream，需 `res.text()` 再 `JSON.parse`；欄位：案件編號/區處/場所/連絡電話/案件日期時間/恢復日期時間/影響戶數/影響縣市/影響行政區/停水地區/停水原因…，注意是「場所」非「廠所」、戶數欄位叫「影響戶數」）
+  - 後端 `getZhongzhengWaterOutageCases()`：篩選「影響縣市含基隆＋影響行政區含中正區」、依開始時間升冪；**模組內快取 1 小時**（`waterOutageCache`，查詢時 lazy 檢查 TTL——Vercel serverless 無常駐程序，不另做 cron；抓取失敗沿用過期快取，從未成功才回「查詢失敗」）；fetch 12 秒逾時＋User-Agent
+  - 第一層「停水」→ Flex 單 bubble 列表（淡藍底 `#EFF6FF`＋白卡直排、藍邊框 `#BFDBFE`、整卡可點 postback `data`＝`停水|{案件編號}`）：卡內上排＝停時～恢復時間（md 粗體 `#1E40AF` flex:1 wrap）＋「›」（**flex:0**，教訓同垃圾車），下排＝💧 徽章＋地區（xs）；>12 案退純文字；**0 案回「目前基隆市中正區沒有停水公告」**（實測常態，基隆停水少見）
+  - 第二層「停水|{案件編號}」→ Flex 詳細：藍 header `#2563EB`（💧 xl flex:0＋標題 lg）；狀態徽章（⏳即將停水 琥珀／💧停水中 玫瑰／✅已恢復供水 灰，依台北現在時間 vs 起訖）＋六列 label/value（label **flex:0** 內容寬、value flex:1 wrap）：停水時間/預計恢復/停水地區（去「基隆市/」前綴）/停水原因（去方括號）/影響戶數/聯絡電話（含場所）；查無案件（案件已從 API 移除）回提示重查
+  - handleEvent：postback 分流在垃圾車之後＋關鍵字分流在垃圾車之後（兩者皆 try/catch 只 log 不互斷）；日期解析 `parseWaterDateTime`（"YYYY-MM-DD HH:MM" 台北時間→`+08:00` ISO）、格式化 `formatWaterDateTime`（"11/12(週四) 23:00"，重用 `GARBAGE_DAY_LABELS`）
+  - 驗證：mock 台水 API（基隆中正區 3 案涵蓋三種狀態＋臺南/基隆仁愛區應過濾）結構斷言＋快取 TTL（TTL 內 fetch 僅 1 次）＋LINE validate L1/L2＋真實 API 實測（現況 0 案→友善回覆）
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

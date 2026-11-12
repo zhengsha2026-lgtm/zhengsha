@@ -8180,6 +8180,374 @@ async function replyGarbageKeyword(event, incomingText) {
   return null;
 }
 
+// ============================================================================
+// 停水查詢（台灣自來水公司開放資料：data.gov.tw/dataset/6050，JSON）
+//   - 關鍵字「停水」→ 第一層：影響基隆市中正區的停水案件列表（Flex，藍色系）
+//   - 「停水|{案件編號}」→ 第二層：單筆案件詳細（Flex，藍色系）
+//   - 開放資料非即時：每次查詢檢查快取超過 1 小時才重新抓取；抓取失敗沿用過期快取
+// ============================================================================
+
+const WATER_OUTAGE_KEYWORD = '停水';
+const WATER_OUTAGE_CASE_PATTERN = /^停水\|(\d+)$/;
+const WATER_OUTAGE_API_URL = 'https://web.water.gov.tw/wateroffapi/openData/export/json';
+const WATER_OUTAGE_CACHE_TTL_MS = 60 * 60 * 1000;
+const WATER_OUTAGE_FETCH_TIMEOUT_MS = 12 * 1000;
+
+let waterOutageCache = { fetchedAt: 0, items: [] };
+
+// 台水日期字串（"2026-11-12 23:00:00"，台北時間）→ Date；無法解析回 null
+function parseWaterDateTime(value) {
+  const raw = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(raw)) return null;
+  return new Date(`${raw.slice(0, 16).replace(' ', 'T')}+08:00`);
+}
+
+// Date → "11/12(週四) 23:00"（台北時間）；無效回 fallback 原字串
+function formatWaterDateTime(date, fallback) {
+  if (!date || Number.isNaN(date.getTime())) return String(fallback || '未定');
+  const label = GARBAGE_DAY_LABELS[date.getDay()];
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mi = String(date.getMinutes()).padStart(2, '0');
+  return `${mm}/${dd}(${label}) ${hh}:${mi}`;
+}
+
+// 抓取台水停水開放資料，篩選「影響縣市含基隆＋影響行政區含中正區」，
+// 依開始時間升冪；快取 1 小時，抓取失敗沿用過期快取（有快取時）
+async function getZhongzhengWaterOutageCases() {
+  const now = Date.now();
+  if (waterOutageCache.fetchedAt > 0 && now - waterOutageCache.fetchedAt < WATER_OUTAGE_CACHE_TTL_MS) {
+    return waterOutageCache.items;
+  }
+  try {
+    const res = await fetch(WATER_OUTAGE_API_URL, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(WATER_OUTAGE_FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = JSON.parse(await res.text());
+    if (!Array.isArray(data)) throw new Error('非預期格式');
+    const items = data
+      .filter(
+        (row) =>
+          String(row['影響縣市'] || '').includes('基隆') &&
+          String(row['影響行政區'] || '').includes('中正區')
+      )
+      .map((row) => ({
+        caseNo: String(row['案件編號'] || '').trim(),
+        branch: String(row['區處'] || '').trim(),
+        office: String(row['場所'] || '').trim(),
+        phone: String(row['連絡電話'] || '').trim(),
+        startAt: parseWaterDateTime(row['案件日期時間']),
+        startRaw: String(row['案件日期時間'] || '').trim(),
+        endAt: parseWaterDateTime(row['恢復日期時間']),
+        endRaw: String(row['恢復日期時間'] || '').trim(),
+        type: String(row['案件類型'] || '').trim(),
+        households: String(row['影響戶數'] || '').trim(),
+        area: String(row['停水地區'] || '').replace(/^基隆市\/?/, '').trim(),
+        reason: String(row['停水原因'] || '').replace(/^\[/, '').replace(/\]$/, '').trim(),
+      }))
+      .filter((item) => item.caseNo)
+      .sort(
+        (a, b) =>
+          (a.startAt ? a.startAt.getTime() : Infinity) -
+          (b.startAt ? b.startAt.getTime() : Infinity)
+      );
+    waterOutageCache = { fetchedAt: now, items };
+    return items;
+  } catch (error) {
+    console.error('water outage fetch failed:', error);
+    if (waterOutageCache.fetchedAt > 0) return waterOutageCache.items;
+    throw error;
+  }
+}
+
+// 停水案件狀態徽章（依台北現在時間 vs 停水/恢復時間）
+function getWaterOutageBadge(item, nowTs) {
+  if (!item.startAt || !item.endAt) return null;
+  if (nowTs < item.startAt.getTime()) return { bg: '#FEF3C7', fg: '#92400E', text: '⏳ 即將停水' };
+  if (nowTs < item.endAt.getTime()) return { bg: '#FEE2E2', fg: '#991B1B', text: '💧 停水中' };
+  return { bg: '#F1F5F9', fg: '#475569', text: '✅ 已恢復供水' };
+}
+
+// 第二層：單筆停水案件詳細（Flex，藍色系）
+async function replyWaterOutageDetail(event, caseNo) {
+  const items = await getZhongzhengWaterOutageCases();
+  const item = items.find((c) => c.caseNo === caseNo);
+  if (!item) {
+    return lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [{ type: 'text', text: '查無此停水案件，請重新輸入「停水」查看最新公告。' }],
+    });
+  }
+
+  const badge = getWaterOutageBadge(item, Date.now());
+  const rows = [
+    ['停水時間', formatWaterDateTime(item.startAt, item.startRaw)],
+    ['預計恢復', formatWaterDateTime(item.endAt, item.endRaw)],
+    ['停水地區', item.area || '詳見台水公告'],
+    ['停水原因', item.reason || '—'],
+    ['影響戶數', item.households ? `${item.households} 戶` : '—'],
+    ['聯絡電話', item.phone ? `${item.phone}（${item.office || item.branch}）` : '—'],
+  ];
+
+  const bodyContents = [];
+  if (badge) {
+    bodyContents.push({
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '8px',
+      cornerRadius: 'md',
+      backgroundColor: badge.bg,
+      contents: [
+        { type: 'text', text: badge.text, size: 'sm', weight: 'bold', color: badge.fg, wrap: true },
+      ],
+    });
+  }
+  bodyContents.push({
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'md',
+    margin: 'md',
+    contents: rows.map(([label, value]) => ({
+      type: 'box',
+      layout: 'horizontal',
+      spacing: 'sm',
+      contents: [
+        { type: 'text', text: label, size: 'sm', color: '#64748B', flex: 0, gravity: 'top' },
+        { type: 'text', text: value, size: 'sm', color: '#1F2937', flex: 1, wrap: true, gravity: 'top' },
+      ],
+    })),
+  });
+
+  try {
+    return await lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [
+        {
+          type: 'flex',
+          altText: '停水公告詳細',
+          contents: {
+            type: 'bubble',
+            header: {
+              type: 'box',
+              backgroundColor: '#2563EB',
+              layout: 'horizontal',
+              spacing: 'sm',
+              paddingAll: '14px',
+              contents: [
+                { type: 'text', text: '💧', size: 'xl', gravity: 'center', flex: 0 },
+                {
+                  type: 'text',
+                  text: '基隆市中正區停水公告',
+                  size: 'lg',
+                  weight: 'bold',
+                  color: '#FFFFFF',
+                  flex: 1,
+                  wrap: true,
+                  gravity: 'center',
+                },
+              ],
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'md',
+              paddingAll: '20px',
+              contents: bodyContents,
+            },
+            footer: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'text',
+                  text: '資料來源：台灣自來水公司（非即時更新）',
+                  size: 'xs',
+                  color: '#B0B7C3',
+                  align: 'center',
+                  wrap: true,
+                },
+              ],
+            },
+          },
+        },
+      ],
+    });
+  } catch (error) {
+    // Flex 失敗退回純文字，避免完全靜默
+    console.error('water outage detail flex reply failed:', error);
+    const lines = ['基隆市中正區停水公告'];
+    if (badge) lines.push(badge.text);
+    rows.forEach(([label, value]) => lines.push(`${label}：${value}`));
+    lines.push('資料來源：台灣自來水公司（非即時更新）');
+    return lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [{ type: 'text', text: lines.join('\n') }],
+    });
+  }
+}
+
+// 停水關鍵字分流：「停水」→ 列表；「停水|{案件編號}」→ 詳細
+async function replyWaterOutageKeyword(event, incomingText) {
+  if (incomingText === WATER_OUTAGE_KEYWORD) {
+    let items;
+    try {
+      items = await getZhongzhengWaterOutageCases();
+    } catch (error) {
+      return lineClient.replyMessage({
+        replyToken: event.replyToken,
+        messages: [{ type: 'text', text: '停水資料查詢失敗，請稍後再試。' }],
+      });
+    }
+
+    if (items.length === 0) {
+      return lineClient.replyMessage({
+        replyToken: event.replyToken,
+        messages: [
+          {
+            type: 'text',
+            text: '目前基隆市中正區沒有停水公告。\n\n資料來源：台灣自來水公司（每日更新，非即時）',
+          },
+        ],
+      });
+    }
+
+    const buildCardLines = (item) => {
+      const time = `${formatWaterDateTime(item.startAt, item.startRaw)} ～ ${formatWaterDateTime(item.endAt, item.endRaw)}`;
+      return `・${time}\n　${item.area || '中正區'}`;
+    };
+
+    // 案件過多超過單一 bubble 高度，退回純文字列表
+    if (items.length > 12) {
+      return lineClient.replyMessage({
+        replyToken: event.replyToken,
+        messages: [
+          {
+            type: 'text',
+            text: `基隆市中正區停水公告（${items.length} 筆）\n${items.map(buildCardLines).join('\n')}\n\n資料來源：台灣自來水公司（非即時更新）`,
+          },
+        ],
+      });
+    }
+
+    const nowTs = Date.now();
+    const cards = items.map((item) => {
+      const badge = getWaterOutageBadge(item, nowTs);
+      const timeText = `${formatWaterDateTime(item.startAt, item.startRaw)} ～ ${formatWaterDateTime(item.endAt, item.endRaw)}`;
+      const areaText = `${badge ? `${badge.text}｜` : ''}${item.area || '中正區'}`;
+      return {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'xs',
+        paddingAll: '8px',
+        cornerRadius: 'lg',
+        backgroundColor: '#FFFFFF',
+        borderColor: '#BFDBFE',
+        borderWidth: '1px',
+        action: {
+          type: 'postback',
+          label: '查看停水詳細',
+          data: `停水|${item.caseNo}`,
+          displayText: `停水 ${item.startAt ? formatWaterDateTime(item.startAt).slice(0, 5) : item.caseNo}`,
+        },
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'xs',
+            contents: [
+              {
+                type: 'text',
+                text: timeText,
+                size: 'md',
+                weight: 'bold',
+                color: '#1E40AF',
+                flex: 1,
+                wrap: true,
+                gravity: 'center',
+              },
+              { type: 'text', text: '›', size: 'md', weight: 'bold', color: '#2563EB', gravity: 'center', flex: 0 },
+            ],
+          },
+          { type: 'text', text: `💧 ${areaText}`, size: 'xs', color: '#475569', wrap: true },
+        ],
+      };
+    });
+
+    try {
+      return await lineClient.replyMessage({
+        replyToken: event.replyToken,
+        messages: [
+          {
+            type: 'flex',
+            altText: '基隆市中正區停水公告',
+            contents: {
+              type: 'bubble',
+              body: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'md',
+                paddingAll: '14px',
+                backgroundColor: '#EFF6FF',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '💧 基隆市中正區停水公告',
+                    size: 'sm',
+                    weight: 'bold',
+                    color: '#1E3A8A',
+                  },
+                  {
+                    type: 'box',
+                    layout: 'vertical',
+                    spacing: 'sm',
+                    margin: 'sm',
+                    contents: cards,
+                  },
+                ],
+              },
+              footer: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '資料來源：台灣自來水公司（非即時更新）',
+                    size: 'xs',
+                    color: '#B0B7C3',
+                    align: 'center',
+                    wrap: true,
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      });
+    } catch (error) {
+      // Flex 失敗退回純文字，避免完全靜默
+      console.error('water outage list flex reply failed:', error);
+      return lineClient.replyMessage({
+        replyToken: event.replyToken,
+        messages: [
+          {
+            type: 'text',
+            text: `基隆市中正區停水公告\n${items.map(buildCardLines).join('\n')}\n\n資料來源：台灣自來水公司（非即時更新）`,
+          },
+        ],
+      });
+    }
+  }
+
+  const caseMatch = WATER_OUTAGE_CASE_PATTERN.exec(incomingText);
+  if (caseMatch) {
+    return replyWaterOutageDetail(event, caseMatch[1]);
+  }
+  return null;
+}
+
 async function handleEvent(event) {
   // 好友名單：follow / unfollow 先落庫（不回訊息；失敗只 log）
   if (event.type === 'follow') {
@@ -8205,6 +8573,14 @@ async function handleEvent(event) {
         if (garbageReply) return garbageReply;
       } catch (error) {
         console.error('garbage postback reply failed:', error);
+        return null;
+      }
+      // 停水（postback）：Flex 圖卡點擊 data = 「停水|{案件編號}」（失敗只 log）
+      try {
+        const waterReply = await replyWaterOutageKeyword(event, postbackData);
+        if (waterReply) return waterReply;
+      } catch (error) {
+        console.error('water outage postback reply failed:', error);
         return null;
       }
     }
@@ -8233,6 +8609,16 @@ async function handleEvent(event) {
     if (garbageReply) return garbageReply;
   } catch (error) {
     console.error('garbage keyword reply failed:', error);
+    return null;
+  }
+
+  // 停水查詢（兩層選擇）：「停水」列表 →「停水|{案件編號}」詳細
+  // 按鈕走 postback，這裡保留直接輸入指令的相容路徑（失敗只 log，不影響其他關鍵字）
+  try {
+    const waterReply = await replyWaterOutageKeyword(event, incomingText);
+    if (waterReply) return waterReply;
+  } catch (error) {
+    console.error('water outage keyword reply failed:', error);
     return null;
   }
 
