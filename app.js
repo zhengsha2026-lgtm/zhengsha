@@ -7501,7 +7501,7 @@ async function replyGarbageRouteSelection(event) {
             {
               type: 'text',
               text: label,
-              size: 'lg',
+              size: 'sm',
               weight: 'bold',
               color: '#14532D',
               flex: 1,
@@ -7511,7 +7511,7 @@ async function replyGarbageRouteSelection(event) {
             {
               type: 'text',
               text: '›',
-              size: 'lg',
+              size: 'sm',
               weight: 'bold',
               color: '#16A34A',
               gravity: 'center',
