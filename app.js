@@ -8230,8 +8230,8 @@ async function getZhongzhengWaterOutageCases() {
     if (!Array.isArray(data)) throw new Error('非預期格式');
     const items = data
       .filter(
-        // TODO(測試中)：暫時放寬為新北市（基隆中正區現況 0 案），測試確認後改回「基隆市＋中正區」
-        (row) => String(row['影響縣市'] || '').includes('新北')
+        // TODO(測試中)：暫時放寬為全台灣（基隆中正區現況 0 案），測試確認後改回「基隆市＋中正區」
+        () => true
       )
       .map((row) => ({
         caseNo: String(row['案件編號'] || '').trim(),
@@ -8243,8 +8243,8 @@ async function getZhongzhengWaterOutageCases() {
         endAt: parseWaterDateTime(row['恢復日期時間']),
         endRaw: String(row['恢復日期時間'] || '').trim(),
         type: String(row['案件類型'] || '').trim(),
-        households: String(row['影響戶數'] || '').trim(),
-        area: String(row['停水地區'] || '').replace(/^[^市縣]+[市縣]\//, '').trim(),
+        households: String(row['影響戶數'] || '').replace(/^null$/, '').replace(/^0$/, '').trim(),
+        area: String(row['停水地區'] || '').replace(/^[^市縣]+[市縣]\//, '').replace(/^null$/, '').trim(),
         reason: String(row['停水原因'] || '').replace(/^\[/, '').replace(/\]$/, '').trim(),
       }))
       .filter((item) => item.caseNo)
@@ -8339,7 +8339,7 @@ async function replyWaterOutageDetail(event, caseNo) {
                 { type: 'text', text: '💧', size: 'xl', gravity: 'center', flex: 0 },
                 {
                   type: 'text',
-                  text: '新北市停水公告', // TODO(測試中)：與篩選一起改回「基隆市中正區」
+                  text: '全台停水公告', // TODO(測試中)：與篩選一起改回「基隆市中正區」
                   size: 'lg',
                   weight: 'bold',
                   color: '#FFFFFF',
@@ -8377,7 +8377,7 @@ async function replyWaterOutageDetail(event, caseNo) {
   } catch (error) {
     // Flex 失敗退回純文字，避免完全靜默
     console.error('water outage detail flex reply failed:', error);
-    const lines = ['新北市停水公告']; // TODO(測試中)：與篩選一起改回「基隆市中正區」
+    const lines = ['全台停水公告']; // TODO(測試中)：與篩選一起改回「基隆市中正區」
     if (badge) lines.push(badge.text);
     rows.forEach(([label, value]) => lines.push(`${label}：${value}`));
     lines.push('資料來源：台灣自來水公司（非即時更新）');
@@ -8436,7 +8436,7 @@ async function replyWaterOutageKeyword(event, incomingText) {
                     },
                     {
                       type: 'text',
-                      text: '目前新北市沒有停水公告。', // TODO(測試中)：與篩選一起改回「基隆市中正區」
+                      text: '目前全台灣沒有停水公告。', // TODO(測試中)：與篩選一起改回「基隆市中正區」
                       size: 'sm',
                       color: '#475569',
                       margin: 'sm',
@@ -8470,7 +8470,7 @@ async function replyWaterOutageKeyword(event, incomingText) {
           messages: [
             {
               type: 'text',
-              text: '目前新北市沒有停水公告。\n\n資料來源：台灣自來水公司（每日更新，非即時）', // TODO(測試中)：與篩選一起改回「基隆市中正區」
+              text: '目前全台灣沒有停水公告。\n\n資料來源：台灣自來水公司（每日更新，非即時）', // TODO(測試中)：與篩選一起改回「基隆市中正區」
             },
           ],
         });
@@ -8489,7 +8489,7 @@ async function replyWaterOutageKeyword(event, incomingText) {
         messages: [
           {
             type: 'text',
-            text: `新北市停水公告（${items.length} 筆）\n${items.map(buildCardLines).join('\n')}\n\n資料來源：台灣自來水公司（非即時更新）`, // TODO(測試中)：與篩選一起改回「基隆市中正區」
+            text: `全台停水公告（${items.length} 筆）\n${items.map(buildCardLines).join('\n')}\n\n資料來源：台灣自來水公司（非即時更新）`, // TODO(測試中)：與篩選一起改回「基隆市中正區」
           },
         ],
       });
@@ -8546,7 +8546,7 @@ async function replyWaterOutageKeyword(event, incomingText) {
         messages: [
           {
             type: 'flex',
-            altText: '新北市停水公告', // TODO(測試中)：與篩選一起改回「基隆市中正區」
+            altText: '全台停水公告', // TODO(測試中)：與篩選一起改回「基隆市中正區」
             contents: {
               type: 'bubble',
               body: {
@@ -8558,7 +8558,7 @@ async function replyWaterOutageKeyword(event, incomingText) {
                 contents: [
                   {
                     type: 'text',
-                    text: '💧 新北市停水公告', // TODO(測試中)：與篩選一起改回「基隆市中正區」
+                    text: '💧 全台停水公告', // TODO(測試中)：與篩選一起改回「基隆市中正區」
                     size: 'sm',
                     weight: 'bold',
                     color: '#1E3A8A',
@@ -8598,7 +8598,7 @@ async function replyWaterOutageKeyword(event, incomingText) {
         messages: [
           {
             type: 'text',
-            text: `新北市停水公告\n${items.map(buildCardLines).join('\n')}\n\n資料來源：台灣自來水公司（非即時更新）`, // TODO(測試中)：與篩選一起改回「基隆市中正區」
+            text: `全台停水公告\n${items.map(buildCardLines).join('\n')}\n\n資料來源：台灣自來水公司（非即時更新）`, // TODO(測試中)：與篩選一起改回「基隆市中正區」
           },
         ],
       });
