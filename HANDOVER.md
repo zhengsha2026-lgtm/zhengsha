@@ -636,10 +636,10 @@
 - **停水查詢（2026-11-12 第一期，做法仿垃圾車 Flex 兩層、主題藍色系與綠色垃圾車區別；2026-11-13 測試期曾暫時放寬新北市供真實案件測試，已改回）**
   - 資料來源：台灣自來水公司開放資料（data.gov.tw/dataset/6050）JSON `https://web.water.gov.tw/wateroffapi/openData/export/json`（⚠️ 回傳 content-type octet-stream，需 `res.text()` 再 `JSON.parse`；欄位：案件編號/區處/場所/連絡電話/案件日期時間/恢復日期時間/影響戶數/影響縣市/影響行政區/停水地區/停水原因…，注意是「場所」非「廠所」、戶數欄位叫「影響戶數」）
   - 後端 `getZhongzhengWaterOutageCases()`：篩選「影響縣市含基隆＋影響行政區含中正區」、依開始時間升冪；**模組內快取 1 小時**（`waterOutageCache`，查詢時 lazy 檢查 TTL——Vercel serverless 無常駐程序，不另做 cron；抓取失敗沿用過期快取，從未成功才回「查詢失敗」）；fetch 12 秒逾時＋User-Agent
-  - 第一層「停水」→ Flex 單 bubble 列表（淡藍底 `#EFF6FF`＋白卡直排、藍邊框 `#BFDBFE`、整卡可點 postback `data`＝`停水|{案件編號}`）：卡內上排＝停時～恢復時間（md 粗體 `#1E40AF` flex:1 wrap）＋「›」（**flex:0**，教訓同垃圾車），下排＝💧 徽章＋地區（xs）；>12 案退純文字；**0 案（實測常態，基隆停水少見）也回 Flex**：💧 xxl＋「目前沒有停水公告」lg 粗體＋「目前基隆市中正區沒有停水公告。」sm＋footer 來源小字（2026-11-13 從純文字改 Flex；Flex 失敗退純文字）；area 前綴去除 regex 為通用 `^[^市縣]+[市縣]\/`（非基隆專用）
-  - 第二層「停水|{案件編號}」→ Flex 詳細：藍 header `#2563EB`（💧 xl flex:0＋標題 lg）；狀態徽章（⏳即將停水 琥珀／💧停水中 玫瑰／✅已恢復供水 灰，依台北現在時間 vs 起訖）＋六列 label/value（label **flex:0** 內容寬、value flex:1 wrap）：停水時間/預計恢復/停水地區（去「基隆市/」前綴）/停水原因（去方括號）/影響戶數/聯絡電話（含場所）；查無案件（案件已從 API 移除）回提示重查
+  - 第一層「停水」→ **先過濾已結束**（`endAt < 現在`〔台北〕直接剔除，僅保留「結束 ≥ 現在」；endAt 無法解析保留保險）→ Flex 單 bubble 列表（淡藍底 `#EFF6FF`＋白卡直排、藍邊框 `#BFDBFE`、整卡可點 postback `data`＝`停水|{案件編號}`）：卡內上排＝停時～恢復時間（md 粗體 `#1E40AF` flex:1 wrap）＋「›」（**flex:0**，教訓同垃圾車），中排＝💧 徽章＋地區（xs），底排＝「點擊查看詳細停水資訊」小字（xs `#94A3B8`）；>12 案退純文字；**過濾後 0 案（實測常態）也回 Flex**：💧 xxl＋「目前沒有停水公告」lg 粗體＋「目前基隆市中正區沒有停水公告。」sm＋footer 來源小字；area 前綴去除 regex 為通用 `^[^市縣]+[市縣]\/`（非基隆專用）
+  - 第二層「停水|{案件編號}」→ Flex 詳細：藍 header `#2563EB`（💧 xl flex:0＋標題 lg）；狀態徽章只有兩態（⏳即將停水 琥珀／💧停水中 玫瑰；**已結束不再有徽章**——2026-11-13 起列表已過濾已結束，`getWaterOutageBadge` 對已結束回 null，殘留舊卡點進詳細也不顯示「已恢復」）＋六列 label/value（label **flex:0** 內容寬、value flex:1 wrap）：停水時間/預計恢復/停水地區/停水原因（去方括號）/影響戶數/聯絡電話（含場所）；查無案件（案件已從 API 移除）回提示重查；**過濾只作用在列表層**（`getZhongzhengWaterOutageCases` 快取仍存全部案，詳細頁靠 caseNo 查找）
   - handleEvent：postback 分流在垃圾車之後＋關鍵字分流在垃圾車之後（兩者皆 try/catch 只 log 不互斷）；日期解析 `parseWaterDateTime`（"YYYY-MM-DD HH:MM" 台北時間→`+08:00` ISO）、格式化 `formatWaterDateTime`（"11/12(週四) 23:00"，重用 `GARBAGE_DAY_LABELS`）
-  - 驗證：mock 台水 API（基隆中正區 3 案涵蓋三種狀態＋臺南/基隆仁愛區應過濾）結構斷言＋快取 TTL（TTL 內 fetch 僅 1 次）＋LINE validate L1/L2＋真實 API 實測（現況 0 案→友善回覆）
+  - 驗證：mock 台水 API（3 案：停水中/即將停水/已結束→應過濾，＋臺南/基隆仁愛區應過濾）結構斷言（已結束不出現、兩態徽章、點擊提示小字、舊卡點已結束案詳細無徽章、過濾後 0 案 Flex）＋快取 TTL＋LINE validate L1/L2/EMPTY＋真實 API 實測
 
 ### 仍可優化 / 尚未完成
 - 管理端電腦版：政見管理的電腦版（已有許願、報平安與行程〔唯讀〕）；行程管理電腦版的編輯功能（新增／編輯／刪除／通知，目前須至手機盾牌管理）

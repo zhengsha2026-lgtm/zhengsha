@@ -8263,12 +8263,12 @@ async function getZhongzhengWaterOutageCases() {
   }
 }
 
-// 停水案件狀態徽章（依台北現在時間 vs 停水/恢復時間）
+// 停水案件狀態徽章（依台北現在時間 vs 停水/恢復時間；已結束的案件列表已過濾，不再出現「已恢復」）
 function getWaterOutageBadge(item, nowTs) {
   if (!item.startAt || !item.endAt) return null;
   if (nowTs < item.startAt.getTime()) return { bg: '#FEF3C7', fg: '#92400E', text: '⏳ 即將停水' };
   if (nowTs < item.endAt.getTime()) return { bg: '#FEE2E2', fg: '#991B1B', text: '💧 停水中' };
-  return { bg: '#F1F5F9', fg: '#475569', text: '✅ 已恢復供水' };
+  return null;
 }
 
 // 第二層：單筆停水案件詳細（Flex，藍色系）
@@ -8393,14 +8393,21 @@ async function replyWaterOutageDetail(event, caseNo) {
 async function replyWaterOutageKeyword(event, incomingText) {
   if (incomingText === WATER_OUTAGE_KEYWORD) {
     let items;
+    let allItems;
     try {
-      items = await getZhongzhengWaterOutageCases();
+      allItems = await getZhongzhengWaterOutageCases();
     } catch (error) {
       return lineClient.replyMessage({
         replyToken: event.replyToken,
         messages: [{ type: 'text', text: '停水資料查詢失敗，請稍後再試。' }],
       });
     }
+
+    // 只保留「結束時間 ≥ 現在」（台北時區）的案件——已結束（結束時間 < 現在）不顯示
+    const nowFilterTs = Date.now();
+    items = allItems.filter(
+      (item) => !item.endAt || item.endAt.getTime() >= nowFilterTs
+    );
 
     if (items.length === 0) {
       // 0 案也回 Flex（藍色系）：標題＋說明＋資料來源
@@ -8529,6 +8536,7 @@ async function replyWaterOutageKeyword(event, incomingText) {
             ],
           },
           { type: 'text', text: `💧 ${areaText}`, size: 'xs', color: '#475569', wrap: true },
+          { type: 'text', text: '點擊查看詳細停水資訊', size: 'xs', color: '#94A3B8', wrap: true },
         ],
       };
     });
